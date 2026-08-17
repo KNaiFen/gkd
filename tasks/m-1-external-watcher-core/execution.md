@@ -7,6 +7,7 @@
 - 推荐执行模型：GPT-5.6 Sol，`xhigh`
 - 仓库：`KNaiFen/gkd`
 - 分支：`task/m-1-external-watcher-core`
+- Draft PR：`https://github.com/KNaiFen/gkd/pull/2`
 - 固定 base SHA：`9aec60a40572b7c0705049dbce3199d004049c81`
 - 本机 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m-1-external-watcher-core`
 - 冻结计划：`GKD 本体实施计划 v1`
