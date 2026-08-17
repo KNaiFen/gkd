@@ -11,7 +11,7 @@
 - 固定 base SHA：`b3ad757ca96980e4f7fff4c3096f5e1ca13f56e9`
 - 本机 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m-1-native-d2-probe`
 - 冻结计划：`GKD 本体实施计划 v1`
-- 计划 SHA-256：`08b5aee40729fc2dddbc7ccbd8630cbe9197c2363401f42061064a5b3121fdf9`
+- 计划 SHA-256：`e6dd945d893f00b69f541caa592eee1bd9143b3de0112ac3c63028ac9d10ef0a`
 - 覆盖范围：里程碑 -1 中原生 multiagentv2 D2 能力门，不实现外部 watcher
 
 ## 授权与边界
