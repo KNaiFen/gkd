@@ -31,3 +31,7 @@
 - [2026-08-17] GKD本体实施计划v1获批。
   - Why: 16项决定、拆分授权边界和multiagentv2 D2路线已形成依赖有序的本体计划。
   - Impact: `implementation-plan-gkd.md` 是GKD本体实施的唯一依据；本次批准不等于开工，不授权AIO、生产安装、GitHub外部动作或自动executor。
+
+- [2026-08-17] GKD本体使用前期manual、后期条件auto的hybrid B路线。
+  - Why: bootstrap阶段尚无可信executor/claim/D2，不能用未来能力自证；核心通过后可减少后续人工开session。
+  - Impact: 里程碑-1/0/1/2由人工顶层session执行。只有role config、offer/claim和D2证据绑定固定bundle digest后，里程碑3/4/5才获准由main启动专用 `gkd_executor`；任何门失败继续manual，禁止worker回退。
