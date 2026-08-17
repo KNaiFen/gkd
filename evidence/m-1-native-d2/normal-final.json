@@ -1,0 +1,19 @@
+{
+  "capturedAt": "2026-08-17T16:40:03Z",
+  "conversationBodyStored": false,
+  "expectedMarker": "GKD_M1_NORMAL_FINAL_OK",
+  "externalSteerUsed": false,
+  "finalStatus": "completed",
+  "forkTurns": "none",
+  "modelRequested": "gpt-5.6-sol",
+  "observedMarker": "GKD_M1_NORMAL_FINAL_OK",
+  "parentWaitTool": {
+    "maxTimeoutMs": 3600000,
+    "source": "active_session_tool_schema"
+  },
+  "probe": "normal_final_wakeup",
+  "reasoningEffortRequested": "xhigh",
+  "schemaVersion": 1,
+  "spawnAccepted": true,
+  "wakeupChannel": "multiagentv2_mailbox_final_status"
+}

@@ -1,0 +1,117 @@
+{
+  "capturedAt": "2026-08-17T16:44:02Z",
+  "codexVersion": "0.147.0",
+  "configuration": {
+    "available": true,
+    "model": "gpt-5.6-sol",
+    "multiAgentV2": {
+      "default_wait_timeout_ms": 120000,
+      "enabled": false,
+      "max_concurrent_threads_per_session": 15,
+      "max_wait_timeout_ms": 3600000,
+      "min_wait_timeout_ms": 30000
+    },
+    "reasoningEffort": "xhigh",
+    "source": "local_configuration_declaration"
+  },
+  "modelCatalog": {
+    "slug": "gpt-5.6-sol",
+    "source": "bundled_model_catalog",
+    "supportedReasoningEfforts": [
+      "high",
+      "low",
+      "max",
+      "medium",
+      "ultra",
+      "xhigh"
+    ],
+    "xhighSupported": true
+  },
+  "nativeOutcome": "native_insufficient",
+  "probe": "GKD-M-1A",
+  "protocol": {
+    "collabAgentStatuses": [
+      "completed",
+      "errored",
+      "interrupted",
+      "notFound",
+      "pendingInit",
+      "running",
+      "shutdown"
+    ],
+    "itemTypeCount": 18,
+    "itemTypeDigestSha256": "de41668391356aca55c4b84fc3c461ccffb7cfe7aec594cd9c86c5cedce3ef87",
+    "longToolItemTypes": [
+      "collabAgentToolCall",
+      "commandExecution",
+      "dynamicToolCall",
+      "mcpToolCall"
+    ],
+    "methods": [
+      "thread/list",
+      "thread/read",
+      "thread/status/changed",
+      "turn/completed",
+      "turn/interrupt",
+      "turn/steer"
+    ],
+    "schemaDigestSha256": "ea75b7760483b70be4535b2d966e1ccd92035f6c71362a79f2cb2d54d0088bcf",
+    "source": "generated_app_server_json_schema",
+    "threadFields": [
+      "agentRole",
+      "id",
+      "parentThreadId",
+      "sessionId",
+      "status",
+      "turns",
+      "updatedAt"
+    ],
+    "threadReadIncludeTurnsIsOptional": true,
+    "threadStatuses": [
+      "active",
+      "idle",
+      "notLoaded",
+      "systemError"
+    ],
+    "turnInterruptRequiredFields": [
+      "threadId",
+      "turnId"
+    ],
+    "turnStatuses": [
+      "completed",
+      "failed",
+      "inProgress",
+      "interrupted"
+    ],
+    "turnSteerExpectedTurnPreconditionDeclared": true,
+    "turnSteerRequiredFields": [
+      "expectedTurnId",
+      "input",
+      "threadId"
+    ]
+  },
+  "schemaVersion": 1,
+  "security": {
+    "conversationBodyStored": false,
+    "fullPathsStored": false,
+    "rawCommandOutputStored": false,
+    "rawConfigurationStored": false
+  },
+  "waitLimit": {
+    "oneHourTrial": {
+      "errorClass": null,
+      "exitCode": 0,
+      "featureLoaded": true,
+      "requestedMs": 3600000
+    },
+    "parserHardMaxMs": 3600000,
+    "source": "config_parser_behavior",
+    "twelveHourConfigurable": false,
+    "twelveHourTrial": {
+      "errorClass": "max_wait_timeout_exceeded",
+      "exitCode": 1,
+      "featureLoaded": false,
+      "requestedMs": 43200000
+    }
+  }
+}
