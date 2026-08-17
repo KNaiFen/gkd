@@ -55,3 +55,7 @@
 - [2026-08-18] 已创建批准的双public GitHub仓库。
   - Why: GKD源码需要canonical remote，L4 live canary需要独立外部副作用边界。
   - Impact: `KNaiFen/gkd` 已接收本地 `main` 规划基线并成为 `origin`；`KNaiFen/gkd-sandbox` 已创建但保持空仓库，待L4确定性canary实现后初始化。当前未配置Secrets、付费runner或无workflow可绑定的required checks。
+
+- [2026-08-18] `codex-cli 0.147.0` 原生 multiagentv2 不满足 GKD D2。
+  - Why: 启用 multiagentv2 后，3,600,000ms 配置可加载而43,200,000ms被解析器拒绝；正常child final可自然唤醒parent，但不能补足单次12小时等待与小时内部watchdog合同。
+  - Impact: `GKD-M-1A` 结论固定为版本绑定的 `native_insufficient`；六项仅有协议表面或缺少安全短时行为fixture的合同保持 `unknown`，不得升级为支持。后续只能另立外部app-server watcher任务或保持manual-only。
