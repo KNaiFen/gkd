@@ -56,6 +56,10 @@
   - Why: GKD源码需要canonical remote，L4 live canary需要独立外部副作用边界。
   - Impact: `KNaiFen/gkd` 已接收本地 `main` 规划基线并成为 `origin`；`KNaiFen/gkd-sandbox` 已创建但保持空仓库，待L4确定性canary实现后初始化。当前未配置Secrets、付费runner或无workflow可绑定的required checks。
 
+- [2026-08-18] 当前Codex原生单次等待不能满足12小时D2合同。
+  - Why: 在 `codex-cli 0.147.0` 中把 `features.multi_agent_v2.max_wait_timeout_ms` 设为43,200,000会在启动时被配置解析器拒绝，并明确要求该值至多为3,600,000。
+  - Impact: `GKD-M-1A` 只需用短时可复现证据记录 `native_insufficient` 及其余协议能力，不运行65分钟等待；里程碑-1必须进入已批准的外部app-server watcher路线。用户配置先恢复为3,600,000，禁止用连续短wait拼接12小时语义。
+
 - [2026-08-18] `codex-cli 0.147.0` 原生 multiagentv2 不满足 GKD D2。
   - Why: 启用 multiagentv2 后，3,600,000ms 配置可加载而43,200,000ms被解析器拒绝；正常child final可自然唤醒parent，但不能补足单次12小时等待与小时内部watchdog合同。
   - Impact: `GKD-M-1A` 结论固定为版本绑定的 `native_insufficient`；六项仅有协议表面或缺少安全短时行为fixture的合同保持 `unknown`，不得升级为支持。后续只能另立外部app-server watcher任务或保持manual-only。
