@@ -4,7 +4,7 @@
 - Outcome: `pending`
 - Base SHA: `b3ad757ca96980e4f7fff4c3096f5e1ca13f56e9`
 - Head SHA: `pending`
-- Pull request: `pending`
+- Pull request: `https://github.com/KNaiFen/gkd/pull/1`
 
 ## Changed Files
 
