@@ -51,3 +51,7 @@
 - [2026-08-18] 用户明确授予 `gkd_core_implementation`。
   - Why: 16项问题决定、本体计划、执行路线、GitHub布局、动作模式和最终发布边界均已逐项确认。
   - Impact: 允许在本仓库、临时测试环境、`KNaiFen/gkd` 与 `KNaiFen/gkd-sandbox` 内按冻结计划实施，包含必要的public仓库创建、标准Actions、任务PR、范围内CI修复、固定head验收后合并及最终条件发布。生产 `~/.codex`、AIO、付费runner、Secrets和计划外GitHub设置不在授权内。
+
+- [2026-08-18] 已创建批准的双public GitHub仓库。
+  - Why: GKD源码需要canonical remote，L4 live canary需要独立外部副作用边界。
+  - Impact: `KNaiFen/gkd` 已接收本地 `main` 规划基线并成为 `origin`；`KNaiFen/gkd-sandbox` 已创建但保持空仓库，待L4确定性canary实现后初始化。当前未配置Secrets、付费runner或无workflow可绑定的required checks。
