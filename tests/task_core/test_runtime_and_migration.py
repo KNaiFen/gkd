@@ -240,6 +240,61 @@ class LocatorAndMigrationContracts(unittest.TestCase):
         )
         self.assertEqual("migrated_v1", result["status"])
 
+    def test_stale_migration_cas_preserves_runtime_bytes_and_remains_retryable(self) -> None:
+        state = self.repo.state()
+        legacy = make_legacy_v1(state, str(self.repo.candidate.resolve()), False)
+        (self.repo.task_root / "task.json").write_bytes(canonical_bytes(legacy))
+        run("git", "add", f"{self.repo.task_path}/task.json", cwd=self.repo.candidate)
+        run("git", "commit", "-m", "legacy", cwd=self.repo.candidate)
+        current_head = self.repo.head()
+        stale_head = run("git", "rev-parse", "HEAD^", cwd=self.repo.candidate)
+        self.runtime.delete_attachment(self.repo.identity, self.repo.task_id, self.repo.task_branch)
+
+        def runtime_bytes() -> dict[str, bytes]:
+            return {
+                str(path.relative_to(self.runtime.root)): path.read_bytes()
+                for path in sorted(self.runtime.root.rglob("*"))
+                if path.is_file()
+            }
+
+        before = runtime_bytes()
+        with self.assertRaisesRegex(TaskError, "HEAD_MISMATCH"):
+            migrate_v1(
+                self.repo.candidate,
+                self.repo.task_path,
+                self.runtime,
+                stale_head,
+                state["revision"],
+                FixedClock(FIXED_TIME),
+                SystemNonce(),
+            )
+        self.assertEqual(current_head, self.repo.head())
+        self.assertEqual(before, runtime_bytes())
+
+        with self.assertRaisesRegex(TaskError, "REVISION_MISMATCH"):
+            migrate_v1(
+                self.repo.candidate,
+                self.repo.task_path,
+                self.runtime,
+                current_head,
+                state["revision"] + 1,
+                FixedClock(FIXED_TIME),
+                SystemNonce(),
+            )
+        self.assertEqual(current_head, self.repo.head())
+        self.assertEqual(before, runtime_bytes())
+
+        result = migrate_v1(
+            self.repo.candidate,
+            self.repo.task_path,
+            self.runtime,
+            current_head,
+            state["revision"],
+            FixedClock(FIXED_TIME),
+            SystemNonce(),
+        )
+        self.assertEqual("migrated_v1", result["status"])
+
     def test_active_v1_missing_worktree_fails_closed(self) -> None:
         state = self.repo.state()
         legacy = make_legacy_v1(state, str(self.repo.root / "missing"), False)

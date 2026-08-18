@@ -99,7 +99,33 @@ def migrate_v1(
         raw = read_canonical_json(state_path, "INVALID_LEGACY_STATE", validate_legacy_v1)
         return raw["task"]
 
+    runtime_change: dict[str, Any] = {"attempted": False, "previous": None}
+
     def builder(loaded: dict[str, Any]) -> TransactionChange:
+        try:
+            runtime_change["previous"] = runtime.read_attachment(
+                repository["identity"], state["taskId"], repository["taskBranch"]
+            )
+        except TaskError as error:
+            if error.code != "worktree_missing":
+                raise
+        runtime_change["attempted"] = True
+        if legacy["archived"]:
+            runtime.delete_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
+        else:
+            runtime.write_attachment(
+                {
+                    "schemaVersion": RUNTIME_SCHEMA_VERSION,
+                    "kind": "attachment",
+                    "repository": repository["identity"],
+                    "taskId": state["taskId"],
+                    "taskBranch": repository["taskBranch"],
+                    "taskPath": repository["taskPath"],
+                    "candidateRoot": os.fspath(git_root.resolve()),
+                    "commonDir": os.fspath(common_dir(git_root)),
+                    "updatedAt": clock.now(),
+                }
+            )
         record = {"legacyDigest": legacy["legacyDigest"], "archived": legacy["archived"]}
         updated = advance_state(loaded, "migrated_v1", clock.now(), expected_head, record)
         return TransactionChange(
@@ -108,37 +134,15 @@ def migrate_v1(
             {"status": "migrated_v1", "taskId": updated["taskId"], "revision": updated["revision"]},
         )
 
-    previous_attachment: dict[str, Any] | None = None
-    try:
-        previous_attachment = runtime.read_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
-    except TaskError as error:
-        if error.code != "worktree_missing":
-            raise
-    if legacy["archived"]:
-        runtime.delete_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
-    else:
-        runtime.write_attachment(
-            {
-                "schemaVersion": RUNTIME_SCHEMA_VERSION,
-                "kind": "attachment",
-                "repository": repository["identity"],
-                "taskId": state["taskId"],
-                "taskBranch": repository["taskBranch"],
-                "taskPath": repository["taskPath"],
-                "candidateRoot": os.fspath(git_root.resolve()),
-                "commonDir": os.fspath(common_dir(git_root)),
-                "updatedAt": clock.now(),
-            }
-        )
     try:
         return manager.execute(expected_head, expected_revision, builder, state_loader=loader)
     except Exception:
         try:
-            if head(git_root) == expected_head:
-                if previous_attachment is None:
+            if runtime_change["attempted"] and head(git_root) == expected_head:
+                if runtime_change["previous"] is None:
                     runtime.delete_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
                 else:
-                    runtime.write_attachment(previous_attachment)
+                    runtime.write_attachment(runtime_change["previous"])
         except Exception:
             pass
         raise
