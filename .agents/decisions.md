@@ -91,3 +91,7 @@
 - [2026-08-18] `GKD-M0-A` canonical基础达到人工交付门。
   - Why: 单一canonical source、生成式manifest/lock、临时边界installer、只读verify/version、唯一VISION与文档分层已由44项foundation合同、47项M-1B回归、15项M-1C负向回归和两次字节一致证据证明。
   - Impact: development version固定为 `0.0.0-dev.0`，content digest为 `9be34162a4e4125f2f56d4d8148140e022f24cba46abbc56512ea0e8afb2a30f`，结论仅为 `canonical_foundation_ready`。PR #4必须在新固定head独立验收；不得据此生产安装、发布、启用auto route或开始M0-B/里程碑1。
+
+- [2026-08-18] `GKD-M0-A` 首个固定head验收发现3项阻塞合同缺口。
+  - Why: 独立复验106项既有测试均通过，但新增反例证明源码schema mode改变不影响digest、已安装metadata mode改变仍被verify误报为0644；evidence output位于protected root时会在after快照后写入并仍声明unchanged；污染扫描把裸用户名和任意`aio`子串作为禁词，导致跨机器误杀。
+  - Impact: PR #4 head `0f69a4ad34d095d70f6d5e5ed93569193ad75578` 不得合并，PR转回Draft。原execution session必须修复metadata mode绑定、protected/output/cleanup终态顺序和通用污染边界，并补旧实现失败的负向测试；新push后重新固定完整head验收。
