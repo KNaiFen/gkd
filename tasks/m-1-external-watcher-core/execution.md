@@ -36,6 +36,14 @@
 
 发现必须扩大范围或改变用户可见合同，停止并在 `delivery.md` 记录 blocker。
 
+## 启动前置门
+
+1. 核对当前worktree、branch、`origin`和固定base；不得在clean main直接工作。
+2. main为登记本任务可能比固定base多纯 `.agents/context.md` / `.agents/open-items.md` 协调提交。开始实现前先fetch并检查 `origin/main`：只有这些active-task记录时才合入任务分支；若包含产品代码、计划变化或其他未知修改，停止并报告，不自行rebase猜测。
+3. 合入后worktree必须干净，任务PR head必须仍来自当前branch；记录实际同步后的main SHA供delivery和验收复核。
+4. 核对effective model为GPT-5.6 Sol、reasoning effort为 `xhigh`；无法证明时停止，不降级到默认worker。
+5. 运行只读预检确认 `codex-cli 0.147.0`、M-1A schema digest和临时MCP `tool_timeout_sec = 43200` 配置表面；任一漂移只可记录 `blocked`，不得调整合同迎合新版本。
+
 ## 已固定事实
 
 1. `codex-cli 0.147.0` 的原生 `wait_agent` 最大为3,600,000ms，不能拼接成D2；`GKD-M-1A` 结论为 `native_insufficient`。
