@@ -1,0 +1,58 @@
+{
+  "contracts": {
+    "deterministic_evidence": {
+      "status": "pass",
+      "tests": [
+        "tests.foundation.test_evidence.EvidenceContracts.test_two_clean_evidence_generations_are_byte_identical",
+        "tests.foundation.test_evidence.EvidenceContracts.test_evidence_digest_is_canonical_and_self_excluding",
+        "tests.foundation.test_evidence.EvidenceContracts.test_evidence_contains_no_temporary_or_machine_path"
+      ]
+    },
+    "manifest_lock_and_digest": {
+      "status": "pass",
+      "tests": [
+        "tests.foundation.test_manifest.ManifestContracts.test_schema_manifest_lock_and_canonical_sort_are_valid",
+        "tests.foundation.test_manifest.ManifestContracts.test_repeated_generation_is_byte_identical",
+        "tests.foundation.test_manifest.ManifestContracts.test_mutation_content_tamper_without_digest_update_is_rejected"
+      ]
+    },
+    "source_inventory_and_paths": {
+      "status": "pass",
+      "tests": [
+        "tests.foundation.test_manifest.ManifestContracts.test_unknown_payload_file_is_rejected",
+        "tests.foundation.test_manifest.ManifestContracts.test_missing_payload_file_is_rejected",
+        "tests.foundation.test_manifest.ManifestContracts.test_source_path_traversal_is_rejected",
+        "tests.foundation.test_manifest.ManifestContracts.test_machine_specific_source_content_is_rejected"
+      ]
+    },
+    "temporary_installation_and_drift": {
+      "status": "pass",
+      "tests": [
+        "tests.foundation.test_install.InstallationContracts.test_two_clean_installs_match_and_repeat_is_idempotent",
+        "tests.foundation.test_install.InstallationContracts.test_cli_has_no_default_target_or_temporary_root",
+        "tests.foundation.test_install.InstallationContracts.test_verify_detects_content_drift",
+        "tests.foundation.test_install.InstallationContracts.test_verify_detects_missing_file",
+        "tests.foundation.test_install.InstallationContracts.test_verify_detects_extra_file",
+        "tests.foundation.test_install.InstallationContracts.test_verify_detects_mode_drift",
+        "tests.foundation.test_install.InstallationContracts.test_verify_detects_symlink_drift"
+      ]
+    },
+    "vision_and_documentation": {
+      "status": "pass",
+      "tests": [
+        "tests.foundation.test_governance.GovernanceContracts.test_vision_has_exactly_seven_required_sections",
+        "tests.foundation.test_governance.GovernanceContracts.test_mutation_missing_vision_section_is_rejected",
+        "tests.foundation.test_governance.GovernanceContracts.test_readme_and_agents_must_link_without_copying_vision",
+        "tests.foundation.test_governance.GovernanceContracts.test_document_layering_and_templates_are_complete",
+        "tests.foundation.test_governance.GovernanceContracts.test_alignment_template_is_generated_and_cannot_expand_authorization"
+      ]
+    }
+  },
+  "outcome": "pass",
+  "schemaVersion": 1,
+  "task": "GKD-M0-A",
+  "tests": {
+    "count": 44,
+    "idDigestSha256": "a260eb2770112a7d6f2a9ae409618318ee91510192e0a3df26f4dc3b625557af"
+  }
+}

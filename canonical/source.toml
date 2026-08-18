@@ -1,0 +1,17 @@
+schema_version = 1
+bundle_version = "0.0.0-dev.0"
+release_status = "development"
+
+[[components]]
+name = "foundation-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-bundle", target = "gkd/bin/gkd-bundle", mode = "0755" },
+]
+
+[[components]]
+name = "foundation-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_bundle.py", target = "gkd/lib/gkd_bundle.py", mode = "0644" },
+]

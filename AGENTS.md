@@ -7,6 +7,7 @@
 
 ## 工作规则
 
+- 材料性规划前必须完整阅读并遵守 [VISION.md](VISION.md)。
 - 修改前阅读最近的 `AGENTS.md` 以及 `.agents/` 中的持久记录。
 - 保持变更小而明确，机制与项目策略分层，禁止写死仓库、用户名或本机绝对路径。
 - 项目状态变化时同步更新 `.agents/context.md`、`.agents/decisions.md` 和 `.agents/open-items.md`。
