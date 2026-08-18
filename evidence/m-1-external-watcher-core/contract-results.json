@@ -1,0 +1,159 @@
+{
+  "contracts": {
+    "abnormal_classification_and_order": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_system_error_interrupts_child_then_steers_bound_parent",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_failed_terminal_steers_without_interrupting_terminal_child",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_explicit_remote_errored_is_abnormal",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_not_found_is_abnormal_and_does_not_interrupt_parent"
+      ]
+    },
+    "active_stale_is_healthy": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_stale_active_child_remains_healthy_across_ticks"
+      ]
+    },
+    "bounded_protocol_failures": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_app_server.AppServerClientTests.test_eof_malformed_unknown_and_duplicate_responses_terminate",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_response_timeout_is_bounded",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_start_failure_maps_to_terminal_orchestrator_error",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker"
+      ]
+    },
+    "cancellation_and_eof_shutdown": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker"
+      ]
+    },
+    "cancellation_scope": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_cancellation_interrupts_only_bound_child_and_never_parent",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker"
+      ]
+    },
+    "concurrency_and_single_writer": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_two_concurrent_instances_keep_identity_and_calls_separate",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_two_subprocess_clients_keep_rpc_ids_and_identity_isolated",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_single_client_serializes_concurrent_writers_and_ids",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_active_watch_capacity_is_bounded_before_service_construction"
+      ]
+    },
+    "credential_identity_rejection": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_model.WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id"
+      ]
+    },
+    "deadline_single_terminal": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_twelve_hour_deadline_is_single_and_hourly_ticks_are_silent"
+      ]
+    },
+    "expected_turn_cas": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_wrong_expected_turn_is_rejected_once_without_fallback",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_actual_expected_turn_rejection_is_single_and_redacted"
+      ]
+    },
+    "interrupt_confirmation": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_system_error_interrupts_child_then_steers_bound_parent",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_interrupt_without_bound_terminal_confirmation_never_steers"
+      ]
+    },
+    "mcp_framing_and_silence": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_mcp.McpAdapterTests.test_subprocess_initialize_list_call_and_success_framing",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_subprocess_invalid_request_uses_jsonrpc_error_without_side_effect",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_health_ticks_emit_no_progress_result_or_log_before_cancel",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_malformed_mcp_json_uses_parse_error_frame",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker"
+      ]
+    },
+    "normal_terminal_no_steer": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_normal_terminal_returns_immediately_without_steer"
+      ]
+    },
+    "pre_side_effect_validation": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_model.WatchRequestTests.test_rejects_unknown_fields_before_side_effects",
+        "tests.watchdog.test_model.WatchRequestTests.test_rejects_wrong_types_limits_and_digest",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_schema_drift_stops_before_app_server_spawn"
+      ]
+    },
+    "runtime_evidence_binding": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_model.WatchRequestTests.test_rejects_well_formed_but_unapproved_runtime_digest",
+        "tests.watchdog.test_mcp.McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
+        "tests.watchdog.test_model.WatchRequestTests.test_direct_request_construction_cannot_bypass_identity_invariants"
+      ]
+    },
+    "sensitive_data_containment": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_app_server.AppServerClientTests.test_actual_subprocess_normal_terminal_drops_body_from_transcript",
+        "tests.watchdog.test_app_server.AppServerClientTests.test_untrusted_notification_method_and_keys_are_redacted_in_transcript",
+        "tests.watchdog.test_model.WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id"
+      ]
+    },
+    "steer_error_classification": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_wrong_expected_turn_is_rejected_once_without_fallback",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_non_expected_steer_errors_remain_protocol_errors"
+      ]
+    },
+    "thread_ownership_binding": {
+      "status": "pass",
+      "tests": [
+        "tests.watchdog.test_watcher.WatchServiceTests.test_thread_ownership_mismatch_fails_before_control",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_thread_ownership_drift_blocks_interrupt_and_steer",
+        "tests.watchdog.test_watcher.WatchServiceTests.test_parent_read_remote_failure_is_protocol_not_child_abnormal"
+      ]
+    }
+  },
+  "liveD2Claimed": false,
+  "outcome": "core_ready_for_live_gate",
+  "runtime": {
+    "codexVersion": "0.147.0",
+    "declaredModel": "gpt-5.6-sol",
+    "declaredReasoningEffort": "xhigh",
+    "evidenceClass": "declaration_not_live_connection",
+    "mcpToolTimeoutSec": 43200,
+    "schemaDigestSha256": "ea75b7760483b70be4535b2d966e1ccd92035f6c71362a79f2cb2d54d0088bcf"
+  },
+  "schemaVersion": 1,
+  "security": {
+    "conversationBodyStored": false,
+    "fullPathStored": false,
+    "rawCommandStored": false,
+    "rawPayloadStored": false,
+    "transcriptStored": false
+  },
+  "task": "GKD-M-1B",
+  "tests": {
+    "count": 47,
+    "idDigestSha256": "2e61a1c79e02515de194ac30c9999de0f75f60bca1a1fac207d909f75e19b965"
+  }
+}
