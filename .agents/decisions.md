@@ -132,3 +132,7 @@
 - [2026-08-19] `GKD-M1-A` 续交验收的migration CAS/runtime残留已修复。
   - Why: PR #5续交fixed head `f34152ddbe79c3b9ff12c6e2e97121c34fd8fffa` 的独立验收确认前三项原阻塞闭环，但证明active v1 migration在`TransactionManager`校验stale head前已写入原本不存在的attachment，随后因HEAD不等于expected而不回滚；该head未合并。
   - Impact: implementation/evidence commit `0548eb52ead7191733c32129241168c2e7035a9f` 将attachment previous-image读取与写入/删除移入manager已持锁且通过head/revision CAS后的builder；未提交异常按previous image恢复。新增合同同时证明stale full head与stale revision返回稳定CAS错误、tracked head和全部runtime文件字节不变，并可用正确CAS重试成功。104项task-core与115项保留回归通过，两次clean临时根证据逐字节一致；content digest为 `fc96a10cb82b628bd14280e4e878417a3fbc7a1d560fac5a61bb7abe7f3c3024`，evidence digest为 `3f119831c41a18536318b621f21f13d8d18d115fce77e3fb97870a0148395569`。结论仍仅为 `deterministic_task_core_ready`，必须在新fixed head再次独立验收。
+
+- [2026-08-19] `GKD-M1-A` 新固定 head 已通过独立验收并合并。
+  - Why: main 对 `f0b339c0d52ae9325137e9f188b710645c2e2e80` 重新审查迁移事务增量并重放旧 stale-head 反例；attachment 变更只在同一 task lock 内通过 exact head/revision CAS 后发生，失败时 tracked head 与 runtime 全部文件字节不变且可正确重试。task-core 104 项在两个隔离临时根各通过一次，115 项保留回归通过，两份 evidence 与提交文件逐字节一致，未发现阻塞 finding。
+  - Impact: PR #5 以 squash commit `5eb3bd34ef389361be2ba22df899ad088ef22da1` 进入 main，候选与 merge tree 均为 `938d02ed18a3ff256a63e707e01cbd3dc86d6649`。里程碑 1 完成，结论仅为 `deterministic_task_core_ready`；里程碑 2 仍由人工顶层 session 实施，auto route、生产安装、AIO 接入、tag 和 Release 均未因此启用。
