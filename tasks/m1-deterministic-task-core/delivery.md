@@ -7,12 +7,12 @@
 - Fixed base: `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`
 - Synchronized main: `60ea9e9ef5c50290b2fa20e0b7888b59aa538599`
 - Initial planning head: `b1e8b8d9f00ad53b68162c240134c3cd740d937a`
-- Implementation/evidence commit: `fee072bf6849d87ffd6a6323ea75a81af3504831`
+- Implementation/evidence commit: `0548eb52ead7191733c32129241168c2e7035a9f`
 - PR: `KNaiFen/gkd#5`
 - Development bundle version: `0.0.0-dev.0`
-- Development content digest: `17e51babe52b18695abf270d7359b8c9ff343e017caf379a3274cb3f1e470aff`
-- Evidence digest: `98079835befaefe7eae74b5becfcbeb0eb5b559abcde3223171072ba7dd7377b`
-- Evidence file SHA-256: `e437c7d52d3e9aad79850b4080ed1563b5f5cf7f1a29135458ab20d948ca9de1`
+- Development content digest: `fc96a10cb82b628bd14280e4e878417a3fbc7a1d560fac5a61bb7abe7f3c3024`
+- Evidence digest: `3f119831c41a18536318b621f21f13d8d18d115fce77e3fb97870a0148395569`
+- Evidence file SHA-256: `7df2d35021ba32eb93d1ebd84d3920e7ac4ee281a68e7c4da935cfcfa306bb65`
 
 This bootstrap task did not create or hand-edit a task `task.json`, offer,
 claim, authorization, journal, or evidence result for itself. It did not use
@@ -41,9 +41,10 @@ the candidate `gkd-task` to claim, deliver, accept, or merge PR #5.
   receipt only from that committed journal; trusted acceptance refuses a
   candidate-history-only claim before any GitHub call.
 - Made offer capability and v1 attachment publication recoverable with tracked
-  state: runtime writes fail before commit, pre-commit failures remain retryable,
-  and post-commit recovery retains only runtime state proven to match the
-  committed offer/migration.
+  state: runtime writes fail before commit, migration attachment changes occur
+  only inside the locked builder after exact head/revision CAS, pre-commit
+  failures restore prior runtime bytes, and post-commit recovery retains only
+  runtime state proven to match the committed offer/migration.
 - Enforced the full lifecycle field matrix, cross-record IDs/epochs and history
   relationships, and rejected explicit symlink candidate roots before path
   resolution in locator, service and acceptance paths.
@@ -63,12 +64,12 @@ the candidate `gkd-task` to claim, deliver, accept, or merge PR #5.
 | L2 bootstrap and packaging | 13 |
 | L2 concurrent subprocess claim | 1 |
 | L2 fixed-head acceptance/fake GitHub | 19 |
-| L2 locator and migration | 14 |
+| L2 locator and migration | 15 |
 | Source mutation guards | 9 |
-| **Task-core total** | **103** |
+| **Task-core total** | **104** |
 
 Stable contract ID digest:
-`0eb3be2a2a822f3ef0bd43085ea05abf4ab2268dce8cd0338136766d52b2ce7d`.
+`14ceed6137a1aef32cc2e2704552320500f4f28996a8ec75f2e7a3aea626c9f4`.
 
 ## Validation
 
@@ -81,9 +82,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=canonical/payload/lib:. python3 tests/task_
 cmp -s "$GKD_RUN_A_OUTPUT" "$GKD_RUN_B_OUTPUT"
 ```
 
-Both runs passed 103 tests, left their fixture roots empty, and produced
+Both runs passed 104 tests, left their fixture roots empty, and produced
 byte-identical evidence with file SHA-256
-`e437c7d52d3e9aad79850b4080ed1563b5f5cf7f1a29135458ab20d948ca9de1`.
+`7df2d35021ba32eb93d1ebd84d3920e7ac4ee281a68e7c4da935cfcfa306bb65`.
 
 Retained regressions and repository checks:
 
@@ -123,6 +124,12 @@ change occurred.
   runtime/tracked transaction ordering, lifecycle invariants and explicit
   symlink candidate handling. This delivery contains their remediation and
   requires a new fixed-head independent acceptance.
+- Independent acceptance of the renewed ready head
+  `f34152ddbe79c3b9ff12c6e2e97121c34fd8fffa` also did not pass and did not
+  merge. It confirmed the other three findings closed but found stale migration
+  CAS could leave a newly written attachment. The attachment mutation now runs
+  only after manager CAS, with stale-head/stale-revision byte-preservation
+  regression coverage.
 - GitHub reported no checks on the task branch and `main` returned HTTP 404 for
   branch protection. This is recorded as
   `required_checks_not_configured_bootstrap`, not CI success.
@@ -135,6 +142,9 @@ change occurred.
 - No material plan deviation occurred. The first delivered head was rejected by
   independent acceptance and the four blocking security findings were repaired
   in `fee072bf6849d87ffd6a6323ea75a81af3504831` before this renewed handoff.
+- The renewed head was rejected for the remaining migration CAS/runtime ordering
+  case. It was repaired and re-evidenced in
+  `0548eb52ead7191733c32129241168c2e7035a9f` before this handoff.
 - Runtime/session role evidence is intentionally a provider seam with an
   internal fixture provider; the installed CLI refuses claim without a later
   trusted provider. This preserves the milestone 2 boundary.
