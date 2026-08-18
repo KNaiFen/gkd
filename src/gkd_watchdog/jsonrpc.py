@@ -375,7 +375,7 @@ class JsonRpcClient:
         return request_id
 
     def _accept(self, message: Mapping[str, Any]) -> tuple[int, Any, Any] | None:
-        if message.get("jsonrpc") != "2.0":
+        if "jsonrpc" in message and message["jsonrpc"] != "2.0":
             raise AppServerMalformedJSON()
         if "id" in message:
             response_id = message["id"]
