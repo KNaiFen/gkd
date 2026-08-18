@@ -20,7 +20,7 @@ session.
 - Base branch: `main`
 - Task branch: `task/m1-deterministic-task-core`
 - Fixed base SHA: `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`
-- Draft PR: pending creation by main
+- Draft PR: `https://github.com/KNaiFen/gkd/pull/5`
 - Plan: `tasks/m1-deterministic-task-core/plan.md`, version 1
 - Requirements: `tasks/m1-deterministic-task-core/requirements.md`, version 1
 - Route: manual top-level execution session
