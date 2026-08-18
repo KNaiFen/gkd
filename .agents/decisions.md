@@ -116,3 +116,7 @@
   - Why: 用户放弃外部app-server、共享runtime、PTY和CLI唤醒方案，明确选择由main连续执行多轮一小时 `wait_agent`，并由Skill约束健康等待时不产生多余输出。
   - Impact: `GKD-M-1A` 的 `native_insufficient` 和 `GKD-M-1C` 的 `unsupported` 继续作为旧“单次12小时/外部watcher/健康零父上下文”合同的历史事实，不再阻止修订路线。新路线要求目标运行时实际接受 `wait_agent(timeout_ms=3600000)`；每次健康超时后main不得发commentary、分析、更新计划、读取仓库/worktree/PR/CI或调用状态旁路，只能立即对同一executor再次等待。child终态、错误、用户介入或claim后12小时deadline结束循环；deadline时只终止绑定executor一次并返回单一timeout，不重试或换agent。
   - Evidence boundary: 每次wait工具调用与timeout结果仍会进入父内部上下文，Skill只能消除自愿文本和额外工具噪声，不能声称零上下文。当前会话暴露的工具参数上限为360,000ms，因此auto route仍fail-closed；不得用十轮6分钟等待冒充一小时。里程碑1/2仍由人工顶层session完成，之后只有固定role、offer/claim及实际一小时等待门全部通过才可启用专用executor。
+
+- [2026-08-18] `GKD-M1-A` v1 规划与人工交接已建立。
+  - Why: 冻结计划已批准里程碑1的三状态门禁、clean-main/worktree、portable locator、offer/claim事务和窄accept/merge范围；现有bundle尚无可信task CLI，必须继续使用bootstrap人工交接，不能让main或候选代码自托管本任务。
+  - Impact: 任务固定base为 `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`，branch为 `task/m1-deterministic-task-core`，planning head为 `b1e8b8d9f00ad53b68162c240134c3cd740d937a`，Draft PR为 `KNaiFen/gkd#5`。任务分支中的 `requirements.md`、`plan.md`、`execution.md` 是bootstrap审批锚；不手填 `task.json`，不使用候选 `gkd-task` claim/deliver/accept/merge自身PR。执行者必须是GPT-5.6 Sol / xhigh的独立人工顶层session，停在PR ready与固定head交付；main当前只登记和交接。
