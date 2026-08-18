@@ -14,7 +14,7 @@
 - 执行路线：D2 已固定为 `unsupported`，使用人工顶层 execution session
 - 仓库：`KNaiFen/gkd`
 - 分支：`task/m0-canonical-foundation`
-- Draft PR：由 main 在交接前创建并回填
+- Draft PR：`https://github.com/KNaiFen/gkd/pull/4`
 - 固定 base SHA：`88325398c7bb0b6559927a707634e39016726695`
 - 本机 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m0-canonical-foundation`
 - 前置结论：M-1C / PR #3 / merge `afacf490aee948a0e70910304976da6c667375fa`，`unsupported`，manual-only
