@@ -140,3 +140,11 @@
 - [2026-08-19] `GKD-M1-A` 收尾清理完成。
   - Why: 终态验收记录已进入 main；候选 worktree 删除前保持干净，head 为被验收的 fixed head，tree 与 squash merge tree 一致。
   - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m1-deterministic-task-core`、本地 `task/m1-deterministic-task-core` 和远端同名分支均已删除。任务文档原位保留；下一步可从同步 main 规划里程碑 2，但仍不得启用自动 executor。
+
+- [2026-08-19] 里程碑 2 拆为角色路由核心与独立一小时 live gate。
+  - Why: 固定角色、可信 activation/runtime evidence、manual/automatic 路由、确定性等待状态机、最小上下文和安装迁移属于可由 hermetic/L2 合同验收的实现面；真实 `wait_agent(timeout_ms=3600000)` 必须在固定 M2-A bundle digest 的 fresh runtime 独立证明，不能让同一实现 PR 自证平台 live 行为。
+  - Impact: `GKD-M2-A` 由人工顶层 session 实现角色/路由核心，只允许短时隔离角色握手；通过并合并后再建立人工 `GKD-M2-B` 执行真实一小时 timeout 与 child early-final 门。两者全部通过前 auto route 始终禁用，禁止用更短等待、外部 watcher 或 generic worker 替代。
+
+- [2026-08-19] `GKD-M2-A` v1 规划与人工交接已建立。
+  - Why: 已验收 M1 CLI 的安装态 claim provider 故意 fail-closed，无法可信地让 M2-A 使用尚未实现的角色证据自管本任务；因此继续采用受审 Markdown、Git worktree 和独立人工顶层 session 的窄 bootstrap exception，不创建或伪造 task JSON/offer/claim/activation。
+  - Impact: 固定 base 为 `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`，branch 为 `task/m2-role-routing-core`，planning head 为 `51fee63a8b600df4f94aa042ea42ef09e3b73986`，Draft PR 为 `KNaiFen/gkd#6`。execution session 只实现 M2-A，停在 fixed-head delivery；不得验收/合并、启动 M2-B、启用 auto route或修改生产/AIO。
