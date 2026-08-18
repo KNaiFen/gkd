@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import base64
 import json
 from pathlib import Path
 import stat
@@ -14,6 +15,7 @@ from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, verify_identity
 from .model import validate_authorization, validate_offer, validate_state
+from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
 
 
 class MergeIndeterminate(Exception):
@@ -120,10 +122,94 @@ def _fixed_json(root: Path, commit: str, path: str, code: str) -> dict[str, Any]
     return value
 
 
+def _journal_image(record: dict[str, Any]) -> bytes | None:
+    if record["postimage"] is None:
+        return None
+    try:
+        return base64.b64decode(record["postimage"].encode("ascii"), validate=True)
+    except (ValueError, UnicodeEncodeError):
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+
+
+def _validate_claim_receipt(
+    candidate_root: Path,
+    task_path: str,
+    candidate_head: str,
+    state: dict[str, Any],
+    repository: str,
+    runtime: RuntimeStore,
+) -> None:
+    claim = state["lifecycle"]["claim"]
+    if claim is None:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    receipt = runtime.read_claim_receipt(claim["claimId"])
+    validate_claim_receipt(receipt)
+    durable = state["repository"]
+    if (
+        receipt["taskId"] != state["taskId"]
+        or receipt["repository"] != repository
+        or receipt["taskBranch"] != durable["taskBranch"]
+        or receipt["taskPath"] != task_path
+        or receipt["offerId"] != claim["offerId"]
+        or receipt["claimId"] != claim["claimId"]
+        or receipt["epoch"] != claim["epoch"]
+        or receipt["claimBaseHead"] != claim["claimBaseHead"]
+        or not is_ancestor(candidate_root, receipt["claimCommit"], candidate_head)
+        or not is_ancestor(candidate_root, receipt["claimBaseHead"], receipt["claimCommit"])
+    ):
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    journal = runtime.read_journal(receipt["transactionId"])
+    if (
+        journal["status"] != "committed"
+        or journal["transactionId"] != receipt["transactionId"]
+        or journal["journalDigest"] != receipt["transactionDigest"]
+        or journal["runtimeKey"] != runtime_key(repository, state["taskId"], durable["taskBranch"])
+        or journal["expectedHead"] != receipt["claimBaseHead"]
+        or journal["committedHead"] != receipt["claimCommit"]
+    ):
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    state_path = f"{task_path}/task.json"
+    offer_path = f"{task_path}/offer.json"
+    expected_paths = sorted({state_path, offer_path})
+    records = {record["path"]: record for record in journal["files"]}
+    if sorted(records) != expected_paths:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    try:
+        parent = git(candidate_root, "rev-parse", f"{receipt['claimCommit']}^", code="CLAIM_RECEIPT_UNAVAILABLE").decode("ascii").strip()
+    except UnicodeDecodeError:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+    if parent != receipt["claimBaseHead"] or changed_paths(candidate_root, receipt["claimCommit"]) != expected_paths:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    state_raw = _journal_image(records[state_path])
+    offer_raw = _journal_image(records[offer_path])
+    if state_raw is None or offer_raw is None:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    if (
+        read_tree_file(candidate_root, receipt["claimCommit"], state_path) != state_raw
+        or read_tree_file(candidate_root, receipt["claimCommit"], offer_path) != offer_raw
+        or sha256_bytes(state_raw) != receipt["claimStateDigest"]
+        or sha256_bytes(offer_raw) != receipt["offerDigest"]
+    ):
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    anchored_state = _fixed_json(candidate_root, receipt["claimCommit"], state_path, "CLAIM_RECEIPT_UNAVAILABLE")
+    anchored_offer = _fixed_json(candidate_root, receipt["claimCommit"], offer_path, "CLAIM_RECEIPT_UNAVAILABLE")
+    validate_state(anchored_state)
+    validate_offer(anchored_offer)
+    if (
+        anchored_state["lifecycle"]["phase"] != "implementing"
+        or anchored_state["lifecycle"]["claim"] is None
+        or anchored_state["lifecycle"]["claim"]["claimId"] != claim["claimId"]
+        or anchored_offer["offerId"] != claim["offerId"]
+        or anchored_offer["status"] != "consumed"
+    ):
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+
+
 def _validate_fixed_candidate(
     candidate_root: Path,
     task_path: str,
     candidate_head: str,
+    runtime: RuntimeStore,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if head(candidate_root) != candidate_head or not is_clean(candidate_root):
         raise TaskError("candidate_head_changed")
@@ -170,6 +256,7 @@ def _validate_fixed_candidate(
         or anchored_offer["authorizationDigest"] != authorization["authorizationDigest"]
     ):
         raise TaskError("authorization_mismatch")
+    _validate_claim_receipt(candidate_root, task_path, candidate_head, state, anchored_state["repository"]["identity"], runtime)
     return state, authorization
 
 
@@ -239,6 +326,7 @@ def accept_candidate(
     adapter: GitHubAdapter,
     actor_role: str,
     merge: bool,
+    runtime: RuntimeStore | None = None,
 ) -> dict[str, Any]:
     if actor_role not in {"acceptor", "main"}:
         raise TaskError("EXECUTOR_ACCEPTANCE_FORBIDDEN")
@@ -247,11 +335,14 @@ def accept_candidate(
         raise TaskError("INVALID_PR")
     if required_checks != sorted(set(required_checks)):
         raise TaskError("INVALID_REQUIRED_CHECKS")
+    if trusted_root.is_symlink() or candidate_root.is_symlink():
+        raise TaskError("CANDIDATE_SYMLINK")
     trusted = trusted_root.resolve()
     candidate = candidate_root.resolve()
     if trusted == candidate or common_dir(trusted) != common_dir(candidate):
         raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
-    state, authorization = _validate_fixed_candidate(candidate, task_path, candidate_head)
+    runtime = runtime or RuntimeStore(common_dir(candidate) / "gkd-runtime")
+    state, authorization = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     repo = state["repository"]
     verify_identity(candidate, repository, repo["taskBranch"], common_dir(trusted))
     if repository_identity(trusted) != repository or branch(trusted) != repo["baseBranch"] or not is_clean(trusted):
@@ -287,7 +378,7 @@ def accept_candidate(
     if authorization["mode"] != "implement_and_merge_on_acceptance":
         raise TaskError("authorization_mismatch")
 
-    state_again, authorization_again = _validate_fixed_candidate(candidate, task_path, candidate_head)
+    state_again, authorization_again = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     _authorization_preflight(state_again, authorization_again, repository, candidate_head, "conditional_merge")
     second = adapter.snapshot(repository, pr_number)
     _check_snapshot(second, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head, required_checks)

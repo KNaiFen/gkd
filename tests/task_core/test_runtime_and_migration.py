@@ -163,6 +163,12 @@ class LocatorAndMigrationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "INVALID_TASK_PATH"):
             resolve_candidate(self.repo.identity, self.repo.task_id, self.repo.task_branch, "alias/task-alpha", self.runtime, self.repo.candidate, None)
 
+    def test_locator_rejects_explicit_symlink_candidate(self) -> None:
+        candidate_link = self.repo.root / "candidate-link"
+        candidate_link.symlink_to(self.repo.candidate, target_is_directory=True)
+        with self.assertRaisesRegex(TaskError, "CANDIDATE_SYMLINK"):
+            self._resolve(candidate_link, None)
+
     def test_live_doctor_checks_attachment_and_transaction_state(self) -> None:
         result = self.repo.service().doctor("live")
         self.assertEqual({"status": "valid", "mode": "live", "taskId": self.repo.task_id, "phase": "planning", "revision": 0}, result)
@@ -201,6 +207,38 @@ class LocatorAndMigrationContracts(unittest.TestCase):
         self.assertEqual(count, self.repo.commits())
         attachment = self.runtime.read_attachment(self.repo.identity, self.repo.task_id, self.repo.task_branch)
         self.assertEqual(str(self.repo.candidate.resolve()), attachment["candidateRoot"])
+
+    def test_attachment_write_failure_leaves_migration_retryable_without_commit(self) -> None:
+        state = self.repo.state()
+        legacy = make_legacy_v1(state, str(self.repo.candidate.resolve()), False)
+        (self.repo.task_root / "task.json").write_bytes(canonical_bytes(legacy))
+        run("git", "add", f"{self.repo.task_path}/task.json", cwd=self.repo.candidate)
+        run("git", "commit", "-m", "legacy", cwd=self.repo.candidate)
+        before_head = self.repo.head()
+        before_commits = self.repo.commits()
+        with mock.patch.object(self.runtime, "write_attachment", side_effect=TaskError("RUNTIME_ATTACHMENT_WRITE_FAILED")):
+            with self.assertRaisesRegex(TaskError, "RUNTIME_ATTACHMENT_WRITE_FAILED"):
+                migrate_v1(
+                    self.repo.candidate,
+                    self.repo.task_path,
+                    self.runtime,
+                    before_head,
+                    state["revision"],
+                    FixedClock(FIXED_TIME),
+                    SystemNonce(),
+                )
+        self.assertEqual(before_head, self.repo.head())
+        self.assertEqual(before_commits, self.repo.commits())
+        result = migrate_v1(
+            self.repo.candidate,
+            self.repo.task_path,
+            self.runtime,
+            before_head,
+            state["revision"],
+            FixedClock(FIXED_TIME),
+            SystemNonce(),
+        )
+        self.assertEqual("migrated_v1", result["status"])
 
     def test_active_v1_missing_worktree_fails_closed(self) -> None:
         state = self.repo.state()

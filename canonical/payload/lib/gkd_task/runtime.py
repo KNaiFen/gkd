@@ -136,6 +136,48 @@ def validate_envelope(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_LAUNCH_ENVELOPE")
 
 
+def validate_claim_receipt(value: dict[str, Any]) -> None:
+    require_keys(
+        value,
+        {
+            "schemaVersion",
+            "kind",
+            "taskId",
+            "repository",
+            "taskBranch",
+            "taskPath",
+            "offerId",
+            "claimId",
+            "epoch",
+            "claimBaseHead",
+            "claimCommit",
+            "claimStateDigest",
+            "offerDigest",
+            "transactionId",
+            "transactionDigest",
+            "recordedAt",
+            "receiptDigest",
+        },
+        "INVALID_CLAIM_RECEIPT",
+    )
+    if value["schemaVersion"] != RUNTIME_SCHEMA_VERSION or value["kind"] != "claim-receipt":
+        raise TaskError("INVALID_CLAIM_RECEIPT")
+    for field in ("taskId", "repository", "taskBranch", "taskPath"):
+        require_string(value[field], "INVALID_CLAIM_RECEIPT")
+    for field in ("offerId", "claimId", "claimStateDigest", "offerDigest", "transactionId", "transactionDigest", "receiptDigest"):
+        require_sha256(value[field], "INVALID_CLAIM_RECEIPT")
+    if not isinstance(value["epoch"], int) or value["epoch"] < 0:
+        raise TaskError("INVALID_CLAIM_RECEIPT")
+    for field in ("claimBaseHead", "claimCommit"):
+        if not isinstance(value[field], str) or len(value[field]) != 40 or any(c not in "0123456789abcdef" for c in value[field]):
+            raise TaskError("INVALID_CLAIM_RECEIPT")
+    require_utc(value["recordedAt"], "INVALID_CLAIM_RECEIPT")
+    unsigned = dict(value)
+    actual = unsigned.pop("receiptDigest")
+    if digest_object(unsigned) != actual:
+        raise TaskError("INVALID_CLAIM_RECEIPT")
+
+
 class RuntimeStore:
     def __init__(self, root: Path) -> None:
         if not root.is_absolute() or root.is_symlink():
@@ -196,6 +238,53 @@ class RuntimeStore:
 
     def delete_envelope(self, envelope_id: str) -> None:
         unlink_file(self._path("envelopes", envelope_id))
+
+    def write_claim_receipt(self, claim_id: str, value: dict[str, Any]) -> None:
+        require_sha256(claim_id, "INVALID_CLAIM_RECEIPT")
+        validate_claim_receipt(value)
+        if value["claimId"] != claim_id:
+            raise TaskError("INVALID_CLAIM_RECEIPT")
+        self._write_private(self._path("claim-receipts", claim_id), value)
+
+    def read_claim_receipt(self, claim_id: str) -> dict[str, Any]:
+        require_sha256(claim_id, "INVALID_CLAIM_RECEIPT")
+        return read_canonical_json(
+            self._path("claim-receipts", claim_id),
+            "CLAIM_RECEIPT_UNAVAILABLE",
+            validate_claim_receipt,
+        )
+
+    def delete_claim_receipt(self, claim_id: str) -> None:
+        require_sha256(claim_id, "INVALID_CLAIM_RECEIPT")
+        unlink_file(self._path("claim-receipts", claim_id))
+
+    def read_journal(self, transaction_id: str) -> dict[str, Any]:
+        from .transaction import validate_journal
+
+        return read_canonical_json(
+            self.journal_path(transaction_id),
+            "INVALID_TRANSACTION_JOURNAL",
+            validate_journal,
+        )
+
+    def committed_journals(self) -> list[dict[str, Any]]:
+        from .transaction import validate_journal
+
+        directory = self.root / "transactions"
+        if not directory.exists():
+            return []
+        if directory.is_symlink() or not directory.is_dir():
+            raise TaskError("INVALID_RUNTIME_ROOT")
+        result: list[dict[str, Any]] = []
+        for path in sorted(directory.iterdir()):
+            if path.is_symlink() or not path.is_file() or path.suffix != ".json" or path.stem != path.stem.lower():
+                raise TaskError("INVALID_RUNTIME_ROOT")
+            transaction_id = path.stem
+            require_sha256(transaction_id, "INVALID_RUNTIME_ROOT")
+            journal = read_canonical_json(path, "INVALID_TRANSACTION_JOURNAL", validate_journal)
+            if journal["status"] == "committed":
+                result.append(journal)
+        return result
 
     def delete_envelopes_for_offer(self, offer_id: str) -> None:
         require_sha256(offer_id, "INVALID_OFFER")

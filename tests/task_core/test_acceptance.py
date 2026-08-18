@@ -6,6 +6,7 @@ import unittest
 
 from gkd_task.acceptance import MergeIndeterminate, accept_candidate, make_review
 from gkd_task.errors import TaskError
+from gkd_task.runtime import RuntimeStore
 from tests.task_core.helpers import (
     CONFIG_DIGEST,
     FUTURE_TIME,
@@ -62,6 +63,7 @@ class AcceptanceContracts(unittest.TestCase):
             adapter,
             role,
             merge,
+            runtime=RuntimeStore(self.repo.runtime_root),
         )
 
     def test_exact_head_acceptance_performs_two_reads_and_one_merge(self) -> None:
@@ -71,6 +73,37 @@ class AcceptanceContracts(unittest.TestCase):
         self.assertTrue(result["merged"])
         self.assertEqual(["snapshot", "snapshot", "merge"], [call[0] for call in adapter.calls])
         self.assertEqual(candidate_head, adapter.calls[-1][-1])
+
+    def test_acceptance_requires_external_claim_receipt(self) -> None:
+        candidate_head = self._delivered()
+        claim_id = self.repo.state()["lifecycle"]["claim"]["claimId"]
+        RuntimeStore(self.repo.runtime_root).delete_claim_receipt(claim_id)
+        adapter = FakeGitHub(github_snapshot(self.repo, candidate_head))
+        with self.assertRaisesRegex(TaskError, "CLAIM_RECEIPT_UNAVAILABLE"):
+            self._accept(candidate_head, adapter)
+        self.assertEqual([], adapter.calls)
+
+    def test_acceptance_rejects_explicit_symlink_candidate(self) -> None:
+        candidate_head = self._delivered()
+        candidate_link = self.repo.root / "candidate-link"
+        candidate_link.symlink_to(self.repo.candidate, target_is_directory=True)
+        adapter = FakeGitHub(github_snapshot(self.repo, candidate_head))
+        with self.assertRaisesRegex(TaskError, "CANDIDATE_SYMLINK"):
+            accept_candidate(
+                self.repo.main,
+                candidate_link,
+                self.repo.task_path,
+                self.repo.identity,
+                7,
+                candidate_head,
+                ["contract"],
+                self._review(candidate_head),
+                adapter,
+                "acceptor",
+                True,
+                runtime=RuntimeStore(self.repo.runtime_root),
+            )
+        self.assertEqual([], adapter.calls)
 
     def test_executor_can_never_accept_or_merge(self) -> None:
         candidate_head = self._delivered()

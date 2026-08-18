@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import base64
+import json
 from pathlib import Path
 import os
 import re
@@ -29,6 +31,7 @@ from .gitops import (
     branch,
     commit_exact,
     common_dir,
+    changed_paths,
     git,
     git_root,
     head,
@@ -36,6 +39,7 @@ from .gitops import (
     repository_identity,
     require_clean,
     is_clean,
+    read_tree_file,
     verified_relative_path,
     verify_identity,
 )
@@ -51,8 +55,9 @@ from .model import (
     validate_authorization,
     validate_offer,
     validate_runtime_evidence,
+    validate_state,
 )
-from .runtime import RUNTIME_SCHEMA_VERSION, RuntimeStore, runtime_key
+from .runtime import RUNTIME_SCHEMA_VERSION, RuntimeStore, runtime_key, validate_claim_receipt
 from .transaction import TransactionChange, TransactionManager
 
 
@@ -265,6 +270,10 @@ class TaskService:
         evidence_provider: RuntimeEvidenceProvider | None = None,
         failure_hook: Any | None = None,
     ) -> None:
+        if candidate_root.is_symlink():
+            raise TaskError("CANDIDATE_SYMLINK")
+        if not candidate_root.is_dir():
+            raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
         self.candidate_root = git_root(candidate_root)
         self.task_path = relative_path(task_path, "INVALID_TASK_PATH")
         self.task_root = verified_relative_path(self.candidate_root, self.task_path)
@@ -304,6 +313,126 @@ class TaskService:
 
     def _offer(self) -> dict[str, Any]:
         return read_canonical_json(self.task_root / "offer.json", "INVALID_OFFER", validate_offer)
+
+    @staticmethod
+    def _journal_image(record: dict[str, Any]) -> bytes | None:
+        encoded = record["postimage"]
+        if encoded is None:
+            return None
+        try:
+            return base64.b64decode(encoded.encode("ascii"), validate=True)
+        except (ValueError, UnicodeEncodeError):
+            raise TaskError("INVALID_TRANSACTION_JOURNAL") from None
+
+    def _claim_receipt_for_journal(
+        self,
+        claim: dict[str, Any],
+        journal: dict[str, Any],
+        recorded_at: str | None = None,
+    ) -> dict[str, Any]:
+        if (
+            journal["status"] != "committed"
+            or journal["runtimeKey"] != self.key
+            or journal["committedHead"] is None
+            or journal["expectedHead"] != claim["claimBaseHead"]
+        ):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        state_path = f"{self.task_path}/task.json"
+        offer_path = f"{self.task_path}/offer.json"
+        expected_paths = sorted({state_path, offer_path})
+        records = {record["path"]: record for record in journal["files"]}
+        if sorted(records) != expected_paths:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        if not is_ancestor(self.candidate_root, claim["claimBaseHead"], journal["committedHead"]):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        try:
+            parent = git(self.candidate_root, "rev-parse", f"{journal['committedHead']}^", code="CLAIM_RECEIPT_UNAVAILABLE").decode("ascii").strip()
+        except UnicodeDecodeError:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+        if parent != claim["claimBaseHead"] or changed_paths(self.candidate_root, journal["committedHead"]) != expected_paths:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        state_raw = self._journal_image(records[state_path])
+        offer_raw = self._journal_image(records[offer_path])
+        if state_raw is None or offer_raw is None:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        if read_tree_file(self.candidate_root, journal["committedHead"], state_path) != state_raw:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        if read_tree_file(self.candidate_root, journal["committedHead"], offer_path) != offer_raw:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        try:
+            state = json.loads(state_raw)
+            offer = json.loads(offer_raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+        if not isinstance(state, dict) or state_raw != canonical_bytes(state) or not isinstance(offer, dict) or offer_raw != canonical_bytes(offer):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        validate_state(state)
+        validate_offer(offer)
+        state_claim = state["lifecycle"]["claim"]
+        if (
+            state["lifecycle"]["phase"] != "implementing"
+            or state_claim is None
+            or state_claim["claimId"] != claim["claimId"]
+            or state_claim["claimBaseHead"] != claim["claimBaseHead"]
+            or offer["offerId"] != claim["offerId"]
+            or offer["status"] != "consumed"
+        ):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        receipt = {
+            "schemaVersion": RUNTIME_SCHEMA_VERSION,
+            "kind": "claim-receipt",
+            "taskId": state["taskId"],
+            "repository": state["repository"]["identity"],
+            "taskBranch": state["repository"]["taskBranch"],
+            "taskPath": state["repository"]["taskPath"],
+            "offerId": claim["offerId"],
+            "claimId": claim["claimId"],
+            "epoch": claim["epoch"],
+            "claimBaseHead": claim["claimBaseHead"],
+            "claimCommit": journal["committedHead"],
+            "claimStateDigest": sha256_bytes(state_raw),
+            "offerDigest": sha256_bytes(offer_raw),
+            "transactionId": journal["transactionId"],
+            "transactionDigest": journal["journalDigest"],
+            "recordedAt": recorded_at or self.clock.now(),
+        }
+        receipt["receiptDigest"] = digest_object(receipt)
+        validate_claim_receipt(receipt)
+        return receipt
+
+    def _ensure_claim_receipt(self, claim_id: str) -> dict[str, Any]:
+        state = self._state()
+        claim = state["lifecycle"]["claim"]
+        if claim is None or claim["claimId"] != claim_id:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        try:
+            receipt = self.runtime.read_claim_receipt(claim_id)
+        except TaskError as error:
+            if error.code != "CLAIM_RECEIPT_UNAVAILABLE":
+                raise
+        else:
+            expected = self._claim_receipt_for_journal(
+                claim,
+                self.runtime.read_journal(receipt["transactionId"]),
+                receipt["recordedAt"],
+            )
+            if receipt != expected:
+                raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+            self.runtime.delete_capability(claim["offerId"])
+            self.runtime.delete_envelopes_for_offer(claim["offerId"])
+            return receipt
+        for journal in self.runtime.committed_journals():
+            try:
+                receipt = self._claim_receipt_for_journal(claim, journal)
+            except TaskError as error:
+                if error.code == "CLAIM_RECEIPT_UNAVAILABLE":
+                    continue
+                raise
+            self.runtime.write_claim_receipt(claim_id, receipt)
+            self.runtime.delete_capability(claim["offerId"])
+            self.runtime.delete_envelopes_for_offer(claim["offerId"])
+            return receipt
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
 
     @staticmethod
     def _require_unblocked(state: dict[str, Any]) -> None:
@@ -563,8 +692,18 @@ class TaskService:
         require_utc(expires_at, "INVALID_OFFER_EXPIRY")
         capability = self.nonce.token(48)
         capability_digest = sha256_bytes(capability.encode("utf-8"))
-        holder: dict[str, Any] = {}
-
+        state_before = self._state()
+        offer_id = digest_object({"taskId": state_before["taskId"], "epoch": state_before["lifecycle"]["epoch"], "nonce": self.nonce.token()})
+        created_at = self.clock.now()
+        capability_record = {
+            "schemaVersion": RUNTIME_SCHEMA_VERSION,
+            "kind": "capability",
+            "offerId": offer_id,
+            "epoch": state_before["lifecycle"]["epoch"],
+            "capability": capability,
+            "capabilityDigest": capability_digest,
+            "createdAt": created_at,
+        }
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)
             self._require_planning(state)
@@ -581,7 +720,6 @@ class TaskService:
                 raise TaskError("authorization_mismatch")
             if expires_at <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
-            offer_id = digest_object({"taskId": state["taskId"], "epoch": state["lifecycle"]["epoch"], "nonce": self.nonce.token()})
             value = {
                 "schemaVersion": TASK_SCHEMA_VERSION,
                 "offerId": offer_id,
@@ -600,7 +738,7 @@ class TaskService:
                 "roleDigest": role_digest,
                 "configDigest": config_digest,
                 "capabilityDigest": capability_digest,
-                "createdAt": self.clock.now(),
+                "createdAt": created_at,
                 "expiresAt": expires_at,
                 "consumedByDigest": None,
             }
@@ -614,7 +752,6 @@ class TaskService:
                 "authorizationDigest": value["authorizationDigest"],
             }
             updated = advance_state(updated, "offer_created", self.clock.now(), expected_head, value)
-            holder.update({"offer": value, "state": updated})
             return TransactionChange(
                 {
                     f"{self.task_path}/task.json": canonical_bytes(updated),
@@ -624,21 +761,23 @@ class TaskService:
                 {"status": "awaiting_claim", "revision": updated["revision"], "offerId": offer_id},
             )
 
-        result = self._transact(expected_head, expected_revision, builder)
-        value = holder["offer"]
-        self.runtime.write_capability(
-            self.key,
-            {
-                "schemaVersion": RUNTIME_SCHEMA_VERSION,
-                "kind": "capability",
-                "offerId": value["offerId"],
-                "epoch": value["epoch"],
-                "capability": capability,
-                "capabilityDigest": capability_digest,
-                "createdAt": value["createdAt"],
-            },
-        )
-        return result
+        self.runtime.write_capability(offer_id, capability_record)
+        try:
+            return self._transact(expected_head, expected_revision, builder)
+        except Exception:
+            try:
+                current_head = head(self.candidate_root)
+                current_offer = self._state()["lifecycle"]["offer"]
+                committed_this_offer = (
+                    current_head != expected_head
+                    and current_offer is not None
+                    and current_offer["offerId"] == offer_id
+                )
+                if not committed_this_offer:
+                    self.runtime.delete_capability(offer_id)
+            except Exception:
+                pass
+            raise
 
     def handoff(self) -> dict[str, Any]:
         before = head(self.candidate_root)
@@ -647,7 +786,7 @@ class TaskService:
         if state["lifecycle"]["phase"] != "awaiting_claim":
             raise TaskError("INVALID_TRANSITION")
         offer = self._offer()
-        capability = self.runtime.read_capability(self.key)
+        capability = self.runtime.read_capability(offer["offerId"])
         if (
             offer["status"] != "active"
             or offer["offerId"] != capability["offerId"]
@@ -747,8 +886,11 @@ class TaskService:
             )
 
         result = self._transact(expected_head, expected_revision, builder)
-        self.runtime.delete_capability(self.key)
-        self.runtime.delete_envelopes_for_offer(holder["claim"]["offerId"])
+        claim = holder["claim"]
+        receipt = self._claim_receipt_for_journal(claim, self.runtime.read_journal(result["transactionId"]))
+        self.runtime.write_claim_receipt(claim["claimId"], receipt)
+        self.runtime.delete_capability(claim["offerId"])
+        self.runtime.delete_envelopes_for_offer(claim["offerId"])
         return result
 
     def _retire(
@@ -760,6 +902,7 @@ class TaskService:
         require_terminal_evidence: bool,
     ) -> dict[str, Any]:
         require_string(reason, "INVALID_RETIRE_REASON")
+        offer_id_holder: dict[str, str] = {}
 
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)
@@ -783,6 +926,7 @@ class TaskService:
                 ):
                     raise TaskError("WRITER_STILL_ACTIVE")
             offer = self._offer()
+            offer_id_holder["offerId"] = offer["offerId"]
             retired = {
                 "offerId": offer["offerId"],
                 "claim": deepcopy(state["lifecycle"]["claim"]),
@@ -810,8 +954,8 @@ class TaskService:
             )
 
         result = self._transact(expected_head, expected_revision, builder)
-        self.runtime.delete_capability(self.key)
-        offer_id = self._offer()["offerId"]
+        offer_id = offer_id_holder["offerId"]
+        self.runtime.delete_capability(offer_id)
         self.runtime.delete_envelopes_for_offer(offer_id)
         return result
 
@@ -858,6 +1002,10 @@ class TaskService:
 
     def deliver(self, expected_head: str, expected_revision: int, claim_id: str) -> dict[str, Any]:
         require_sha256(claim_id, "CLAIM_MISMATCH")
+        current_claim = self._state()["lifecycle"]["claim"]
+        if current_claim is None or current_claim["claimId"] != claim_id:
+            raise TaskError("CLAIM_MISMATCH")
+        self._ensure_claim_receipt(claim_id)
 
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)

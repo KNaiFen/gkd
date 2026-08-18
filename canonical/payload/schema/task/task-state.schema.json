@@ -57,7 +57,15 @@
         "delivery": {"type": ["object", "null"]},
         "acceptance": {"type": ["object", "null"]},
         "completion": {"type": ["object", "null"]}
-      }
+      },
+      "allOf": [
+        {"if": {"properties": {"phase": {"const": "planning"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "null"}, "claim": {"type": "null"}, "delivery": {"type": "null"}, "acceptance": {"type": "null"}, "completion": {"type": "null"}}}},
+        {"if": {"properties": {"phase": {"const": "awaiting_claim"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "object"}, "claim": {"type": "null"}, "delivery": {"type": "null"}, "acceptance": {"type": "null"}, "completion": {"type": "null"}}}},
+        {"if": {"properties": {"phase": {"const": "implementing"}}}, "then": {"properties": {"writer": {"type": "object"}, "offer": {"type": "object"}, "claim": {"type": "object"}, "delivery": {"type": "null"}, "acceptance": {"type": "null"}, "completion": {"type": "null"}}}},
+        {"if": {"properties": {"phase": {"const": "delivered"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "object"}, "claim": {"type": "object"}, "delivery": {"type": "object"}, "acceptance": {"type": "null"}, "completion": {"type": "null"}}}},
+        {"if": {"properties": {"phase": {"const": "accepted"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "object"}, "claim": {"type": "object"}, "delivery": {"type": "object"}, "acceptance": {"type": "object"}, "completion": {"type": "null"}}}},
+        {"if": {"properties": {"phase": {"const": "completed"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "object"}, "claim": {"type": "object"}, "delivery": {"type": "object"}, "acceptance": {"type": "object"}, "completion": {"type": "object"}}}}
+      ]
     },
     "event": {
       "type": "object",

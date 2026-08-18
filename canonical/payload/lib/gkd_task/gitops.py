@@ -149,6 +149,10 @@ def verify_identity(
     expected_branch: str,
     expected_common_dir: Path | None = None,
 ) -> Path:
+    if root.is_symlink():
+        raise TaskError("CANDIDATE_SYMLINK")
+    if not root.is_dir():
+        raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
     actual = git_root(root)
     if actual != root.resolve() or repository_identity(actual) != expected_repository or branch(actual) != expected_branch:
         raise TaskError("CANDIDATE_IDENTITY_MISMATCH")

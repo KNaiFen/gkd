@@ -220,6 +220,8 @@ class TransactionManager:
             require_clean(self.candidate_root)
             result = dict(change.result)
             result["head"] = committed_head
+            result["transactionId"] = transaction_id
+            result["transactionDigest"] = journal["journalDigest"]
             return result
 
     def _write_doubt(self, transaction_id: str) -> None:

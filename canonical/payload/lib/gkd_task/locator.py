@@ -19,7 +19,11 @@ def _validated_candidate(
     task_path: str,
     expected_common: Path | None = None,
 ) -> Path:
-    root = verify_identity(candidate.resolve(), repository, task_branch, expected_common)
+    if candidate.is_symlink():
+        raise TaskError("CANDIDATE_SYMLINK")
+    if not candidate.is_dir():
+        raise TaskError("worktree_missing")
+    root = verify_identity(candidate, repository, task_branch, expected_common)
     task_root = verified_relative_path(root, task_path)
     state = read_state(task_root / "task.json", task_root)
     durable = state["repository"]

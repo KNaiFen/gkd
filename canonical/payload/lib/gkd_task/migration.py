@@ -108,7 +108,12 @@ def migrate_v1(
             {"status": "migrated_v1", "taskId": updated["taskId"], "revision": updated["revision"]},
         )
 
-    result = manager.execute(expected_head, expected_revision, builder, state_loader=loader)
+    previous_attachment: dict[str, Any] | None = None
+    try:
+        previous_attachment = runtime.read_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
+    except TaskError as error:
+        if error.code != "worktree_missing":
+            raise
     if legacy["archived"]:
         runtime.delete_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
     else:
@@ -125,4 +130,15 @@ def migrate_v1(
                 "updatedAt": clock.now(),
             }
         )
-    return result
+    try:
+        return manager.execute(expected_head, expected_revision, builder, state_loader=loader)
+    except Exception:
+        try:
+            if head(git_root) == expected_head:
+                if previous_attachment is None:
+                    runtime.delete_attachment(repository["identity"], state["taskId"], repository["taskBranch"])
+                else:
+                    runtime.write_attachment(previous_attachment)
+        except Exception:
+            pass
+        raise

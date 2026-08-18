@@ -9,7 +9,7 @@ import unittest
 from gkd_task.canonical import canonical_bytes
 from gkd_task.documents import PLAN_MATERIAL_SECTIONS, inspect_package, parse_sections
 from gkd_task.errors import TaskError
-from gkd_task.model import read_state, validate_state
+from gkd_task.model import finalize_state, read_state, validate_state
 from tests.task_core.helpers import TaskRepo, planning_documents
 
 
@@ -117,6 +117,14 @@ class PlanningContracts(unittest.TestCase):
     def test_unknown_state_field_is_rejected(self) -> None:
         value = self.repo.state()
         value["unknown"] = True
+        with self.assertRaisesRegex(TaskError, "INVALID_TASK_STATE"):
+            validate_state(value)
+
+    def test_phase_matrix_rejects_delivered_fields_relabelled_as_planning(self) -> None:
+        self.repo.delivered()
+        value = deepcopy(self.repo.state())
+        value["lifecycle"]["phase"] = "planning"
+        value = finalize_state(value)
         with self.assertRaisesRegex(TaskError, "INVALID_TASK_STATE"):
             validate_state(value)
 

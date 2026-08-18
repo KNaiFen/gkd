@@ -167,6 +167,8 @@ def _lifecycle_record(value: Any) -> None:
         require_sha256(retired["offerId"], "INVALID_TASK_STATE")
         if retired["claim"] is not None:
             _claim_record(retired["claim"])
+            if retired["claim"]["offerId"] != retired["offerId"] or retired["claim"]["epoch"] != retired["epoch"]:
+                raise TaskError("INVALID_TASK_STATE")
         if not isinstance(retired["epoch"], int) or retired["epoch"] < 0:
             raise TaskError("INVALID_TASK_STATE")
         require_string(retired["reason"], "INVALID_TASK_STATE")
@@ -188,15 +190,41 @@ def _lifecycle_record(value: Any) -> None:
         require_sha1(value["completion"]["mergeHead"], "INVALID_TASK_STATE")
         require_sha256(value["completion"]["archiveDigest"], "INVALID_TASK_STATE")
         require_utc(value["completion"]["completedAt"], "INVALID_TASK_STATE")
-    if value["phase"] == "awaiting_claim" and (value["writer"] is not None or value["offer"] is None):
+    offer = value["offer"]
+    claim = value["claim"]
+    writer = value["writer"]
+    delivery = value["delivery"]
+    acceptance = value["acceptance"]
+    completion = value["completion"]
+    if offer is not None and offer["epoch"] != value["epoch"]:
         raise TaskError("INVALID_TASK_STATE")
-    if value["phase"] == "implementing" and (value["writer"] is None or value["claim"] is None):
+    if claim is not None and claim["epoch"] != value["epoch"]:
         raise TaskError("INVALID_TASK_STATE")
-    if value["phase"] == "delivered" and (value["writer"] is not None or value["delivery"] is None):
+    if offer is not None and claim is not None and offer["offerId"] != claim["offerId"]:
         raise TaskError("INVALID_TASK_STATE")
-    if value["phase"] == "accepted" and value["acceptance"] is None:
+    if writer is not None and claim is not None and (
+        writer["claimId"] != claim["claimId"]
+        or writer["writerId"] != claim["writerId"]
+        or writer["sessionDigest"] != claim["sessionDigest"]
+    ):
         raise TaskError("INVALID_TASK_STATE")
-    if value["phase"] == "completed" and (value["acceptance"] is None or value["completion"] is None):
+    if delivery is not None and (claim is None or delivery["claimId"] != claim["claimId"]):
+        raise TaskError("INVALID_TASK_STATE")
+    if value["retiredClaims"]:
+        epochs = [item["epoch"] for item in value["retiredClaims"]]
+        if epochs != sorted(set(epochs)) or any(epoch >= value["epoch"] for epoch in epochs):
+            raise TaskError("INVALID_TASK_STATE")
+    phase_requirements = {
+        "planning": (False, False, False, False, False, False),
+        "awaiting_claim": (False, True, False, False, False, False),
+        "implementing": (True, True, True, False, False, False),
+        "delivered": (False, True, True, True, False, False),
+        "accepted": (False, True, True, True, True, False),
+        "completed": (False, True, True, True, True, True),
+    }
+    required = phase_requirements[value["phase"]]
+    actual = tuple(item is not None for item in (writer, offer, claim, delivery, acceptance, completion))
+    if actual != required:
         raise TaskError("INVALID_TASK_STATE")
 
 
@@ -213,6 +241,77 @@ def _claim_record(value: dict[str, Any]) -> None:
     require_string(value["writerId"], "INVALID_TASK_STATE")
     require_utc(value["claimedAt"], "INVALID_TASK_STATE")
     require_sha1(value["claimBaseHead"], "INVALID_TASK_STATE")
+
+
+def _history_relationships(value: dict[str, Any]) -> None:
+    history = value["history"]
+    lifecycle = value["lifecycle"]
+    if not history or history[0]["type"] != "bootstrap" or history[0]["head"] != value["repository"]["baseSha"]:
+        raise TaskError("INVALID_TASK_STATE")
+    if any(event["head"] is None for event in history):
+        raise TaskError("INVALID_TASK_STATE")
+    if [event["at"] for event in history] != sorted(event["at"] for event in history):
+        raise TaskError("INVALID_TASK_STATE")
+
+    retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed"}]
+    retired_claims = lifecycle["retiredClaims"]
+    if len(retirement_events) != lifecycle["epoch"] or len(retirement_events) != len(retired_claims):
+        raise TaskError("INVALID_TASK_STATE")
+    if any(event["recordDigest"] != digest_object(retired) for event, retired in zip(retirement_events, retired_claims)):
+        raise TaskError("INVALID_TASK_STATE")
+
+    phase_events = [
+        event
+        for event in history
+        if event["type"] in {"offer_created", "claimed", "revoked", "reclaimed", "delivered", "accepted", "completed"}
+    ]
+    last_phase_event = phase_events[-1]["type"] if phase_events else None
+    expected_last = {
+        "planning": None if lifecycle["epoch"] == 0 else {"revoked", "reclaimed"},
+        "awaiting_claim": "offer_created",
+        "implementing": "claimed",
+        "delivered": "delivered",
+        "accepted": "accepted",
+        "completed": "completed",
+    }[lifecycle["phase"]]
+    if isinstance(expected_last, set):
+        if last_phase_event not in expected_last:
+            raise TaskError("INVALID_TASK_STATE")
+    elif last_phase_event != expected_last:
+        raise TaskError("INVALID_TASK_STATE")
+
+    record_bindings = (
+        ("claimed", lifecycle["claim"]),
+        ("delivered", lifecycle["delivery"]),
+        ("accepted", lifecycle["acceptance"]),
+        ("completed", lifecycle["completion"]),
+    )
+    for event_type, record in record_bindings:
+        matching = [event for event in history if event["type"] == event_type]
+        if record is None:
+            if matching and lifecycle["epoch"] == 0:
+                raise TaskError("INVALID_TASK_STATE")
+            continue
+        if not matching or matching[-1]["recordDigest"] != digest_object(record):
+            raise TaskError("INVALID_TASK_STATE")
+
+    blocked = False
+    active_block_digest: str | None = None
+    for event in history:
+        if event["type"] == "blocked":
+            if blocked:
+                raise TaskError("INVALID_TASK_STATE")
+            blocked = True
+            active_block_digest = event["recordDigest"]
+        elif event["type"] == "resumed":
+            if not blocked or event["recordDigest"] != active_block_digest:
+                raise TaskError("INVALID_TASK_STATE")
+            blocked = False
+            active_block_digest = None
+    if blocked != (lifecycle["blocked"] is not None):
+        raise TaskError("INVALID_TASK_STATE")
+    if blocked and active_block_digest != digest_object(lifecycle["blocked"]):
+        raise TaskError("INVALID_TASK_STATE")
 
 
 def finalize_state(value: dict[str, Any]) -> dict[str, Any]:
@@ -252,6 +351,25 @@ def validate_state(value: dict[str, Any]) -> None:
     if value["actionAuthorizationDigest"] is not None:
         require_sha256(value["actionAuthorizationDigest"], "INVALID_TASK_STATE")
     _lifecycle_record(value["lifecycle"])
+    approval = value["approval"]
+    implementation = value["implementationAuthorization"]
+    authorization_digest_value = value["actionAuthorizationDigest"]
+    plan = value["documents"]["plan"]
+    if (implementation is None) != (authorization_digest_value is None):
+        raise TaskError("INVALID_TASK_STATE")
+    if implementation is not None and (
+        approval is None
+        or implementation["planVersion"] != plan["version"]
+        or implementation["materialDigest"] != plan["materialDigest"]
+    ):
+        raise TaskError("INVALID_TASK_STATE")
+    lifecycle_offer = value["lifecycle"]["offer"]
+    if lifecycle_offer is not None and lifecycle_offer["authorizationDigest"] != authorization_digest_value:
+        raise TaskError("INVALID_TASK_STATE")
+    if value["lifecycle"]["phase"] != "planning" and implementation is None:
+        raise TaskError("INVALID_TASK_STATE")
+    if value["lifecycle"]["phase"] == "completed" and not value["lifecycle"]["acceptance"]["merged"]:
+        raise TaskError("INVALID_TASK_STATE")
     if not isinstance(value["history"], list) or len(value["history"]) != value["revision"] + 1:
         raise TaskError("INVALID_TASK_STATE")
     for index, event in enumerate(value["history"]):
@@ -264,13 +382,12 @@ def validate_state(value: dict[str, Any]) -> None:
         if event["head"] is not None:
             require_sha1(event["head"], "INVALID_TASK_STATE")
         require_sha256(event["recordDigest"], "INVALID_TASK_STATE")
+    _history_relationships(value)
     require_sha256(value["integrityDigest"], "INVALID_TASK_STATE")
     unsigned = deepcopy(value)
     actual = unsigned.pop("integrityDigest")
     if digest_object(unsigned) != actual:
         raise TaskError("TASK_STATE_TAMPERED")
-    approval = value["approval"]
-    plan = value["documents"]["plan"]
     if approval is not None and (
         approval["planVersion"] != plan["version"]
         or approval["materialDigest"] != plan["materialDigest"]
@@ -383,7 +500,12 @@ def record_completion_state(
     archive_digest: str,
     at: str,
 ) -> dict[str, Any]:
-    if state["lifecycle"]["phase"] != "accepted" or state["lifecycle"]["blocked"] is not None:
+    if (
+        state["lifecycle"]["phase"] != "accepted"
+        or state["lifecycle"]["blocked"] is not None
+        or state["lifecycle"]["acceptance"] is None
+        or not state["lifecycle"]["acceptance"]["merged"]
+    ):
         raise TaskError("INVALID_TRANSITION")
     require_sha1(merge_head, "INVALID_TASK_STATE")
     require_sha256(archive_digest, "INVALID_TASK_STATE")

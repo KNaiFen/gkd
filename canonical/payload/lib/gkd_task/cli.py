@@ -149,6 +149,7 @@ def _parser() -> MachineParser:
     accept.add_argument("--required-check", action="append", default=[])
     accept.add_argument("--review-file", type=Path, required=True)
     accept.add_argument("--adapter-command", type=Path, required=True)
+    accept.add_argument("--runtime-root", type=Path)
     accept.add_argument("--actor-role", choices=("executor", "acceptor", "main"), required=True)
     accept.add_argument("--merge", action="store_true")
     return parser
@@ -210,6 +211,7 @@ def _dispatch(args: Any) -> dict[str, Any]:
             SubprocessGitHubAdapter(args.adapter_command),
             args.actor_role,
             args.merge,
+            runtime=_runtime(args.candidate_root, args.runtime_root),
         )
     if args.command == "migrate-v1":
         candidate = git_root(args.candidate_root)

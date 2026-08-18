@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 from gkd_task.canonical import canonical_bytes
 from gkd_task.errors import TaskError
@@ -45,7 +46,8 @@ class LifecycleContracts(unittest.TestCase):
     def test_offer_commits_only_capability_digest(self) -> None:
         service = self.repo.ready_and_authorized()
         service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
-        capability = RuntimeStore(self.repo.runtime_root).read_capability(service.key)
+        offer_id = json.loads((self.repo.task_root / "offer.json").read_text(encoding="utf-8"))["offerId"]
+        capability = RuntimeStore(self.repo.runtime_root).read_capability(offer_id)
         tracked = subprocess.run(
             ["git", "-C", str(self.repo.candidate), "grep", "-n", capability["capability"], "HEAD"],
             stdout=subprocess.PIPE,
@@ -58,6 +60,33 @@ class LifecycleContracts(unittest.TestCase):
         offer = (self.repo.task_root / "offer.json").read_text(encoding="utf-8")
         self.assertNotIn(capability["capability"], offer)
         self.assertIn(capability["capabilityDigest"], offer)
+
+    def test_capability_write_failure_leaves_offer_retryable_without_commit(self) -> None:
+        service = self.repo.ready_and_authorized()
+        before_head, before_revision = self.repo.cas()
+        before_commits = self.repo.commits()
+        with mock.patch.object(service.runtime, "write_capability", side_effect=TaskError("CAPABILITY_UNAVAILABLE")):
+            with self.assertRaisesRegex(TaskError, "CAPABILITY_UNAVAILABLE"):
+                service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
+        self.assertEqual((before_head, before_revision), self.repo.cas())
+        self.assertEqual(before_commits, self.repo.commits())
+        self.assertEqual("planning", self.repo.state()["lifecycle"]["phase"])
+        result = service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
+        self.assertEqual("awaiting_claim", result["status"])
+
+    def test_offer_commit_interruption_recovers_with_capability_intact(self) -> None:
+        self.repo.ready_and_authorized()
+
+        def committed_failure(phase: str) -> None:
+            if phase == "committed":
+                raise RuntimeError("injected-offer-commit")
+
+        service = self.repo.service(failure_hook=committed_failure)
+        with self.assertRaisesRegex(RuntimeError, "injected-offer-commit"):
+            service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
+        self.assertEqual("recovered_committed", service.recover()["status"])
+        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
+        self.assertEqual("handoff_ready", self.repo.service().handoff()["status"])
 
     def test_handoff_changes_no_tracked_byte_or_head(self) -> None:
         service = self.repo.ready_and_authorized()
@@ -127,6 +156,21 @@ class LifecycleContracts(unittest.TestCase):
         self.assertEqual("consumed", offer["status"])
         with self.assertRaisesRegex(TaskError, "INVALID_LAUNCH_ENVELOPE|OFFER_CONFLICT"):
             service.claim(*self.repo.cas(), handoff["envelopeId"])
+
+    def test_claim_receipt_write_failure_repairs_from_committed_journal(self) -> None:
+        service = self.repo.ready_and_authorized()
+        service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
+        handoff = service.handoff()
+        with mock.patch.object(service.runtime, "write_claim_receipt", side_effect=TaskError("CLAIM_RECEIPT_WRITE_FAILED")):
+            with self.assertRaisesRegex(TaskError, "CLAIM_RECEIPT_WRITE_FAILED"):
+                service.claim(*self.repo.cas(), handoff["envelopeId"])
+        state = self.repo.state()
+        self.assertEqual("implementing", state["lifecycle"]["phase"])
+        claim_id = state["lifecycle"]["claim"]["claimId"]
+        result = service.deliver(*self.repo.cas(), claim_id)
+        self.assertEqual("delivered", result["status"])
+        receipt = RuntimeStore(self.repo.runtime_root).read_claim_receipt(claim_id)
+        self.assertEqual(claim_id, receipt["claimId"])
 
     def test_late_executor_with_stale_envelope_remains_rejected(self) -> None:
         service = self.repo.ready_and_authorized()
@@ -243,7 +287,8 @@ class LifecycleContracts(unittest.TestCase):
         service = self.repo.ready_and_authorized()
         service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
         encoded = canonical_bytes(service.status()).decode("utf-8")
-        capability = RuntimeStore(self.repo.runtime_root).read_capability(service.key)["capability"]
+        offer_id = json.loads((self.repo.task_root / "offer.json").read_text(encoding="utf-8"))["offerId"]
+        capability = RuntimeStore(self.repo.runtime_root).read_capability(offer_id)["capability"]
         self.assertNotIn(str(self.repo.root), encoded)
         self.assertNotIn(capability, encoded)
 
