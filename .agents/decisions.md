@@ -67,3 +67,7 @@
 - [2026-08-18] `GKD-M-1A` 已通过固定head验收并合并。
   - Why: 主会话逐行审查探测器、测试与证据；独立复现7项自测试、1小时配置成功、12小时配置拒绝及双次capture稳定性，未发现阻塞finding或真实敏感数据。PR无required checks被保留为bootstrap缺口，未伪装为CI成功。
   - Impact: PR #1 head `bd8332aba8c52c8a5bf276d17433dfbd37ed4a38` 以merge commit `0cc09e9c794f73876c84dd63effe87fde355add8` 进入main。里程碑-1继续建立独立 `GKD-M-1B` 外部watcher任务；不得复用native路线。
+
+- [2026-08-18] `GKD-M-1B` 外部 watcher core 达到 live gate 前置条件。
+  - Why: 版本/schema fail-closed、严格请求边界、单 writer JSON-RPC、静默小时健康检查、绑定 child interrupt 与 expected-parent-turn steer、MCP framing、并发隔离和敏感数据 containment 已由 37 项标准库 hermetic/subprocess 合同测试证明。
+  - Impact: 当前唯一允许结论为 `core_ready_for_live_gate`。真实 Codex app-server 连接、12 小时 MCP 阻塞、正常 final 去重、异常 steer 和 parent context trace 必须留给独立 `GKD-M-1C`；在该门通过前禁止启用 auto route 或宣称 `external_watcher_supported`。
