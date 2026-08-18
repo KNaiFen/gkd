@@ -7,12 +7,12 @@
 - Fixed base: `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`
 - Synchronized main: `60ea9e9ef5c50290b2fa20e0b7888b59aa538599`
 - Initial planning head: `b1e8b8d9f00ad53b68162c240134c3cd740d937a`
-- Implementation/evidence commit: `1798b0f2c32571c803c399179c27090f94d21c0a`
+- Implementation/evidence commit: `fee072bf6849d87ffd6a6323ea75a81af3504831`
 - Draft PR: `KNaiFen/gkd#5`
 - Development bundle version: `0.0.0-dev.0`
-- Development content digest: `f29a594cd138a1b4e039b1411b953a6795f9b21a27b6086fdd540479c408faeb`
-- Evidence digest: `164ab691af9fa1af9137386da2169aba3cd065793366815d53077557f69b3774`
-- Evidence file SHA-256: `dcf0b28b109708a3ca134dda22883e2a2001dd046b2e2ee2d9983078bb9267fd`
+- Development content digest: `17e51babe52b18695abf270d7359b8c9ff343e017caf379a3274cb3f1e470aff`
+- Evidence digest: `98079835befaefe7eae74b5becfcbeb0eb5b559abcde3223171072ba7dd7377b`
+- Evidence file SHA-256: `e437c7d52d3e9aad79850b4080ed1563b5f5cf7f1a29135458ab20d948ca9de1`
 
 This bootstrap task did not create or hand-edit a task `task.json`, offer,
 claim, authorization, journal, or evidence result for itself. It did not use
@@ -36,6 +36,17 @@ the candidate `gkd-task` to claim, deliver, accept, or merge PR #5.
   claim, epoch fencing, revoke/reclaim, block/resume and delivery. Installed
   claim remains fail-closed until milestone 2 supplies a trusted runtime
   evidence provider.
+- Added a machine-local claim receipt bound to the exact claim commit, committed
+  transaction journal and task/offer postimages. Delivery repairs a missing
+  receipt only from that committed journal; trusted acceptance refuses a
+  candidate-history-only claim before any GitHub call.
+- Made offer capability and v1 attachment publication recoverable with tracked
+  state: runtime writes fail before commit, pre-commit failures remain retryable,
+  and post-commit recovery retains only runtime state proven to match the
+  committed offer/migration.
+- Enforced the full lifecycle field matrix, cross-record IDs/epochs and history
+  relationships, and rejected explicit symlink candidate roots before path
+  resolution in locator, service and acceptance paths.
 - Added trusted fixed-tree acceptance with anchored authorization history,
   independent-review checks, synchronized-main and exact delivery-commit
   validation, repository-policy inputs, two pre-merge fact reads, one
@@ -46,18 +57,18 @@ the candidate `gkd-task` to claim, deliver, accept, or merge PR #5.
 
 | Group | Tests |
 | --- | ---: |
-| L1 planning and strict schema | 18 |
-| L1 offer, claim and lifecycle | 17 |
+| L1 planning and strict schema | 19 |
+| L1 offer, claim and lifecycle | 20 |
 | L1 transaction and recovery | 8 |
 | L2 bootstrap and packaging | 13 |
 | L2 concurrent subprocess claim | 1 |
-| L2 fixed-head acceptance/fake GitHub | 17 |
-| L2 locator and migration | 12 |
+| L2 fixed-head acceptance/fake GitHub | 19 |
+| L2 locator and migration | 14 |
 | Source mutation guards | 9 |
-| **Task-core total** | **95** |
+| **Task-core total** | **103** |
 
 Stable contract ID digest:
-`ad139dcffe775c42ebddd50d23c4f3579da7984a9b8156910313e5f5e24c0c16`.
+`0eb3be2a2a822f3ef0bd43085ea05abf4ab2268dce8cd0338136766d52b2ce7d`.
 
 ## Validation
 
@@ -70,9 +81,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=canonical/payload/lib:. python3 tests/task_
 cmp -s "$GKD_RUN_A_OUTPUT" "$GKD_RUN_B_OUTPUT"
 ```
 
-Both runs passed 95 tests, left their fixture roots empty, and produced
+Both runs passed 103 tests, left their fixture roots empty, and produced
 byte-identical evidence with file SHA-256
-`dcf0b28b109708a3ca134dda22883e2a2001dd046b2e2ee2d9983078bb9267fd`.
+`e437c7d52d3e9aad79850b4080ed1563b5f5cf7f1a29135458ab20d948ca9de1`.
 
 Retained regressions and repository checks:
 
@@ -106,8 +117,12 @@ change occurred.
 
 ## GitHub Reality
 
-- Before the final push, PR #5 was open, Draft, mergeable, based on `main`, and
-  still pointed to the planning head.
+- Independent acceptance of ready PR #5 at
+  `c35ac55fd299196a463bc31e8ff0f98ef37c3858` did not pass. No merge occurred;
+  the four blocking findings covered missing external claim receipt,
+  runtime/tracked transaction ordering, lifecycle invariants and explicit
+  symlink candidate handling. This delivery contains their remediation and
+  requires a new fixed-head independent acceptance.
 - GitHub reported no checks on the task branch and `main` returned HTTP 404 for
   branch protection. This is recorded as
   `required_checks_not_configured_bootstrap`, not CI success.
@@ -117,7 +132,9 @@ change occurred.
 
 ## Deviations And Residual Risks
 
-- No material plan deviation occurred.
+- No material plan deviation occurred. The first delivered head was rejected by
+  independent acceptance and the four blocking security findings were repaired
+  in `fee072bf6849d87ffd6a6323ea75a81af3504831` before this renewed handoff.
 - Runtime/session role evidence is intentionally a provider seam with an
   internal fixture provider; the installed CLI refuses claim without a later
   trusted provider. This preserves the milestone 2 boundary.

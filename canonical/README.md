@@ -37,7 +37,9 @@ The foundation `gkd-bundle` command surface remains unchanged.
 
 `gkd-task bootstrap` requires an explicit fetched full base SHA, canonical
 repository identity, independent candidate path and reviewed three-document
-planning package. Runtime attachments, one-time capabilities, envelopes, locks
-and journals stay outside tracked task data. Installed claim routing remains
+planning package. Runtime attachments, one-time capabilities, envelopes, claim
+receipts, locks and journals stay outside tracked task data. A claim receipt is
+bound to the exact claim commit and committed transaction postimages before
+delivery or trusted acceptance can proceed. Installed claim routing remains
 fail-closed until a later milestone provides a trusted runtime evidence
 provider; this development component does not enable automatic execution.
