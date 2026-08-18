@@ -120,3 +120,7 @@
 - [2026-08-18] `GKD-M1-A` v1 规划与人工交接已建立。
   - Why: 冻结计划已批准里程碑1的三状态门禁、clean-main/worktree、portable locator、offer/claim事务和窄accept/merge范围；现有bundle尚无可信task CLI，必须继续使用bootstrap人工交接，不能让main或候选代码自托管本任务。
   - Impact: 任务固定base为 `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`，branch为 `task/m1-deterministic-task-core`，planning head为 `b1e8b8d9f00ad53b68162c240134c3cd740d937a`，Draft PR为 `KNaiFen/gkd#5`。任务分支中的 `requirements.md`、`plan.md`、`execution.md` 是bootstrap审批锚；不手填 `task.json`，不使用候选 `gkd-task` claim/deliver/accept/merge自身PR。执行者必须是GPT-5.6 Sol / xhigh的独立人工顶层session，停在PR ready与固定head交付；main当前只登记和交接。
+
+- [2026-08-18] `GKD-M1-A` 确定性任务核心达到人工交付门。
+  - Why: 独立execution session实现独立`gkd-task`、三状态规划与授权、clean-main/worktree、portable locator、runtime attachment、offer/claim fencing、锁/CAS/journal、doctor/migration及trusted fixed-tree acceptance；95项task-core合同含真实bare Git/worktree、双subprocess claim、fake GitHub和9项mutation均通过，保留的115项回归通过，两次clean临时根证据逐字节一致且生产保护面不变。
+  - Impact: implementation/evidence commit固定为 `1798b0f2c32571c803c399179c27090f94d21c0a`，development content digest为 `f29a594cd138a1b4e039b1411b953a6795f9b21a27b6086fdd540479c408faeb`，evidence digest为 `164ab691af9fa1af9137386da2169aba3cd065793366815d53077557f69b3774`。结论仅为 `deterministic_task_core_ready`；PR #5仍须在最终delivery head独立验收。本结论不启用role/auto route/一小时wait/CI monitor，不授权生产安装、发布、AIO接入，也不允许本session验收或合并。
