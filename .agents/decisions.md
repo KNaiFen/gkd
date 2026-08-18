@@ -83,3 +83,7 @@
 - [2026-08-18] `GKD-M-1C` 外部 watcher live gate 输出 `unsupported`。
   - Why: 四个真实 fresh Codex/app-server/MCP 场景均未稳定执行固定的先 spawn child、后调用 live gate 顺序，无法形成无猜测的 parent/child/session/turn 绑定；因此 Gate 1-8 缺少 required live facts。数据最小化、生产配置前后快照和最终运行清理通过，但不能替代 live 行为证明。
   - Impact: 禁止宣称 `external_watcher_supported`、启用 auto route、安装生产 watcher 或开始里程碑 0。PR #3 仅交付可复现 fail-closed probe、脱敏证据和失败边界；manual handoff 继续可用。
+
+- [2026-08-18] `GKD-M-1C` 的 `unsupported` 结论已通过独立验收并合并。
+  - Why: 主会话审查live probe、adapter、15项negative tests和机器证据，独立复验M-1B 47项、M-1C 15项，并重放四个真实场景；重放仍为Gate 1-8 fail、Gate 9 pass，normalized digest保持 `bc3237802b839565b74665381a6df2cdbf920a13d9cbb48f8daddd9d29adf610`，配置前后匹配且无已知残留。
+  - Impact: PR #3 head `4332cea7aecc7540640add626ddca6b9b3d8cbad` 以squash commit `afacf490aee948a0e70910304976da6c667375fa` 进入main。auto route在本次计划中保持禁用，但hybrid B允许后续里程碑继续人工交接；里程碑0不再被M-1C执行session的暂停边界阻塞。
