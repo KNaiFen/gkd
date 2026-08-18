@@ -107,3 +107,7 @@
 - [2026-08-18] 里程碑0完成，撤销未定义的M0-B占位。
   - Why: 冻结计划中里程碑0只有canonical基础、单一权威VISION和文档分层三项正式范围，均已由M0-A实现并通过终验；计划没有批准任何M0-B具体范围，不能把执行文档中的停止边界误当成新任务定义。
   - Impact: M0-A终态记录保留在 `tasks/m0-canonical-foundation/acceptance.md`。完成worktree和分支清理后，下一步直接规划里程碑1的 `GKD-M1-A`；自动executor仍受D2 `unsupported` 阻断，继续采用人工顶层session。
+
+- [2026-08-18] `GKD-M0-A` 收尾清理完成。
+  - Why: 终态验收记录已进入main，候选worktree在删除前保持干净且tree与squash merge一致；用户明确允许忽略残留交互式shell的cwd后执行清理。
+  - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m0-canonical-foundation`、本地 `task/m0-canonical-foundation` 和远端同名分支均已删除。bootstrap任务文档原位保留；因本仓库尚无 `.trellis/scripts/task.py`，未伪造task archive或validate结果。

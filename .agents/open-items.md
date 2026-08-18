@@ -8,7 +8,7 @@
 - [x] `GKD-M0-A` PR #4首轮验收的metadata mode、evidence终态顺序和跨机器污染扫描3项finding已由 `3bab17697735adcf85e1214d6580966a7e896f47` 修复并重新取证。
 - [x] `GKD-M0-A` 新固定head `68c418aef398dd6c2a3576c330d744e5d351acfa` 已通过独立终验并squash merge为 `2207645ab7a3bfc4b0ad4a15cf4bbe743612933c`；结论仅为 `canonical_foundation_ready`。
 - [x] 里程碑0的正式范围已由M0-A全部覆盖；未定义、未批准具体范围的M0-B占位不再作为任务。
-- [ ] 等待占用候选目录的交互式shell离开后，删除M0-A worktree、本地分支和远端分支并回填实际清理结果。
+- [x] M0-A终态验收已落盘；任务worktree、本地分支和远端分支均已删除并回填实际清理结果。
 - [ ] 规划并确认里程碑1首个任务 `GKD-M1-A`，继续由人工顶层execution session执行。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

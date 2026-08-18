@@ -31,6 +31,6 @@
 - 归档路径：`tasks/m0-canonical-foundation/` 原位保留为 bootstrap 终态记录。
 - `archive --no-commit`：未运行；本仓库尚无 `.trellis/scripts/task.py` 或 task JSON 状态机，不伪造标准归档结果。
 - `validate --all`：未运行；原因同上。
-- records-only 提交：待本文件与长期状态记录提交后填写实际提交。
-- worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m0-canonical-foundation`；Git 干净，等待仍以该目录为 cwd 的交互式 shell 离开后删除。
-- 本地/远端分支：`task/m0-canonical-foundation` 与 `origin/task/m0-canonical-foundation` 暂时保留，随 worktree 一并清理。
+- records-only 提交：终态记录由 `c285debec849583a865598c68d57ddeb9561a297` 写入 main；本次提交回填实际清理结果。
+- worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m0-canonical-foundation` 已删除；删除前 Git 干净、head 与已验收 fixed head 一致，用户明确允许忽略仍以该目录为 cwd 的残留交互式 shell。
+- 本地/远端分支：`task/m0-canonical-foundation` 与 `origin/task/m0-canonical-foundation` 均已删除。
