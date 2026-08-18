@@ -75,3 +75,7 @@
 - [2026-08-18] `GKD-M-1B` 固定head验收的6项阻塞finding已修复并重新取证。
   - Why: 旧head允许任意64位digest、未绑定thread/session归属、interrupt后未确认终态、误分类steer错误、取消/EOF关闭不确定，并允许credential-shaped identity回显；这些均违反冻结安全合同。
   - Impact: 实现/证据提交 `b9fa7978298fea1fe1f14e8b992eb4f2ec2bf7b3` 增加精确runtime evidence绑定、控制前归属复核、有界终态确认、窄错误分类、确定性关闭和身份凭据样式拒绝。47项合同连续两次通过，结论仍仅为 `core_ready_for_live_gate`；PR #2必须在新固定head重新独立验收，本session不合并或启动M-1C。
+
+- [2026-08-18] `GKD-M-1B` 新固定head已通过独立验收并合并。
+  - Why: 主会话重新审查完整差异和6项修复，独立运行47项合同，并两次重生成与仓库完全一致的证据；PR live head、归属、可合并状态与无checks的bootstrap事实均已复核，未发现阻塞finding。
+  - Impact: PR #2 head `98df6ba122d9fe8aed230094ed806010e7002aa7` 以squash commit `1d303456f2afcaa4e5fd0353232e30c5c6b63a33` 进入main。结论仍只允许 `core_ready_for_live_gate`；下一步必须由独立人工顶层session执行 `GKD-M-1C` live gate，未经该门不得启用auto route。
