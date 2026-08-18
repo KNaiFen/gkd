@@ -14,7 +14,7 @@
 - 执行路线：人工开启的独立顶层 execution session
 - 仓库：`KNaiFen/gkd`
 - 分支：`task/m-1-external-watcher-live-gate`
-- Draft PR：由 main 在交接前创建并回填
+- Draft PR：`https://github.com/KNaiFen/gkd/pull/3`
 - 固定 base SHA：`c438855961760707c119cb172be97ae9030a4508`
 - 本机 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m-1-external-watcher-live-gate`
 - 前置候选：PR #2 head `98df6ba122d9fe8aed230094ed806010e7002aa7`
