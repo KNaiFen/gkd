@@ -103,3 +103,7 @@
 - [2026-08-18] `GKD-M0-A` 新固定head已通过独立验收并合并。
   - Why: 主会话重新审查完整差异和3项修复，独立运行foundation 53项、M-1B 47项及M-1C negative 15项；两个隔离临时根生成的证据与仓库提交逐字节一致，内部evidence digest保持 `ac463b216718f4a49a7d2dd89198fc83403afd2ecd4f83a690622d2f517fd494`，临时根最终为空且生产保护面不变。PR live head、base、可合并状态与无configured checks的bootstrap事实均已复核，未发现阻塞finding。
   - Impact: PR #4 head `68c418aef398dd6c2a3576c330d744e5d351acfa` 以squash commit `2207645ab7a3bfc4b0ad4a15cf4bbe743612933c` 进入main。结论仍只允许 `canonical_foundation_ready`；下一任务必须继续由独立人工顶层session建立和执行，不得据此生产安装、接入AIO或提前开始里程碑1。
+
+- [2026-08-18] 里程碑0完成，撤销未定义的M0-B占位。
+  - Why: 冻结计划中里程碑0只有canonical基础、单一权威VISION和文档分层三项正式范围，均已由M0-A实现并通过终验；计划没有批准任何M0-B具体范围，不能把执行文档中的停止边界误当成新任务定义。
+  - Impact: M0-A终态记录保留在 `tasks/m0-canonical-foundation/acceptance.md`。完成worktree和分支清理后，下一步直接规划里程碑1的 `GKD-M1-A`；自动executor仍受D2 `unsupported` 阻断，继续采用人工顶层session。
