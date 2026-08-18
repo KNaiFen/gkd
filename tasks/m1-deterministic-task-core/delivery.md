@@ -8,7 +8,7 @@
 - Synchronized main: `60ea9e9ef5c50290b2fa20e0b7888b59aa538599`
 - Initial planning head: `b1e8b8d9f00ad53b68162c240134c3cd740d937a`
 - Implementation/evidence commit: `fee072bf6849d87ffd6a6323ea75a81af3504831`
-- Draft PR: `KNaiFen/gkd#5`
+- PR: `KNaiFen/gkd#5`
 - Development bundle version: `0.0.0-dev.0`
 - Development content digest: `17e51babe52b18695abf270d7359b8c9ff343e017caf379a3274cb3f1e470aff`
 - Evidence digest: `98079835befaefe7eae74b5becfcbeb0eb5b559abcde3223171072ba7dd7377b`
@@ -126,9 +126,9 @@ change occurred.
 - GitHub reported no checks on the task branch and `main` returned HTTP 404 for
   branch protection. This is recorded as
   `required_checks_not_configured_bootstrap`, not CI success.
-- The execution session must still push the delivery record, update the PR body,
-  mark it ready, verify the exact remote 40-character head, and stop for
-  independent acceptance.
+- PR #5 is Ready. The execution session stops after publishing this delivery
+  record and verifying the exact remote 40-character head; independent
+  acceptance and merge remain external to this session.
 
 ## Deviations And Residual Risks
 
