@@ -136,3 +136,7 @@
 - [2026-08-19] `GKD-M1-A` 新固定 head 已通过独立验收并合并。
   - Why: main 对 `f0b339c0d52ae9325137e9f188b710645c2e2e80` 重新审查迁移事务增量并重放旧 stale-head 反例；attachment 变更只在同一 task lock 内通过 exact head/revision CAS 后发生，失败时 tracked head 与 runtime 全部文件字节不变且可正确重试。task-core 104 项在两个隔离临时根各通过一次，115 项保留回归通过，两份 evidence 与提交文件逐字节一致，未发现阻塞 finding。
   - Impact: PR #5 以 squash commit `5eb3bd34ef389361be2ba22df899ad088ef22da1` 进入 main，候选与 merge tree 均为 `938d02ed18a3ff256a63e707e01cbd3dc86d6649`。里程碑 1 完成，结论仅为 `deterministic_task_core_ready`；里程碑 2 仍由人工顶层 session 实施，auto route、生产安装、AIO 接入、tag 和 Release 均未因此启用。
+
+- [2026-08-19] `GKD-M1-A` 收尾清理完成。
+  - Why: 终态验收记录已进入 main；候选 worktree 删除前保持干净，head 为被验收的 fixed head，tree 与 squash merge tree 一致。
+  - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m1-deterministic-task-core`、本地 `task/m1-deterministic-task-core` 和远端同名分支均已删除。任务文档原位保留；下一步可从同步 main 规划里程碑 2，但仍不得启用自动 executor。

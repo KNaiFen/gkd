@@ -38,4 +38,6 @@
 - 归档路径：`tasks/m1-deterministic-task-core/` 原位保留为 bootstrap 终态记录。
 - 标准 `archive`/`validate`：未运行；本仓库没有 AIO `.trellis/scripts/task.py`，不伪造标准归档结果。
 - `gkd-local-verify`：其指定的 `scripts/check-local-verification.mjs` 不存在于本仓库；records-only 变更改用固定 base 祖先关系、`git diff --check`、状态内容核对和 clean-main 检查。
-- worktree 与本地/远端任务分支：待本终态记录进入 main 后清理并回填实际结果。
+- records-only 提交：终态记录由 `3a10658ef2d5940e7f38484e2fe9d31aa80fa3be` 写入 main；本次提交回填实际清理结果。
+- worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m1-deterministic-task-core` 已删除；删除前 Git 干净、head 为被验收的 `f0b339c0d52ae9325137e9f188b710645c2e2e80`，tree 与 merge commit 完全一致。
+- 本地/远端分支：`task/m1-deterministic-task-core` 与 `origin/task/m1-deterministic-task-core` 均已删除。

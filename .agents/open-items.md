@@ -16,7 +16,7 @@
 - [x] PR #5续交head `f34152ddbe79c3b9ff12c6e2e97121c34fd8fffa` 的独立验收未通过且未合并；剩余migration CAS前写attachment问题已在implementation/evidence commit `0548eb52ead7191733c32129241168c2e7035a9f` 修复并重新取证。
 - [x] PR #5最终delivery head `f0b339c0d52ae9325137e9f188b710645c2e2e80` 已通过独立fixed-head验收，并以squash commit `5eb3bd34ef389361be2ba22df899ad088ef22da1` 进入main；无configured checks或main branch protection继续记为`required_checks_not_configured_bootstrap`。
 - [x] 里程碑1由`GKD-M1-A`完整覆盖并完成；确定性任务核心结论仅为`deterministic_task_core_ready`。
-- [ ] 清理`GKD-M1-A` worktree、本地任务分支和远端任务分支，并回填实际清理结果。
+- [x] `GKD-M1-A` worktree、本地任务分支和远端任务分支已删除并回填实际清理结果。
 - [ ] 规划并建立里程碑2人工顶层execution session任务；在固定角色、offer/claim runtime evidence与实际一小时等待门全部通过前，auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。
