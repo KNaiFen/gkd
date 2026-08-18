@@ -31,7 +31,7 @@ def service() -> WatchService:
             )
         ],
     )
-    return WatchService(lambda _request: session, clock=clock)
+    return WatchService(lambda _request, _cancellation: session, clock=clock)
 
 
 def main() -> int:

@@ -35,6 +35,12 @@ class RuntimeVerifier(Protocol):
     def verify(self, command: Sequence[str]) -> None: ...
 
 
+class CloseRegistrar(Protocol):
+    def register_close(self, callback: Callable[[], None]) -> None: ...
+
+    def unregister_close(self, callback: Callable[[], None]) -> None: ...
+
+
 class DefaultCommandResolver:
     """Resolve one executable from trusted installation configuration."""
 
@@ -150,11 +156,16 @@ class AppServerFactory:
         self._verifier = verifier
         self._transport_factory = transport_factory
 
-    def __call__(self, _request) -> JsonRpcClient:
+    def __call__(
+        self, _request, cancellation: CloseRegistrar | None = None
+    ) -> JsonRpcClient:
         command = self._resolver.resolve()
         self._verifier.verify(command)
         transport = self._transport_factory((*command, "app-server"))
         client = JsonRpcClient(transport)
+        close_callback = client.close
+        if cancellation is not None:
+            cancellation.register_close(close_callback)
         try:
             result = client.request(
                 "initialize",
@@ -171,6 +182,8 @@ class AppServerFactory:
             if not isinstance(result, dict):
                 raise RuntimeVerificationError("initialize_response_invalid")
         except Exception:
+            if cancellation is not None:
+                cancellation.unregister_close(close_callback)
             client.close()
             raise
         return client

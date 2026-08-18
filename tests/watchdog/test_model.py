@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import unittest
 
 from gkd_watchdog.constants import MAX_WAIT_MS
@@ -57,6 +58,41 @@ class WatchRequestTests(unittest.TestCase):
                 RequestValidationError
             ):
                 WatchRequest.parse(valid_request(**override))
+
+    def test_rejects_well_formed_but_unapproved_runtime_digest(self) -> None:
+        with self.assertRaises(RequestValidationError):
+            WatchRequest.parse(valid_request(runtimeEvidenceDigest="0" * 64))
+
+    def test_rejects_credential_shaped_values_in_every_echoed_id(self) -> None:
+        credentials = (
+            ("github_classic", "ghp_" + "A" * 36),
+            ("github_fine_grained", "github_pat_" + "A" * 30),
+            ("gitlab", "glpat-" + "A" * 24),
+            ("openai", "sk-" + "A" * 24),
+            ("slack", "xoxb-" + "A" * 24),
+        )
+        fields = (
+            "taskId",
+            "offerId",
+            "sessionId",
+            "childThreadId",
+            "childTurnId",
+            "parentThreadId",
+            "expectedParentTurnId",
+        )
+        for credential_class, credential in credentials:
+            for field in fields:
+                with self.subTest(
+                    credential_class=credential_class, field=field
+                ), self.assertRaises(RequestValidationError):
+                    WatchRequest.parse(valid_request(**{field: credential}))
+
+    def test_direct_request_construction_cannot_bypass_identity_invariants(self) -> None:
+        request = WatchRequest.parse(valid_request())
+        with self.assertRaises(RequestValidationError):
+            replace(request, runtime_evidence_digest="0" * 64)
+        with self.assertRaises(RequestValidationError):
+            replace(request, task_id="ghp_" + "A" * 36)
 
     def test_rejects_missing_field(self) -> None:
         raw = valid_request()

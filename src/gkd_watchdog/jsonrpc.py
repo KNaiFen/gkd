@@ -58,6 +58,8 @@ TRANSCRIPT_FIELDS = frozenset(
         "expectedTurnId",
         "includeTurns",
         "input",
+        "parentThreadId",
+        "sessionId",
         "status",
         "threadId",
         "turn",
@@ -210,17 +212,18 @@ class SubprocessTransport:
         return value
 
     def close(self) -> None:
-        if getattr(self, "_closed", True):
-            return
-        self._closed = True
-        process = getattr(self, "_process", None)
+        with self._writer_lock:
+            if getattr(self, "_closed", True):
+                return
+            self._closed = True
+            process = getattr(self, "_process", None)
+            if process is not None and process.stdin is not None:
+                try:
+                    process.stdin.close()
+                except (OSError, ValueError):
+                    pass
         if process is None:
             return
-        if process.stdin is not None:
-            try:
-                process.stdin.close()
-            except OSError:
-                pass
         if process.poll() is None:
             try:
                 process.terminate()
@@ -240,7 +243,7 @@ class SubprocessTransport:
         if process.stdout is not None:
             try:
                 process.stdout.close()
-            except OSError:
+            except (OSError, ValueError):
                 pass
 
 

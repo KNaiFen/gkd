@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 import sys
 
 
@@ -18,6 +20,9 @@ def response(request_id, result) -> None:
 
 def main() -> int:
     scenario = sys.argv[1]
+    pid_file = os.environ.get("GKD_FAKE_PID_FILE")
+    if pid_file:
+        Path(pid_file).write_text(str(os.getpid()), encoding="ascii")
     for line in sys.stdin:
         request = json.loads(line)
         request_id = request["id"]
@@ -39,6 +44,8 @@ def main() -> int:
             continue
 
         if method == "initialize":
+            if scenario == "initialize_hang":
+                continue
             response(
                 request_id,
                 {
@@ -51,18 +58,21 @@ def main() -> int:
             continue
         if method == "thread/read":
             thread_id = request["params"]["threadId"]
+            is_child = thread_id == "child-thread-1"
             response(
                 request_id,
                 {
                     "thread": {
                         "id": thread_id,
+                        "sessionId": "session-1",
+                        "parentThreadId": "parent-thread-1" if is_child else None,
                         "status": {"type": "active"},
                         "turns": [],
                         "updatedAt": 1,
                     }
                 },
             )
-            if scenario == "normal":
+            if scenario == "normal" and is_child:
                 write(
                     {
                         "jsonrpc": "2.0",
@@ -86,7 +96,7 @@ def main() -> int:
                         },
                     }
                 )
-            elif scenario == "steer_rejected":
+            elif scenario == "steer_rejected" and is_child:
                 write(
                     {
                         "jsonrpc": "2.0",
@@ -101,7 +111,7 @@ def main() -> int:
                         },
                     }
                 )
-            elif scenario == "system_error":
+            elif scenario == "system_error" and is_child:
                 write(
                     {
                         "jsonrpc": "2.0",
@@ -115,7 +125,24 @@ def main() -> int:
                 )
             continue
         if method == "turn/interrupt":
+            if scenario == "cancel_hang":
+                continue
             response(request_id, {})
+            if scenario == "system_error":
+                write(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "turn/completed",
+                        "params": {
+                            "threadId": request["params"]["threadId"],
+                            "turn": {
+                                "id": request["params"]["turnId"],
+                                "status": "interrupted",
+                                "items": [],
+                            },
+                        },
+                    }
+                )
             continue
         if method == "turn/steer":
             if scenario == "steer_rejected":

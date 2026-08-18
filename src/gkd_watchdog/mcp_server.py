@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 import threading
+import time
 from typing import Any, Callable, Mapping, TextIO
 
 from .constants import MAX_MESSAGE_BYTES
@@ -37,6 +38,10 @@ class JsonLineWriter:
             self._stream.flush()
 
 
+class McpShutdownError(RuntimeError):
+    pass
+
+
 class McpServer:
     def __init__(
         self,
@@ -44,12 +49,20 @@ class McpServer:
         *,
         writer: JsonLineWriter,
         max_active_watches: int = 15,
+        shutdown_grace_ms: int = 1_000,
+        shutdown_force_ms: int = 3_000,
     ) -> None:
-        if max_active_watches <= 0:
-            raise ValueError("max_active_watches must be positive")
+        if (
+            max_active_watches <= 0
+            or shutdown_grace_ms <= 0
+            or shutdown_force_ms <= 0
+        ):
+            raise ValueError("MCP limits must be positive")
         self._service_factory = service_factory
         self._writer = writer
         self._max_active_watches = max_active_watches
+        self._shutdown_grace_ms = shutdown_grace_ms
+        self._shutdown_force_ms = shutdown_force_ms
         self._active: dict[Any, CancellationToken] = {}
         self._active_lock = threading.Lock()
         self._workers: set[threading.Thread] = set()
@@ -66,11 +79,7 @@ class McpServer:
                 self._error(None, -32700, "invalid JSON-RPC message")
                 continue
             self.handle(message)
-        self._cancel_all()
-        with self._workers_lock:
-            workers = tuple(self._workers)
-        for worker in workers:
-            worker.join(timeout=2)
+        self._shutdown_all()
 
     def handle(self, message: Any) -> None:
         if not isinstance(message, Mapping) or message.get("jsonrpc") != "2.0":
@@ -193,7 +202,10 @@ class McpServer:
                 },
             )
         except Exception:
-            self._error(request_id, -32603, "watcher execution failed")
+            try:
+                self._error(request_id, -32603, "watcher execution failed")
+            except (BrokenPipeError, OSError, ValueError):
+                pass
         finally:
             with self._active_lock:
                 self._active.pop(request_id, None)
@@ -217,6 +229,32 @@ class McpServer:
         for token in tokens:
             token.cancel()
 
+    def _force_close_all(self) -> None:
+        with self._active_lock:
+            tokens = tuple(self._active.values())
+        for token in tokens:
+            token.force_close()
+
+    def _join_workers(self, timeout_ms: int) -> tuple[threading.Thread, ...]:
+        deadline = time.monotonic() + timeout_ms / 1000
+        with self._workers_lock:
+            workers = tuple(self._workers)
+        for worker in workers:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            worker.join(timeout=remaining)
+        return tuple(worker for worker in workers if worker.is_alive())
+
+    def _shutdown_all(self) -> None:
+        self._cancel_all()
+        alive = self._join_workers(self._shutdown_grace_ms)
+        if alive:
+            self._force_close_all()
+            alive = self._join_workers(self._shutdown_force_ms)
+        if alive:
+            raise McpShutdownError("watch workers did not stop")
+
     def _result(self, request_id: Any, result: Any) -> None:
         self._writer.write({"jsonrpc": "2.0", "id": request_id, "result": result})
 
@@ -238,7 +276,10 @@ def main(argv: list[str] | None = None) -> int:
         lambda: WatchService(default_app_server_factory()),
         writer=writer,
     )
-    server.serve(sys.stdin)
+    try:
+        server.serve(sys.stdin)
+    except McpShutdownError:
+        return 1
     return 0
 
 

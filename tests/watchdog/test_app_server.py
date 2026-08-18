@@ -73,7 +73,7 @@ class AppServerClientTests(unittest.TestCase):
         client = client_for("normal")
         try:
             client.request("initialize", {"clientInfo": {"name": "test"}})
-            result = WatchService(lambda _request: client).watch(parsed_request())
+            result = WatchService(lambda _request, _cancellation: client).watch(parsed_request())
             serialized = repr(client.transcript) + repr(result.to_dict())
         finally:
             client.close()
@@ -90,7 +90,7 @@ class AppServerClientTests(unittest.TestCase):
         client = client_for("system_error")
         try:
             client.request("initialize", {"clientInfo": {"name": "test"}})
-            result = WatchService(lambda _request: client).watch(parsed_request())
+            result = WatchService(lambda _request, _cancellation: client).watch(parsed_request())
             methods = [
                 entry.get("method")
                 for entry in client.transcript
@@ -102,7 +102,17 @@ class AppServerClientTests(unittest.TestCase):
         self.assertEqual(result.outcome, "abnormal_child")
         self.assertEqual(
             methods,
-            ["initialize", "thread/read", "turn/interrupt", "turn/steer"],
+            [
+                "initialize",
+                "thread/read",
+                "thread/read",
+                "thread/read",
+                "thread/read",
+                "turn/interrupt",
+                "thread/read",
+                "thread/read",
+                "turn/steer",
+            ],
         )
         self.assertNotIn("fixture-secret", repr(client.transcript) + repr(result.to_dict()))
 
@@ -110,7 +120,7 @@ class AppServerClientTests(unittest.TestCase):
         client = client_for("steer_rejected")
         try:
             client.request("initialize", {"clientInfo": {"name": "test"}})
-            result = WatchService(lambda _request: client).watch(parsed_request())
+            result = WatchService(lambda _request, _cancellation: client).watch(parsed_request())
             transcript = client.transcript
         finally:
             client.close()
@@ -249,9 +259,8 @@ class AppServerClientTests(unittest.TestCase):
                 request = parsed_request(
                     taskId=f"task-{name}",
                     offerId=f"offer-{name}",
-                    sessionId=f"session-{name}",
                 )
-                results[name] = WatchService(lambda _request: client).watch(request)
+                results[name] = WatchService(lambda _request, _cancellation: client).watch(request)
                 transcripts[name] = client.transcript
             finally:
                 client.close()
@@ -270,7 +279,7 @@ class AppServerClientTests(unittest.TestCase):
                 for entry in transcripts[name]
                 if entry.get("direction") == "request"
             ]
-            self.assertEqual(request_ids, [1, 2])
+            self.assertEqual(request_ids, [1, 2, 3])
 
     def test_untrusted_notification_method_and_keys_are_redacted_in_transcript(self) -> None:
         class NotificationTransport:

@@ -20,6 +20,32 @@ from probes.multiagentv2.native_probe import capture
 
 
 CONTRACT_TEST_SUFFIXES = {
+    "runtime_evidence_binding": (
+        "WatchRequestTests.test_rejects_well_formed_but_unapproved_runtime_digest",
+        "McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
+        "WatchRequestTests.test_direct_request_construction_cannot_bypass_identity_invariants",
+    ),
+    "thread_ownership_binding": (
+        "WatchServiceTests.test_thread_ownership_mismatch_fails_before_control",
+        "WatchServiceTests.test_thread_ownership_drift_blocks_interrupt_and_steer",
+        "WatchServiceTests.test_parent_read_remote_failure_is_protocol_not_child_abnormal",
+    ),
+    "interrupt_confirmation": (
+        "WatchServiceTests.test_system_error_interrupts_child_then_steers_bound_parent",
+        "WatchServiceTests.test_interrupt_without_bound_terminal_confirmation_never_steers",
+    ),
+    "steer_error_classification": (
+        "WatchServiceTests.test_wrong_expected_turn_is_rejected_once_without_fallback",
+        "WatchServiceTests.test_non_expected_steer_errors_remain_protocol_errors",
+    ),
+    "cancellation_and_eof_shutdown": (
+        "WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
+        "WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
+        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
+    ),
+    "credential_identity_rejection": (
+        "WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id",
+    ),
     "deadline_single_terminal": (
         "WatchServiceTests.test_twelve_hour_deadline_is_single_and_hourly_ticks_are_silent",
     ),
@@ -43,16 +69,19 @@ CONTRACT_TEST_SUFFIXES = {
         "AppServerClientTests.test_eof_malformed_unknown_and_duplicate_responses_terminate",
         "AppServerClientTests.test_response_timeout_is_bounded",
         "AppServerClientTests.test_start_failure_maps_to_terminal_orchestrator_error",
-        "WatchServiceTests.test_secondary_protocol_error_after_not_found_is_terminal",
+        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
     ),
     "pre_side_effect_validation": (
         "WatchRequestTests.test_rejects_unknown_fields_before_side_effects",
         "WatchRequestTests.test_rejects_wrong_types_limits_and_digest",
-        "McpAdapterTests.test_invalid_request_never_constructs_watch_service",
+        "McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
         "AppServerClientTests.test_schema_drift_stops_before_app_server_spawn",
     ),
     "cancellation_scope": (
         "WatchServiceTests.test_cancellation_interrupts_only_bound_child_and_never_parent",
+        "WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
+        "WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
+        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
     ),
     "concurrency_and_single_writer": (
         "WatchServiceTests.test_two_concurrent_instances_keep_identity_and_calls_separate",
@@ -65,10 +94,12 @@ CONTRACT_TEST_SUFFIXES = {
         "McpAdapterTests.test_subprocess_invalid_request_uses_jsonrpc_error_without_side_effect",
         "McpAdapterTests.test_health_ticks_emit_no_progress_result_or_log_before_cancel",
         "McpAdapterTests.test_malformed_mcp_json_uses_parse_error_frame",
+        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
     ),
     "sensitive_data_containment": (
         "AppServerClientTests.test_actual_subprocess_normal_terminal_drops_body_from_transcript",
         "AppServerClientTests.test_untrusted_notification_method_and_keys_are_redacted_in_transcript",
+        "WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id",
     ),
 }
 

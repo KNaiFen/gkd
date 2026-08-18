@@ -84,12 +84,16 @@ class ScriptedSession:
         if method in self.remote_errors:
             raise AppServerRemoteError(self.remote_errors[method])
         if method == "thread/read":
-            if self.statuses:
+            thread_id = params["threadId"]
+            is_child = thread_id == "child-thread-1"
+            if is_child and self.statuses:
                 self.last_status = self.statuses.popleft()
             return {
                 "thread": {
-                    "id": params["threadId"],
-                    "status": {"type": self.last_status},
+                    "id": thread_id,
+                    "sessionId": "session-1",
+                    "parentThreadId": "parent-thread-1" if is_child else None,
+                    "status": {"type": self.last_status if is_child else "active"},
                     "turns": [],
                     "updatedAt": 1,
                 }
