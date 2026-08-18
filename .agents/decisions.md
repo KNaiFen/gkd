@@ -99,3 +99,7 @@
 - [2026-08-18] `GKD-M0-A` 首轮验收的3项阻塞finding已修复并重新取证。
   - Why: source与installed metadata实际mode已fail-closed；evidence output与source/temp/protected面经resolve后必须不相交，临时安装和staging清理完成后才允许最终protected快照与发布；通用污染扫描只识别完整机器路径，仓库专用标识移到最终evidence边界。新增9项foundation负向/变异合同使旧实现失败。
   - Impact: implementation/evidence commit `3bab17697735adcf85e1214d6580966a7e896f47` 通过53项foundation、47项M-1B、15项M-1C negative和两次字节一致证据，content digest更新为 `0b8b2487640ff2c78360a18e7f24304f72a8e8c8b5cbd1317ef833c323726228`。结论仍仅为 `canonical_foundation_ready`；PR #4必须在新固定head重新独立验收，本session不合并或开始后续任务。
+
+- [2026-08-18] `GKD-M0-A` 新固定head已通过独立验收并合并。
+  - Why: 主会话重新审查完整差异和3项修复，独立运行foundation 53项、M-1B 47项及M-1C negative 15项；两个隔离临时根生成的证据与仓库提交逐字节一致，内部evidence digest保持 `ac463b216718f4a49a7d2dd89198fc83403afd2ecd4f83a690622d2f517fd494`，临时根最终为空且生产保护面不变。PR live head、base、可合并状态与无configured checks的bootstrap事实均已复核，未发现阻塞finding。
+  - Impact: PR #4 head `68c418aef398dd6c2a3576c330d744e5d351acfa` 以squash commit `2207645ab7a3bfc4b0ad4a15cf4bbe743612933c` 进入main。结论仍只允许 `canonical_foundation_ready`；下一任务必须继续由独立人工顶层session建立和执行，不得据此生产安装、接入AIO或提前开始里程碑1。
