@@ -120,3 +120,15 @@
 - [2026-08-18] `GKD-M1-A` v1 规划与人工交接已建立。
   - Why: 冻结计划已批准里程碑1的三状态门禁、clean-main/worktree、portable locator、offer/claim事务和窄accept/merge范围；现有bundle尚无可信task CLI，必须继续使用bootstrap人工交接，不能让main或候选代码自托管本任务。
   - Impact: 任务固定base为 `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd`，branch为 `task/m1-deterministic-task-core`，planning head为 `b1e8b8d9f00ad53b68162c240134c3cd740d937a`，Draft PR为 `KNaiFen/gkd#5`。任务分支中的 `requirements.md`、`plan.md`、`execution.md` 是bootstrap审批锚；不手填 `task.json`，不使用候选 `gkd-task` claim/deliver/accept/merge自身PR。执行者必须是GPT-5.6 Sol / xhigh的独立人工顶层session，停在PR ready与固定head交付；main当前只登记和交接。
+
+- [2026-08-18] `GKD-M1-A` 确定性任务核心达到人工交付门。
+  - Why: 独立execution session实现独立`gkd-task`、三状态规划与授权、clean-main/worktree、portable locator、runtime attachment、offer/claim fencing、锁/CAS/journal、doctor/migration及trusted fixed-tree acceptance；95项task-core合同含真实bare Git/worktree、双subprocess claim、fake GitHub和9项mutation均通过，保留的115项回归通过，两次clean临时根证据逐字节一致且生产保护面不变。
+  - Impact: implementation/evidence commit固定为 `1798b0f2c32571c803c399179c27090f94d21c0a`，development content digest为 `f29a594cd138a1b4e039b1411b953a6795f9b21a27b6086fdd540479c408faeb`，evidence digest为 `164ab691af9fa1af9137386da2169aba3cd065793366815d53077557f69b3774`。结论仅为 `deterministic_task_core_ready`；PR #5仍须在最终delivery head独立验收。本结论不启用role/auto route/一小时wait/CI monitor，不授权生产安装、发布、AIO接入，也不允许本session验收或合并。
+
+- [2026-08-18] `GKD-M1-A` 首轮独立验收阻塞已在原execution session修复。
+  - Why: PR #5固定head `c35ac55fd299196a463bc31e8ff0f98ef37c3858` 的独立验收证明candidate-only claim历史可触发accept/merge、offer/migration runtime写失败会留下不可重试tracked状态、phase字段组合缺少完整不变量，以及显式symlink candidate会在resolve后失去身份；该head未合并。
+  - Impact: implementation/evidence commit `fee072bf6849d87ffd6a6323ea75a81af3504831` 增加machine-local claim receipt并绑定精确claim commit、committed journal和task/offer postimage；runtime side effect前置并按实际commit结果恢复；task validator增加phase矩阵、跨记录ID/epoch与history关系；locator/service/acceptance在resolve前拒绝显式symlink。103项task-core与115项保留回归通过，两次clean临时根证据逐字节一致；content digest为 `17e51babe52b18695abf270d7359b8c9ff343e017caf379a3274cb3f1e470aff`，evidence digest为 `98079835befaefe7eae74b5becfcbeb0eb5b559abcde3223171072ba7dd7377b`。结论仍仅为 `deterministic_task_core_ready`，必须在PR #5新fixed head再次独立验收，本session不得验收或合并。
+
+- [2026-08-19] `GKD-M1-A` 续交验收的migration CAS/runtime残留已修复。
+  - Why: PR #5续交fixed head `f34152ddbe79c3b9ff12c6e2e97121c34fd8fffa` 的独立验收确认前三项原阻塞闭环，但证明active v1 migration在`TransactionManager`校验stale head前已写入原本不存在的attachment，随后因HEAD不等于expected而不回滚；该head未合并。
+  - Impact: implementation/evidence commit `0548eb52ead7191733c32129241168c2e7035a9f` 将attachment previous-image读取与写入/删除移入manager已持锁且通过head/revision CAS后的builder；未提交异常按previous image恢复。新增合同同时证明stale full head与stale revision返回稳定CAS错误、tracked head和全部runtime文件字节不变，并可用正确CAS重试成功。104项task-core与115项保留回归通过，两次clean临时根证据逐字节一致；content digest为 `fc96a10cb82b628bd14280e4e878417a3fbc7a1d560fac5a61bb7abe7f3c3024`，evidence digest为 `3f119831c41a18536318b621f21f13d8d18d115fce77e3fb97870a0148395569`。结论仍仅为 `deterministic_task_core_ready`，必须在新fixed head再次独立验收。

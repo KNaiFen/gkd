@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gkd://schema/task/offer-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "offerId", "status", "epoch", "taskId", "repository", "taskBranch", "expectedHead", "expectedRevision", "route", "planVersion", "planMaterialDigest", "authorizationDigest", "allowedActions", "roleDigest", "configDigest", "capabilityDigest", "createdAt", "expiresAt", "consumedByDigest"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "offerId": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["active", "consumed", "revoked"]},
+    "epoch": {"type": "integer", "minimum": 0},
+    "taskId": {"type": "string"},
+    "repository": {"type": "string"},
+    "taskBranch": {"type": "string"},
+    "expectedHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "expectedRevision": {"type": "integer", "minimum": 0},
+    "route": {"type": "string"},
+    "planVersion": {"type": "integer", "minimum": 1},
+    "planMaterialDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authorizationDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "allowedActions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "roleDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "configDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "capabilityDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "createdAt": {"type": "string"},
+    "expiresAt": {"type": "string"},
+    "consumedByDigest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+  }
+}

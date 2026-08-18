@@ -11,6 +11,9 @@
 - [x] M0-A终态验收已落盘；任务worktree、本地分支和远端分支均已删除并回填实际清理结果。
 - [ ] 在目标 fresh runtime 证明 `wait_agent(timeout_ms=3600000)` 被实际工具接受、child final 可提前返回，并用确定性/fake-clock 合同验证最多12轮静默重等与单一timeout；当前工具层只声明360,000ms，门禁未通过前不得使用更短循环替代。
 - [x] `GKD-M1-A` v1 requirements/plan/execution 已在base `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd` 建立，planning head `b1e8b8d9f00ad53b68162c240134c3cd740d937a` 已推送到Draft PR #5。
-- [ ] 在独立人工顶层execution session按PR #5任务文档实现并交付 `GKD-M1-A` 固定head；不得由main或候选CLI直接执行、验收或合并。
+- [x] `GKD-M1-A` 已由独立人工顶层execution session实现并形成implementation/evidence commit `1798b0f2c32571c803c399179c27090f94d21c0a`；候选结论仅为 `deterministic_task_core_ready`。
+- [x] PR #5首个delivery head `c35ac55fd299196a463bc31e8ff0f98ef37c3858` 的独立验收未通过且未合并；四项阻塞已由原execution session在implementation/evidence commit `fee072bf6849d87ffd6a6323ea75a81af3504831` 修复并重新取证。
+- [x] PR #5续交head `f34152ddbe79c3b9ff12c6e2e97121c34fd8fffa` 的独立验收未通过且未合并；剩余migration CAS前写attachment问题已在implementation/evidence commit `0548eb52ead7191733c32129241168c2e7035a9f` 修复并重新取证。
+- [ ] 对PR #5新最终delivery head执行独立fixed-head验收；当前无configured checks或main branch protection，必须保留为`required_checks_not_configured_bootstrap`，不得由execution session或候选CLI自行验收/合并。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

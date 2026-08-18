@@ -28,3 +28,18 @@ Evidence output must resolve outside the source, temporary installation and
 protected roots. Temporary installs are fully removed before the final
 protected-state snapshot, and the evidence file is published only after every
 terminal invariant passes.
+
+The development bundle also installs a separate `gkd-task` executable, its
+standard-library `gkd_task` package, and strict task schemas. It owns canonical
+task state, planning and authorization gates, portable worktree resolution,
+offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
+The foundation `gkd-bundle` command surface remains unchanged.
+
+`gkd-task bootstrap` requires an explicit fetched full base SHA, canonical
+repository identity, independent candidate path and reviewed three-document
+planning package. Runtime attachments, one-time capabilities, envelopes, claim
+receipts, locks and journals stay outside tracked task data. A claim receipt is
+bound to the exact claim commit and committed transaction postimages before
+delivery or trusted acceptance can proceed. Installed claim routing remains
+fail-closed until a later milestone provides a trusted runtime evidence
+provider; this development component does not enable automatic execution.
