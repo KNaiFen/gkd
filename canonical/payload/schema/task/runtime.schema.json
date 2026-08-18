@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gkd://schema/task/runtime-v1",
+  "oneOf": [
+    {"$ref": "#/$defs/attachment"},
+    {"$ref": "#/$defs/capability"},
+    {"$ref": "#/$defs/envelope"},
+    {"$ref": "#/$defs/journal"}
+  ],
+  "$defs": {
+    "attachment": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "repository", "taskId", "taskBranch", "taskPath", "candidateRoot", "commonDir", "updatedAt", "attachmentDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "attachment"}, "repository": {"type": "string"}, "taskId": {"type": "string"}, "taskBranch": {"type": "string"}, "taskPath": {"type": "string"}, "candidateRoot": {"type": "string"}, "commonDir": {"type": "string"}, "updatedAt": {"type": "string"}, "attachmentDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "capability": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "offerId", "epoch", "capability", "capabilityDigest", "createdAt"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "capability"}, "offerId": {"type": "string"}, "epoch": {"type": "integer"}, "capability": {"type": "string"}, "capabilityDigest": {"type": "string"}, "createdAt": {"type": "string"}}},
+    "envelope": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "envelopeId", "offerId", "epoch", "capability", "candidateRoot", "taskPath", "route", "roleDigest", "configDigest", "createdAt", "envelopeDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "launch-envelope"}, "envelopeId": {"type": "string"}, "offerId": {"type": "string"}, "epoch": {"type": "integer"}, "capability": {"type": "string"}, "candidateRoot": {"type": "string"}, "taskPath": {"type": "string"}, "route": {"type": "string"}, "roleDigest": {"type": "string"}, "configDigest": {"type": "string"}, "createdAt": {"type": "string"}, "envelopeDigest": {"type": "string"}}},
+    "journal": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "transactionId", "runtimeKey", "status", "expectedHead", "expectedRevision", "files", "createdAt", "committedHead", "journalDigest"], "properties": {"schemaVersion": {"const": 1}, "transactionId": {"type": "string"}, "runtimeKey": {"type": "string"}, "status": {"enum": ["prepared", "committed", "rolled_back"]}, "expectedHead": {"type": "string"}, "expectedRevision": {"type": "integer"}, "files": {"type": "array"}, "createdAt": {"type": "string"}, "committedHead": {"type": ["string", "null"]}, "journalDigest": {"type": "string"}}}
+  }
+}
