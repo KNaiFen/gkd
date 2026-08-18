@@ -29,6 +29,7 @@ INSTALL_TARGET = f"{METADATA_ROOT}/install.json"
 PROTECTED_SURFACES = (
     "config.toml",
     "skills",
+    "agents",
     "roles",
     "plugins",
     "mcp",

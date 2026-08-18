@@ -1,0 +1,4 @@
+interface:
+  display_name: "GKD Main"
+  short_description: "Plan and route canonical GKD tasks"
+  default_prompt: "Use $gkd-main to coordinate this GKD task from trusted main."

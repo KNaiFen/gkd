@@ -43,3 +43,12 @@ bound to the exact claim commit and committed transaction postimages before
 delivery or trusted acceptance can proceed. Installed claim routing remains
 fail-closed until a later milestone provides a trusted runtime evidence
 provider; this development component does not enable automatic execution.
+
+The M2-A payload additionally defines three fixed custom-agent role TOMLs,
+minimal role context manifests, hard-rule subsets, five progressive-disclosure
+workflow Skills, route and wait schemas, and a host-only activation evidence
+provider. The default route is manual; automatic routing has six explicit gates
+and remains manual-only until the separate M2-B fresh-runtime wait gate proves
+the required one-hour tool behavior. A short isolated role handshake was
+attempted once for this task, but its host event stream did not prove custom
+role activation, so the M2-A delivery evidence is intentionally `blocked`.

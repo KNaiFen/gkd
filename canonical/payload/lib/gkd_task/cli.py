@@ -114,10 +114,21 @@ def _parser() -> MachineParser:
     offer.add_argument("--role-digest", required=True)
     offer.add_argument("--config-digest", required=True)
     offer.add_argument("--expires-at", required=True)
+    offer.add_argument("--role-name")
+    offer.add_argument("--bundle-digest")
 
     claim = commands.add_parser("claim")
     _add_cas(claim)
     claim.add_argument("--envelope-id", required=True)
+    claim.add_argument("--activation-id")
+    claim.add_argument("--bundle-root", type=Path)
+    claim.add_argument("--provider-digest")
+
+    activation_recover = commands.add_parser("activation-recover")
+    _add_candidate(activation_recover, runtime_required=True)
+    activation_recover.add_argument("--activation-id", required=True)
+    activation_recover.add_argument("--bundle-root", type=Path, required=True)
+    activation_recover.add_argument("--provider-digest", required=True)
 
     for name in ("revoke", "reclaim"):
         command = commands.add_parser(name)
@@ -156,11 +167,48 @@ def _parser() -> MachineParser:
 
 
 def _service(args: Any) -> TaskService:
-    return TaskService(
-        args.candidate_root,
-        args.task_path,
-        runtime=_runtime(args.candidate_root, getattr(args, "runtime_root", None)),
+    runtime = _runtime(args.candidate_root, getattr(args, "runtime_root", None))
+    activation_values = (
+        getattr(args, "activation_id", None),
+        getattr(args, "bundle_root", None),
+        getattr(args, "provider_digest", None),
     )
+    if any(value is not None for value in activation_values):
+        if any(value is None for value in activation_values) or runtime is None:
+            raise TaskError("INVALID_ARGUMENTS")
+        from gkd_role.activation import ActivationEvidenceProvider
+        from gkd_role.roles import role_catalog, role_record
+
+        bundle_root = args.bundle_root
+        candidate = args.candidate_root.resolve()
+        resolved_bundle = bundle_root.resolve()
+        try:
+            resolved_bundle.relative_to(candidate)
+        except ValueError:
+            pass
+        else:
+            raise TaskError("UNTRUSTED_ROLE_SOURCE")
+        activation = runtime.read_activation(args.activation_id)
+        catalog = role_catalog(bundle_root, activation["bundleDigest"])
+        role = role_record(catalog, activation["roleName"])
+        if role["roleDigest"] != activation["roleDigest"] or role["configDigest"] != activation["configDigest"]:
+            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+        expected = {
+            "taskId": activation["taskId"],
+            "repository": activation["repository"],
+            "taskBranch": activation["taskBranch"],
+            "offerId": activation["offerId"],
+            "envelopeId": activation["envelopeId"],
+            "route": activation["route"],
+            "roleName": activation["roleName"],
+            "roleDigest": activation["roleDigest"],
+            "configDigest": activation["configDigest"],
+            "bundleDigest": activation["bundleDigest"],
+        }
+        provider = ActivationEvidenceProvider(runtime, args.activation_id, expected, args.provider_digest)
+    else:
+        provider = None
+    return TaskService(args.candidate_root, args.task_path, runtime=runtime, evidence_provider=provider)
 
 
 def _dispatch(args: Any) -> dict[str, Any]:
@@ -249,9 +297,11 @@ def _dispatch(args: Any) -> dict[str, Any]:
     if args.command == "authorize":
         return service.authorize(args.expected_head, args.expected_revision, args.decision_ref, args.mode, sorted(args.actions))
     if args.command == "offer":
-        return service.offer(args.expected_head, args.expected_revision, args.route, args.role_digest, args.config_digest, args.expires_at)
+        return service.offer(args.expected_head, args.expected_revision, args.route, args.role_digest, args.config_digest, args.expires_at, args.role_name, args.bundle_digest)
     if args.command == "claim":
         return service.claim(args.expected_head, args.expected_revision, args.envelope_id)
+    if args.command == "activation-recover":
+        return service.recover_activation()
     if args.command == "revoke":
         return service.revoke(args.expected_head, args.expected_revision, args.reason)
     if args.command == "reclaim":

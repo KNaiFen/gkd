@@ -148,3 +148,7 @@
 - [2026-08-19] `GKD-M2-A` v1 规划与人工交接已建立。
   - Why: 已验收 M1 CLI 的安装态 claim provider 故意 fail-closed，无法可信地让 M2-A 使用尚未实现的角色证据自管本任务；因此继续采用受审 Markdown、Git worktree 和独立人工顶层 session 的窄 bootstrap exception，不创建或伪造 task JSON/offer/claim/activation。
   - Impact: 固定 base 为 `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`，branch 为 `task/m2-role-routing-core`，planning head 为 `51fee63a8b600df4f94aa042ea42ef09e3b73986`，Draft PR 为 `KNaiFen/gkd#6`。execution session 只实现 M2-A，停在 fixed-head delivery；不得验收/合并、启动 M2-B、启用 auto route或修改生产/AIO。
+
+- [2026-08-19] `GKD-M2-A` 固定角色与路由核心已实现，但交付结论固定为 `blocked`。
+  - Why: 51 项 hermetic/L2 合同、M1 task-core 104、foundation 53、watcher core 47 和 live-negative 15 均通过，两次隔离安装/迁移 evidence 逐字节一致；但唯一一次获准的短时 fresh host handshake 只证明 custom role reference，未证明可信 custom role activation 或 parent/child terminal 归属。
+  - Impact: bundle digest 固定为 `943301005912c05bb137d6c44a597e4569e05e9f0e738adaec4a8b675f654649`，M2 evidence digest 固定为 `efe08577c4eabfb91938d2d93473ed142ded4bbe4f651c591a8d830624fbec8c`；不得用 Agent 自述、fixture 或候选文件补足证据。PR #6 只交付 fixed head/Ready，不能验收、合并、启动 M2-B、执行真实一小时等待或启用 auto route。

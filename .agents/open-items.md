@@ -18,7 +18,7 @@
 - [x] 里程碑1由`GKD-M1-A`完整覆盖并完成；确定性任务核心结论仅为`deterministic_task_core_ready`。
 - [x] `GKD-M1-A` worktree、本地任务分支和远端任务分支已删除并回填实际清理结果。
 - [x] `GKD-M2-A` v1 requirements/plan/implementation/execution 已在base `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea` 建立；branch `task/m2-role-routing-core`，planning head `51fee63a8b600df4f94aa042ea42ef09e3b73986`，Draft PR #6。
-- [ ] 在独立 GPT-5.6 Sol / xhigh 人工顶层execution session按PR #6任务文档实现并交付`GKD-M2-A`；不得由main或未来候选角色直接实现、验收或合并。
+- [x] 在独立 GPT-5.6 Sol / xhigh 人工顶层execution session按PR #6任务文档实现并形成 fixed-head delivery；hermetic/L2 合同通过，但 fresh host role handshake 未建立，结论为`blocked`，不得由main或未来候选角色直接验收或合并。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

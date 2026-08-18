@@ -138,7 +138,7 @@ def _validate_claim_receipt(
     state: dict[str, Any],
     repository: str,
     runtime: RuntimeStore,
-) -> None:
+) -> dict[str, Any]:
     claim = state["lifecycle"]["claim"]
     if claim is None:
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
@@ -203,6 +203,7 @@ def _validate_claim_receipt(
         or anchored_offer["status"] != "consumed"
     ):
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    return receipt
 
 
 def _validate_fixed_candidate(
@@ -256,7 +257,32 @@ def _validate_fixed_candidate(
         or anchored_offer["authorizationDigest"] != authorization["authorizationDigest"]
     ):
         raise TaskError("authorization_mismatch")
-    _validate_claim_receipt(candidate_root, task_path, candidate_head, state, anchored_state["repository"]["identity"], runtime)
+    claim_receipt = _validate_claim_receipt(candidate_root, task_path, candidate_head, state, anchored_state["repository"]["identity"], runtime)
+    if anchored_offer["schemaVersion"] == 2:
+        from gkd_role.activation import validate_activation, validate_activation_receipt
+
+        activation_receipt = runtime.read_claim_activation_receipt(claim["claimId"])
+        validate_activation_receipt(activation_receipt)
+        activation = runtime.read_activation(activation_receipt["activationId"])
+        validate_activation(activation)
+        if (
+            activation_receipt["claimId"] != claim["claimId"]
+            or activation_receipt["claimCommit"] != claim_receipt["claimCommit"]
+            or activation_receipt["claimReceiptDigest"] != claim_receipt["receiptDigest"]
+            or activation_receipt["activationDigest"] != activation["activationDigest"]
+            or activation["offerId"] != anchored_offer["offerId"]
+            or activation["taskId"] != state["taskId"]
+            or activation["repository"] != state["repository"]["identity"]
+            or activation["taskBranch"] != state["repository"]["taskBranch"]
+            or activation["agentId"] != claim["writerId"]
+            or activation["threadDigest"] != claim["sessionDigest"]
+            or activation["roleName"] != anchored_offer["roleName"]
+            or activation["roleDigest"] != anchored_offer["roleDigest"]
+            or activation["configDigest"] != anchored_offer["configDigest"]
+            or activation["bundleDigest"] != anchored_offer["bundleDigest"]
+            or activation["route"] != anchored_offer["route"]
+        ):
+            raise TaskError("INVALID_ACTIVATION_RECEIPT")
     return state, authorization
 
 

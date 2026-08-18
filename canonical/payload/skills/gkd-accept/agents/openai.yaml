@@ -1,0 +1,4 @@
+interface:
+  display_name: "GKD Accept"
+  short_description: "Review one frozen GKD candidate"
+  default_prompt: "Use $gkd-accept to review this exact delivered GKD head."

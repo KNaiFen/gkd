@@ -99,9 +99,7 @@ def validate_capability(value: dict[str, Any]) -> None:
 
 
 def validate_envelope(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {
+    legacy_keys = {
             "schemaVersion",
             "kind",
             "envelopeId",
@@ -115,9 +113,13 @@ def validate_envelope(value: dict[str, Any]) -> None:
             "configDigest",
             "createdAt",
             "envelopeDigest",
-        },
-        "INVALID_LAUNCH_ENVELOPE",
-    )
+        }
+    if "roleName" in value or "bundleDigest" in value:
+        require_keys(value, legacy_keys | {"roleName", "bundleDigest"}, "INVALID_LAUNCH_ENVELOPE")
+        require_string(value["roleName"], "INVALID_LAUNCH_ENVELOPE")
+        require_sha256(value["bundleDigest"], "INVALID_LAUNCH_ENVELOPE")
+    else:
+        require_keys(value, legacy_keys, "INVALID_LAUNCH_ENVELOPE")
     if value["schemaVersion"] != RUNTIME_SCHEMA_VERSION or value["kind"] != "launch-envelope":
         raise TaskError("INVALID_LAUNCH_ENVELOPE")
     for field in ("envelopeId", "offerId", "roleDigest", "configDigest", "envelopeDigest"):
@@ -257,6 +259,57 @@ class RuntimeStore:
     def delete_claim_receipt(self, claim_id: str) -> None:
         require_sha256(claim_id, "INVALID_CLAIM_RECEIPT")
         unlink_file(self._path("claim-receipts", claim_id))
+
+    def write_activation(self, value: dict[str, Any]) -> None:
+        from gkd_role.activation import validate_activation
+
+        validate_activation(value)
+        self._write_private(self._path("activations", value["activationId"]), value)
+
+    def read_activation(self, activation_id: str) -> dict[str, Any]:
+        from gkd_role.activation import validate_activation
+
+        require_sha256(activation_id, "INVALID_ACTIVATION")
+        return read_canonical_json(
+            self._path("activations", activation_id),
+            "ACTIVATION_UNAVAILABLE",
+            validate_activation,
+        )
+
+    def write_activation_receipt(self, value: dict[str, Any]) -> None:
+        from gkd_role.activation import validate_activation_receipt
+
+        validate_activation_receipt(value)
+        self._write_private(
+            self._path("activation-receipts", value["activationId"]), value
+        )
+        self._write_private(
+            self._path("claim-activation-receipts", value["claimId"]), value
+        )
+
+    def read_activation_receipt(self, activation_id: str) -> dict[str, Any]:
+        from gkd_role.activation import validate_activation_receipt
+
+        require_sha256(activation_id, "INVALID_ACTIVATION_RECEIPT")
+        return read_canonical_json(
+            self._path("activation-receipts", activation_id),
+            "ACTIVATION_RECEIPT_UNAVAILABLE",
+            validate_activation_receipt,
+        )
+
+    def read_claim_activation_receipt(self, claim_id: str) -> dict[str, Any]:
+        from gkd_role.activation import validate_activation_receipt
+
+        require_sha256(claim_id, "INVALID_ACTIVATION_RECEIPT")
+        return read_canonical_json(
+            self._path("claim-activation-receipts", claim_id),
+            "ACTIVATION_RECEIPT_UNAVAILABLE",
+            validate_activation_receipt,
+        )
+
+    def delete_claim_activation_receipt(self, claim_id: str) -> None:
+        require_sha256(claim_id, "INVALID_ACTIVATION_RECEIPT")
+        unlink_file(self._path("claim-activation-receipts", claim_id))
 
     def read_journal(self, transaction_id: str) -> dict[str, Any]:
         from .transaction import validate_journal
