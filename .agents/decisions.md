@@ -87,3 +87,7 @@
 - [2026-08-18] `GKD-M-1C` 的 `unsupported` 结论已通过独立验收并合并。
   - Why: 主会话审查live probe、adapter、15项negative tests和机器证据，独立复验M-1B 47项、M-1C 15项，并重放四个真实场景；重放仍为Gate 1-8 fail、Gate 9 pass，normalized digest保持 `bc3237802b839565b74665381a6df2cdbf920a13d9cbb48f8daddd9d29adf610`，配置前后匹配且无已知残留。
   - Impact: PR #3 head `4332cea7aecc7540640add626ddca6b9b3d8cbad` 以squash commit `afacf490aee948a0e70910304976da6c667375fa` 进入main。auto route在本次计划中保持禁用，但hybrid B允许后续里程碑继续人工交接；里程碑0不再被M-1C执行session的暂停边界阻塞。
+
+- [2026-08-18] `GKD-M0-A` 首个固定head验收发现3项阻塞合同缺口。
+  - Why: 独立复验106项既有测试均通过，但新增反例证明源码schema mode改变不影响digest、已安装metadata mode改变仍被verify误报为0644；evidence output位于protected root时会在after快照后写入并仍声明unchanged；污染扫描把裸用户名和任意`aio`子串作为禁词，导致跨机器误杀。
+  - Impact: PR #4 head `0f69a4ad34d095d70f6d5e5ed93569193ad75578` 不得合并，PR转回Draft。原execution session必须修复metadata mode绑定、protected/output/cleanup终态顺序和通用污染边界，并补旧实现失败的负向测试；新push后重新固定完整head验收。
