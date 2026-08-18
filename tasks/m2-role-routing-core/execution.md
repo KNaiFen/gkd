@@ -20,7 +20,7 @@ not accept, merge, start GKD-M2-B, enable automatic routing, or start milestone
 - Base branch: `main`
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
-- Draft PR: pending creation from the planning commit
+- Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
 - Requirements: `tasks/m2-role-routing-core/requirements.md`, version 1
 - Plan: `tasks/m2-role-routing-core/plan.md`, version 1
 - Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 1
