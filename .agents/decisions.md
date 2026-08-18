@@ -87,3 +87,7 @@
 - [2026-08-18] `GKD-M-1C` 的 `unsupported` 结论已通过独立验收并合并。
   - Why: 主会话审查live probe、adapter、15项negative tests和机器证据，独立复验M-1B 47项、M-1C 15项，并重放四个真实场景；重放仍为Gate 1-8 fail、Gate 9 pass，normalized digest保持 `bc3237802b839565b74665381a6df2cdbf920a13d9cbb48f8daddd9d29adf610`，配置前后匹配且无已知残留。
   - Impact: PR #3 head `4332cea7aecc7540640add626ddca6b9b3d8cbad` 以squash commit `afacf490aee948a0e70910304976da6c667375fa` 进入main。auto route在本次计划中保持禁用，但hybrid B允许后续里程碑继续人工交接；里程碑0不再被M-1C执行session的暂停边界阻塞。
+
+- [2026-08-18] `GKD-M0-A` canonical基础达到人工交付门。
+  - Why: 单一canonical source、生成式manifest/lock、临时边界installer、只读verify/version、唯一VISION与文档分层已由44项foundation合同、47项M-1B回归、15项M-1C负向回归和两次字节一致证据证明。
+  - Impact: development version固定为 `0.0.0-dev.0`，content digest为 `9be34162a4e4125f2f56d4d8148140e022f24cba46abbc56512ea0e8afb2a30f`，结论仅为 `canonical_foundation_ready`。PR #4必须在新固定head独立验收；不得据此生产安装、发布、启用auto route或开始M0-B/里程碑1。
