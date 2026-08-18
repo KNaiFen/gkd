@@ -10,6 +10,9 @@ sorted by canonical source path. Each record binds path, file type, mode and
 content SHA-256. Inputs are `manifest.schema.json`, the generated
 `manifest.json`, and every declared payload file. The lock is excluded from its
 own digest by this rule, then binds the complete ordered input records.
+Canonical metadata is required to be a regular `0644` file before generation;
+installed schema, manifest, lock and install metadata are checked against their
+actual type and mode during verification.
 
 An incompatible manifest shape increments `schema_version`. A development
 bundle content change regenerates the manifest and lock without implying a
@@ -20,3 +23,8 @@ The bootstrap installer has no production or user-home mode. Installation
 requires an explicit existing system-temporary root and an explicit existing
 target beneath it. The installed read-only `verify` and `version` surfaces are
 foundation contracts, not a production doctor.
+
+Evidence output must resolve outside the source, temporary installation and
+protected roots. Temporary installs are fully removed before the final
+protected-state snapshot, and the evidence file is published only after every
+terminal invariant passes.

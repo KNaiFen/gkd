@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from tests.foundation.helpers import copy_source, gkd_bundle
 
@@ -107,6 +108,17 @@ class ManifestContracts(unittest.TestCase):
         with self.assertRaisesRegex(gkd_bundle.BundleError, "SOURCE_MODE_MISMATCH"):
             gkd_bundle.generate(self.source)
 
+    def test_metadata_mode_mutations_are_rejected_before_generation(self) -> None:
+        for name in ("manifest.schema.json", "manifest.json", "manifest.lock.json"):
+            with self.subTest(name=name):
+                path = self.source / name
+                os.chmod(path, 0o755)
+                with self.assertRaisesRegex(
+                    gkd_bundle.BundleError, "SOURCE_METADATA_MODE_MISMATCH"
+                ):
+                    gkd_bundle.generate(self.source)
+                os.chmod(path, 0o644)
+
     def test_source_path_traversal_is_rejected(self) -> None:
         declaration = (self.source / "source.toml").read_text(encoding="utf-8")
         declaration = declaration.replace("payload/lib/gkd_bundle.py", "payload/../source.toml")
@@ -131,19 +143,21 @@ class ManifestContracts(unittest.TestCase):
         with self.assertRaisesRegex(gkd_bundle.BundleError, "INVALID_TARGET_PATH"):
             gkd_bundle.generate(self.source)
 
-    def test_project_specific_install_target_is_rejected(self) -> None:
+    def test_project_specific_install_target_is_deferred_to_repository_scan(self) -> None:
         declaration = (self.source / "source.toml").read_text(encoding="utf-8")
         declaration = declaration.replace("gkd/bin/gkd-bundle", "gkd/aio/gkd-bundle")
         (self.source / "source.toml").write_text(declaration, encoding="utf-8")
-        with self.assertRaisesRegex(gkd_bundle.BundleError, "FORBIDDEN_DECLARATION_CONTENT"):
-            gkd_bundle.generate(self.source)
+        gkd_bundle.generate(self.source)
+        with self.assertRaisesRegex(
+            gkd_bundle.BundleError, "PROJECT_SPECIFIC_SOURCE_CONTENT"
+        ):
+            gkd_bundle._validate_project_contamination(self.source)
 
-    def test_project_specific_component_name_is_rejected(self) -> None:
+    def test_unrelated_aio_substring_is_allowed_by_generic_manifest(self) -> None:
         declaration = (self.source / "source.toml").read_text(encoding="utf-8")
-        declaration = declaration.replace('name = "foundation-cli"', 'name = "aio-cli"')
+        declaration = declaration.replace('name = "foundation-cli"', 'name = "maio-cli"')
         (self.source / "source.toml").write_text(declaration, encoding="utf-8")
-        with self.assertRaisesRegex(gkd_bundle.BundleError, "FORBIDDEN_DECLARATION_CONTENT"):
-            gkd_bundle.generate(self.source)
+        gkd_bundle.generate(self.source)
 
     def test_mutation_manual_manifest_edit_is_rejected(self) -> None:
         path = self.source / "manifest.json"
@@ -173,8 +187,7 @@ class ManifestContracts(unittest.TestCase):
         mutations = (
             b"\n# /Users/example/worktree\n",
             b"\n# /tmp/example\n",
-            b"\n# AIO Coding Hub\n",
-            f"\n# {Path.home().name}\n".encode("utf-8"),
+            b"\n# C:\\Users\\example\\worktree\n",
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation):
@@ -182,6 +195,26 @@ class ManifestContracts(unittest.TestCase):
                 with self.assertRaisesRegex(gkd_bundle.BundleError, "FORBIDDEN_SOURCE_CONTENT"):
                     gkd_bundle.generate(self.source)
         library.write_bytes(original)
+
+    def test_bare_usernames_and_unrelated_aio_substrings_are_portable(self) -> None:
+        self.assertFalse(
+            gkd_bundle._contains_project_marker(b"unrelated_aio_substrings maio payload")
+        )
+        self.assertTrue(gkd_bundle._contains_project_marker(b"gkd/aio/specialized"))
+        for user_name in ("bin", "lib", "gkd"):
+            with self.subTest(user_name=user_name), mock.patch.object(
+                gkd_bundle.Path,
+                "home",
+                return_value=Path(f"/Users/{user_name}"),
+            ):
+                self.assertFalse(
+                    gkd_bundle._forbidden_content(f"{user_name} binary maio payload".encode())
+                )
+                self.assertTrue(
+                    gkd_bundle._forbidden_content(
+                        f"/Users/{user_name}/workspace/project".encode()
+                    )
+                )
 
 
 if __name__ == "__main__":

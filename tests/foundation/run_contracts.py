@@ -15,12 +15,15 @@ CONTRACT_SUFFIXES = {
         "ManifestContracts.test_schema_manifest_lock_and_canonical_sort_are_valid",
         "ManifestContracts.test_repeated_generation_is_byte_identical",
         "ManifestContracts.test_mutation_content_tamper_without_digest_update_is_rejected",
+        "ManifestContracts.test_metadata_mode_mutations_are_rejected_before_generation",
     ),
     "source_inventory_and_paths": (
         "ManifestContracts.test_unknown_payload_file_is_rejected",
         "ManifestContracts.test_missing_payload_file_is_rejected",
         "ManifestContracts.test_source_path_traversal_is_rejected",
         "ManifestContracts.test_machine_specific_source_content_is_rejected",
+        "ManifestContracts.test_bare_usernames_and_unrelated_aio_substrings_are_portable",
+        "ManifestContracts.test_project_specific_install_target_is_deferred_to_repository_scan",
     ),
     "temporary_installation_and_drift": (
         "InstallationContracts.test_two_clean_installs_match_and_repeat_is_idempotent",
@@ -29,6 +32,7 @@ CONTRACT_SUFFIXES = {
         "InstallationContracts.test_verify_detects_missing_file",
         "InstallationContracts.test_verify_detects_extra_file",
         "InstallationContracts.test_verify_detects_mode_drift",
+        "InstallationContracts.test_verify_detects_every_metadata_mode_mutation",
         "InstallationContracts.test_verify_detects_symlink_drift",
     ),
     "vision_and_documentation": (
@@ -42,6 +46,10 @@ CONTRACT_SUFFIXES = {
         "EvidenceContracts.test_two_clean_evidence_generations_are_byte_identical",
         "EvidenceContracts.test_evidence_digest_is_canonical_and_self_excluding",
         "EvidenceContracts.test_evidence_contains_no_temporary_or_machine_path",
+        "EvidenceContracts.test_output_inside_protected_root_fails_without_writing",
+        "EvidenceContracts.test_cleanup_failure_cannot_publish_ready_evidence",
+        "EvidenceContracts.test_final_snapshot_occurs_only_after_install_cleanup",
+        "EvidenceContracts.test_project_specific_path_fails_at_evidence_boundary",
     ),
 }
 

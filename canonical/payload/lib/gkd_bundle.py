@@ -123,7 +123,29 @@ def _existing_directory(value: Path, code: str) -> Path:
     return value.resolve()
 
 
-def _read_canonical_json(path: Path, code: str) -> dict[str, Any]:
+def _require_regular_mode(
+    path: Path,
+    expected_mode: int,
+    type_code: str,
+    mode_code: str,
+) -> os.stat_result:
+    try:
+        metadata = path.lstat()
+    except OSError:
+        raise BundleError(type_code) from None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise BundleError(type_code)
+    if stat.S_IMODE(metadata.st_mode) != expected_mode:
+        raise BundleError(mode_code)
+    return metadata
+
+
+def _read_canonical_json(
+    path: Path,
+    code: str,
+    mode_code: str | None = None,
+) -> dict[str, Any]:
+    _require_regular_mode(path, 0o644, code, mode_code or code)
     try:
         raw = path.read_bytes()
         value = json.loads(raw)
@@ -152,23 +174,34 @@ def _atomic_write(path: Path, content: bytes, mode: int = 0o644) -> None:
 
 def _forbidden_content(data: bytes) -> bool:
     text = data.decode("utf-8", errors="ignore").casefold()
-    user_name = Path.home().name.casefold()
-    product_markers = (
-        "".join(("a", "io")),
+    current_roots = (
+        Path.home().resolve().as_posix().casefold(),
+        Path(tempfile.gettempdir()).resolve().as_posix().casefold(),
+    )
+    for root in current_roots:
+        if root and re.search(
+            rf"(?<![a-z0-9._-]){re.escape(root.rstrip('/'))}(?:/|(?=$|[\s\"'<>]))",
+            text,
+        ):
+            return True
+    machine_path_patterns = (
+        r"(?<![a-z0-9._-])/(?:users|home)/[^/\s\"'<>]+(?:/[^\s\"'<>]*)?",
+        r"(?<![a-z0-9._-])/(?:tmp|private/(?:tmp|var)|var/folders)/[^\s\"'<>]+",
+        r"(?<![a-z0-9._-])[a-z]:[\\/][^\s\"'<>]+",
+    )
+    return any(re.search(pattern, text) for pattern in machine_path_patterns)
+
+
+def _contains_project_marker(data: bytes) -> bool:
+    text = data.decode("utf-8", errors="ignore").casefold()
+    phrases = (
         "".join(("ai", "o coding hub")),
         "".join(("ai", "o-coding-hub")),
     )
-    machine_roots = (
-        "/" + "users" + "/",
-        "/" + "home" + "/",
-        "/" + "tmp" + "/",
-        "/" + "private" + "/" + "var" + "/",
-    )
-    if user_name and len(user_name) >= 3 and user_name in text:
-        return True
-    if any(marker in text for marker in product_markers + machine_roots):
-        return True
-    return re.search(r"[a-z]:[\\/]", text) is not None
+    path_segment = "".join(("a", "io"))
+    return any(phrase in text for phrase in phrases) or re.search(
+        rf"(?:^|[\\/]){path_segment}(?:[\\/]|$)", text
+    ) is not None
 
 
 def _walk_regular_files(root: Path, code: str) -> dict[str, Path]:
@@ -214,6 +247,12 @@ def _validate_schema_document(schema: Any) -> None:
 
 def _load_schema(source_root: Path) -> bytes:
     path = source_root / "manifest.schema.json"
+    _require_regular_mode(
+        path,
+        0o644,
+        "INVALID_MANIFEST_SCHEMA",
+        "SOURCE_METADATA_MODE_MISMATCH",
+    )
     try:
         raw = path.read_bytes()
         schema = json.loads(raw)
@@ -328,7 +367,29 @@ def _digest_record(path: str, mode: str, content: bytes) -> dict[str, Any]:
     }
 
 
+def _validate_generated_metadata_modes(source_root: Path) -> None:
+    for name, type_code in (
+        ("manifest.json", "INVALID_MANIFEST"),
+        ("manifest.lock.json", "INVALID_LOCK"),
+    ):
+        path = source_root / name
+        if path.exists() or path.is_symlink():
+            _require_regular_mode(
+                path,
+                0o644,
+                type_code,
+                "SOURCE_METADATA_MODE_MISMATCH",
+            )
+
+
+def _validate_project_contamination(source_root: Path) -> None:
+    files = _walk_regular_files(source_root, "INVALID_CANONICAL_SOURCE_TYPE")
+    if any(_contains_project_marker(path.read_bytes()) for path in files.values()):
+        raise BundleError("PROJECT_SPECIFIC_SOURCE_CONTENT")
+
+
 def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    _validate_generated_metadata_modes(source_root)
     schema_bytes = _load_schema(source_root)
     manifest = _load_source_declaration(source_root)
     manifest_bytes = canonical_bytes(manifest)
@@ -384,8 +445,16 @@ def generate(source_root_value: Path) -> dict[str, Any]:
 def _validated_source(source_root_value: Path) -> tuple[Path, dict[str, Any], dict[str, Any]]:
     source_root = _existing_directory(source_root_value, "INVALID_SOURCE_ROOT")
     expected_manifest, expected_lock = _build_source_outputs(source_root)
-    actual_manifest = _read_canonical_json(source_root / "manifest.json", "INVALID_MANIFEST")
-    actual_lock = _read_canonical_json(source_root / "manifest.lock.json", "INVALID_LOCK")
+    actual_manifest = _read_canonical_json(
+        source_root / "manifest.json",
+        "INVALID_MANIFEST",
+        "SOURCE_METADATA_MODE_MISMATCH",
+    )
+    actual_lock = _read_canonical_json(
+        source_root / "manifest.lock.json",
+        "INVALID_LOCK",
+        "SOURCE_METADATA_MODE_MISMATCH",
+    )
     if actual_manifest != expected_manifest:
         raise BundleError("MANIFEST_MISMATCH")
     if actual_lock != expected_lock:
@@ -549,6 +618,12 @@ def _verify_target(target: Path) -> dict[str, Any]:
     manifest_path = target / MANIFEST_TARGET
     lock_path = target / LOCK_TARGET
     install_path = target / INSTALL_TARGET
+    schema_metadata = _require_regular_mode(
+        schema_path,
+        0o644,
+        "INSTALLED_SCHEMA_INVALID",
+        "TARGET_DRIFT_MODE",
+    )
     try:
         schema_bytes = schema_path.read_bytes()
         schema = json.loads(schema_bytes)
@@ -558,9 +633,33 @@ def _verify_target(target: Path) -> dict[str, Any]:
         _validate_schema_document(schema)
     except BundleError:
         raise BundleError("INSTALLED_SCHEMA_INVALID") from None
-    manifest = _read_canonical_json(manifest_path, "INSTALLED_MANIFEST_INVALID")
-    lock = _read_canonical_json(lock_path, "INSTALLED_LOCK_INVALID")
-    install_record = _read_canonical_json(install_path, "INSTALL_RECORD_INVALID")
+    manifest_metadata = _require_regular_mode(
+        manifest_path,
+        0o644,
+        "INSTALLED_MANIFEST_INVALID",
+        "TARGET_DRIFT_MODE",
+    )
+    _require_regular_mode(
+        lock_path,
+        0o644,
+        "INSTALLED_LOCK_INVALID",
+        "TARGET_DRIFT_MODE",
+    )
+    _require_regular_mode(
+        install_path,
+        0o644,
+        "INSTALL_RECORD_INVALID",
+        "TARGET_DRIFT_MODE",
+    )
+    manifest = _read_canonical_json(
+        manifest_path, "INSTALLED_MANIFEST_INVALID", "TARGET_DRIFT_MODE"
+    )
+    lock = _read_canonical_json(
+        lock_path, "INSTALLED_LOCK_INVALID", "TARGET_DRIFT_MODE"
+    )
+    install_record = _read_canonical_json(
+        install_path, "INSTALL_RECORD_INVALID", "TARGET_DRIFT_MODE"
+    )
     _validate_installed_manifest(manifest)
     _require_keys(
         lock,
@@ -595,8 +694,16 @@ def _verify_target(target: Path) -> dict[str, Any]:
         for item in component["files"]
     }
     digest_inputs = [
-        _digest_record("manifest.schema.json", "0644", schema_bytes),
-        _digest_record("manifest.json", "0644", canonical_bytes(manifest)),
+        _digest_record(
+            "manifest.schema.json",
+            format(stat.S_IMODE(schema_metadata.st_mode), "04o"),
+            schema_bytes,
+        ),
+        _digest_record(
+            "manifest.json",
+            format(stat.S_IMODE(manifest_metadata.st_mode), "04o"),
+            canonical_bytes(manifest),
+        ),
     ]
     normalized_files = []
     seen_sources: set[str] = set()
@@ -660,15 +767,19 @@ def _verify_target(target: Path) -> dict[str, Any]:
         raise BundleError("TARGET_DRIFT_EXTRA_OR_MISSING")
     if actual_directories != _expected_directories(expected_files):
         raise BundleError("TARGET_DRIFT_DIRECTORY")
-    normalized_files.extend(
-        {
-            "path": path,
-            "type": "file",
-            "mode": "0644",
-            "sha256": sha256_bytes((target / path).read_bytes()),
-        }
-        for path in (SCHEMA_TARGET, MANIFEST_TARGET, LOCK_TARGET, INSTALL_TARGET)
-    )
+    for path in (SCHEMA_TARGET, MANIFEST_TARGET, LOCK_TARGET, INSTALL_TARGET):
+        installed_path = target / path
+        metadata = installed_path.lstat()
+        content = installed_path.read_bytes()
+        normalized_files.append(
+            {
+                "path": path,
+                "type": "file",
+                "mode": format(stat.S_IMODE(metadata.st_mode), "04o"),
+                "size": len(content),
+                "sha256": sha256_bytes(content),
+            }
+        )
     normalized_files.sort(key=lambda item: item["path"])
     return {
         "status": "verified",
@@ -842,6 +953,45 @@ def _snapshot_protected(root_value: Path) -> dict[str, Any]:
     }
 
 
+def _paths_overlap(first: Path, second: Path) -> bool:
+    return _is_within(first, second) or _is_within(second, first)
+
+
+def _resolve_evidence_output(output: Path) -> Path:
+    if output.is_symlink() or output.is_dir():
+        raise BundleError("INVALID_EVIDENCE_OUTPUT")
+    parent = _existing_directory(output.parent, "INVALID_EVIDENCE_OUTPUT")
+    return parent / output.name
+
+
+def _validate_evidence_boundaries(
+    source_root: Path,
+    temporary_root: Path,
+    protected_root: Path,
+    output: Path,
+) -> None:
+    roots = (source_root, temporary_root, protected_root)
+    if any(
+        _paths_overlap(first, second)
+        for index, first in enumerate(roots)
+        for second in roots[index + 1 :]
+    ):
+        raise BundleError("EVIDENCE_BOUNDARY_OVERLAP")
+    if any(_paths_overlap(output, root) for root in roots):
+        raise BundleError("EVIDENCE_OUTPUT_OVERLAP")
+
+
+def _cleanup_evidence_targets(*targets: Path) -> None:
+    for target in targets:
+        try:
+            if target.exists() or target.is_symlink():
+                shutil.rmtree(target)
+        except OSError:
+            raise BundleError("EVIDENCE_CLEANUP_FAILED") from None
+        if target.exists() or target.is_symlink():
+            raise BundleError("EVIDENCE_CLEANUP_FAILED")
+
+
 def generate_evidence(
     source_root_value: Path,
     temporary_root_value: Path,
@@ -850,17 +1000,23 @@ def generate_evidence(
 ) -> dict[str, Any]:
     source_root, manifest, lock = _validated_source(source_root_value)
     temporary_root = _existing_directory(temporary_root_value, "INVALID_TEMPORARY_ROOT")
+    protected_root = _existing_directory(protected_root_value, "INVALID_PROTECTED_ROOT")
+    resolved_output = _resolve_evidence_output(output)
+    _validate_evidence_boundaries(
+        source_root, temporary_root, protected_root, resolved_output
+    )
+    _validate_project_contamination(source_root)
     system_temporary = Path(tempfile.gettempdir()).resolve()
     if temporary_root == system_temporary or not _is_within(temporary_root, system_temporary):
         raise BundleError("INVALID_TEMPORARY_ROOT")
     if any(temporary_root.iterdir()):
         raise BundleError("TEMPORARY_ROOT_NOT_CLEAN")
-    before = _snapshot_protected(protected_root_value)
+    before = _snapshot_protected(protected_root)
     first = temporary_root / "install-a"
     second = temporary_root / "install-b"
-    first.mkdir()
-    second.mkdir()
     try:
+        first.mkdir()
+        second.mkdir()
         first_install = install(source_root, temporary_root, first)
         repeated_install = install(source_root, temporary_root, first)
         second_install = install(source_root, temporary_root, second)
@@ -869,56 +1025,61 @@ def generate_evidence(
         first_version = version(temporary_root, first)
         second_version = version(temporary_root, second)
         validate_repo(source_root.parent)
-        after = _snapshot_protected(protected_root_value)
-        if before != after:
-            raise BundleError("PROTECTED_HOME_CHANGED")
         if first_verified != second_verified or first_version != second_version:
             raise BundleError("INSTALLATIONS_DIFFER")
         if repeated_install["status"] != "already_installed":
             raise BundleError("INSTALL_NOT_IDEMPOTENT")
-        evidence = {
-            "schemaVersion": SCHEMA_VERSION,
-            "task": "GKD-M0-A",
-            "outcome": "canonical_foundation_ready",
-            "bundleVersion": manifest["bundleVersion"],
-            "contentDigest": lock["contentDigest"],
-            "manifestSha256": lock["manifestSha256"],
-            "installations": {
-                "first": first_install,
-                "second": second_install,
-                "normalizedInstalledFiles": first_verified["files"],
-                "versionsMatch": True,
-                "idempotent": True,
-            },
-            "protectedHome": {
-                "beforeDigest": before["digest"],
-                "afterDigest": after["digest"],
-                "entries": before["entries"],
-                "unchanged": True,
-            },
-            "contracts": {
-                "sourceManifestAndLockValidated": "pass",
-                "temporaryBoundaryEnforced": "pass",
-                "twoCleanInstallsMatch": "pass",
-                "repeatInstallIdempotent": "pass",
-                "installedVerifyAndVersion": "pass",
-                "visionAndDocumentationLayering": "pass",
-            },
-        }
-        if _forbidden_content(canonical_bytes(evidence)):
-            raise BundleError("EVIDENCE_CONTAINS_MACHINE_DETAIL")
-        evidence["evidenceDigest"] = sha256_bytes(canonical_bytes(evidence))
-        _atomic_write(output, canonical_bytes(evidence))
-        return {
-            "status": "generated",
-            "outcome": evidence["outcome"],
-            "bundleVersion": evidence["bundleVersion"],
-            "contentDigest": evidence["contentDigest"],
-            "evidenceDigest": evidence["evidenceDigest"],
-        }
     finally:
-        shutil.rmtree(first, ignore_errors=True)
-        shutil.rmtree(second, ignore_errors=True)
+        _cleanup_evidence_targets(first, second)
+
+    if any(temporary_root.iterdir()):
+        raise BundleError("EVIDENCE_CLEANUP_FAILED")
+    after = _snapshot_protected(protected_root)
+    if before != after:
+        raise BundleError("PROTECTED_HOME_CHANGED")
+    evidence = {
+        "schemaVersion": SCHEMA_VERSION,
+        "task": "GKD-M0-A",
+        "outcome": "canonical_foundation_ready",
+        "bundleVersion": manifest["bundleVersion"],
+        "contentDigest": lock["contentDigest"],
+        "manifestSha256": lock["manifestSha256"],
+        "installations": {
+            "first": first_install,
+            "second": second_install,
+            "normalizedInstalledFiles": first_verified["files"],
+            "versionsMatch": True,
+            "idempotent": True,
+        },
+        "protectedHome": {
+            "beforeDigest": before["digest"],
+            "afterDigest": after["digest"],
+            "entries": before["entries"],
+            "unchanged": True,
+        },
+        "contracts": {
+            "sourceManifestAndLockValidated": "pass",
+            "temporaryBoundaryEnforced": "pass",
+            "twoCleanInstallsMatch": "pass",
+            "repeatInstallIdempotent": "pass",
+            "installedVerifyAndVersion": "pass",
+            "cleanupBeforeFinalSnapshot": "pass",
+            "evidenceOutputDisjoint": "pass",
+            "visionAndDocumentationLayering": "pass",
+        },
+    }
+    encoded_evidence = canonical_bytes(evidence)
+    if _forbidden_content(encoded_evidence) or _contains_project_marker(encoded_evidence):
+        raise BundleError("EVIDENCE_CONTAINS_MACHINE_DETAIL")
+    evidence["evidenceDigest"] = sha256_bytes(encoded_evidence)
+    _atomic_write(resolved_output, canonical_bytes(evidence))
+    return {
+        "status": "generated",
+        "outcome": evidence["outcome"],
+        "bundleVersion": evidence["bundleVersion"],
+        "contentDigest": evidence["contentDigest"],
+        "evidenceDigest": evidence["evidenceDigest"],
+    }
 
 
 def _parser() -> MachineParser:

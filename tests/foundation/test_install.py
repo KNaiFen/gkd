@@ -102,6 +102,20 @@ class InstallationContracts(unittest.TestCase):
         with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_MODE"):
             gkd_bundle.verify(self.boundary, target)
 
+    def test_verify_detects_every_metadata_mode_mutation(self) -> None:
+        metadata_paths = (
+            gkd_bundle.SCHEMA_TARGET,
+            gkd_bundle.MANIFEST_TARGET,
+            gkd_bundle.LOCK_TARGET,
+            gkd_bundle.INSTALL_TARGET,
+        )
+        for index, metadata_path in enumerate(metadata_paths):
+            with self.subTest(path=metadata_path):
+                target = self._installed(f"metadata-{index}")
+                os.chmod(target / metadata_path, 0o755)
+                with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_MODE"):
+                    gkd_bundle.verify(self.boundary, target)
+
     def test_verify_detects_symlink_drift(self) -> None:
         target = self._installed()
         library = target / "gkd/lib/gkd_bundle.py"
