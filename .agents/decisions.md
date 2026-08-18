@@ -95,3 +95,7 @@
 - [2026-08-18] `GKD-M0-A` 首个固定head验收发现3项阻塞合同缺口。
   - Why: 独立复验106项既有测试均通过，但新增反例证明源码schema mode改变不影响digest、已安装metadata mode改变仍被verify误报为0644；evidence output位于protected root时会在after快照后写入并仍声明unchanged；污染扫描把裸用户名和任意`aio`子串作为禁词，导致跨机器误杀。
   - Impact: PR #4 head `0f69a4ad34d095d70f6d5e5ed93569193ad75578` 不得合并，PR转回Draft。原execution session必须修复metadata mode绑定、protected/output/cleanup终态顺序和通用污染边界，并补旧实现失败的负向测试；新push后重新固定完整head验收。
+
+- [2026-08-18] `GKD-M0-A` 首轮验收的3项阻塞finding已修复并重新取证。
+  - Why: source与installed metadata实际mode已fail-closed；evidence output与source/temp/protected面经resolve后必须不相交，临时安装和staging清理完成后才允许最终protected快照与发布；通用污染扫描只识别完整机器路径，仓库专用标识移到最终evidence边界。新增9项foundation负向/变异合同使旧实现失败。
+  - Impact: implementation/evidence commit `3bab17697735adcf85e1214d6580966a7e896f47` 通过53项foundation、47项M-1B、15项M-1C negative和两次字节一致证据，content digest更新为 `0b8b2487640ff2c78360a18e7f24304f72a8e8c8b5cbd1317ef833c323726228`。结论仍仅为 `canonical_foundation_ready`；PR #4必须在新固定head重新独立验收，本session不合并或开始后续任务。
