@@ -79,3 +79,7 @@
 - [2026-08-18] `GKD-M-1B` 新固定head已通过独立验收并合并。
   - Why: 主会话重新审查完整差异和6项修复，独立运行47项合同，并两次重生成与仓库完全一致的证据；PR live head、归属、可合并状态与无checks的bootstrap事实均已复核，未发现阻塞finding。
   - Impact: PR #2 head `98df6ba122d9fe8aed230094ed806010e7002aa7` 以squash commit `1d303456f2afcaa4e5fd0353232e30c5c6b63a33` 进入main。结论仍只允许 `core_ready_for_live_gate`；下一步必须由独立人工顶层session执行 `GKD-M-1C` live gate，未经该门不得启用auto route。
+
+- [2026-08-18] `GKD-M-1C` 外部 watcher live gate 输出 `unsupported`。
+  - Why: 四个真实 fresh Codex/app-server/MCP 场景均未稳定执行固定的先 spawn child、后调用 live gate 顺序，无法形成无猜测的 parent/child/session/turn 绑定；因此 Gate 1-8 缺少 required live facts。数据最小化、生产配置前后快照和最终运行清理通过，但不能替代 live 行为证明。
+  - Impact: 禁止宣称 `external_watcher_supported`、启用 auto route、安装生产 watcher 或开始里程碑 0。PR #3 仅交付可复现 fail-closed probe、脱敏证据和失败边界；manual handoff 继续可用。
