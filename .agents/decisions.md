@@ -111,3 +111,8 @@
 - [2026-08-18] `GKD-M0-A` 收尾清理完成。
   - Why: 终态验收记录已进入main，候选worktree在删除前保持干净且tree与squash merge一致；用户明确允许忽略残留交互式shell的cwd后执行清理。
   - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m0-canonical-foundation`、本地 `task/m0-canonical-foundation` 和远端同名分支均已删除。bootstrap任务文档原位保留；因本仓库尚无 `.trellis/scripts/task.py`，未伪造task archive或validate结果。
+
+- [2026-08-18] D2等待合同改为连续一小时原生等待。
+  - Why: 用户放弃外部app-server、共享runtime、PTY和CLI唤醒方案，明确选择由main连续执行多轮一小时 `wait_agent`，并由Skill约束健康等待时不产生多余输出。
+  - Impact: `GKD-M-1A` 的 `native_insufficient` 和 `GKD-M-1C` 的 `unsupported` 继续作为旧“单次12小时/外部watcher/健康零父上下文”合同的历史事实，不再阻止修订路线。新路线要求目标运行时实际接受 `wait_agent(timeout_ms=3600000)`；每次健康超时后main不得发commentary、分析、更新计划、读取仓库/worktree/PR/CI或调用状态旁路，只能立即对同一executor再次等待。child终态、错误、用户介入或claim后12小时deadline结束循环；deadline时只终止绑定executor一次并返回单一timeout，不重试或换agent。
+  - Evidence boundary: 每次wait工具调用与timeout结果仍会进入父内部上下文，Skill只能消除自愿文本和额外工具噪声，不能声称零上下文。当前会话暴露的工具参数上限为360,000ms，因此auto route仍fail-closed；不得用十轮6分钟等待冒充一小时。里程碑1/2仍由人工顶层session完成，之后只有固定role、offer/claim及实际一小时等待门全部通过才可启用专用executor。
