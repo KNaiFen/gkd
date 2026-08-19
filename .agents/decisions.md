@@ -224,3 +224,7 @@
 - [2026-08-20] 里程碑3拆分为三个依赖有序任务。
   - Why: fixed-head monitor/policy、资源与防泄漏基础、用户工作流Skills虽同属M3，但接口和验收风险不同；合并为单一PR会扩大审查面并让资源/审查语义阻塞CI最小核心。
   - Impact: `GKD-M3-A`只实现通用`.gkd` policy与GitHub fixed-head monitor；`GKD-M3-B`实现产物分类、资源预设、GitHub facts/推荐和固定scanner wrapper；`GKD-M3-C`实现共享review core、`gkd-optimize-ci`、`gkd-review-remediation`及七Skill收口。三者依次依赖并在M2-C后自动执行。
+
+- [2026-08-20] `GKD-M2-C` 使用一次性 bootstrap execution exception。
+  - Why: 已生成的 manual offer 无法被公开 `gkd-task claim` 消费：CLI 固定使用 unavailable evidence provider，而 schema-v1/manual claim 仍无条件读取 runtime evidence，形成“先使用待实现桥，再实现桥”的自举死锁。执行 Session 正确返回 `RUNTIME_EVIDENCE_UNAVAILABLE` 且未修改文件或状态。
+  - Impact: main 撤销旧 offer/envelope；M2-C 由固定requirements/plan/implementation/execution、独立worktree/branch/PR、人工顶层Session与fixed-head独立验收授权，不调用或伪造claim、receipt、activation、task delivery。执行者仍不得验收/合并/清理。该例外在M2-C合并后终止，M3及以后必须使用正式automatic bridge。
