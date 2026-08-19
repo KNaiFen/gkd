@@ -148,3 +148,7 @@
 - [2026-08-19] `GKD-M2-A` v1 规划与人工交接已建立。
   - Why: 已验收 M1 CLI 的安装态 claim provider 故意 fail-closed，无法可信地让 M2-A 使用尚未实现的角色证据自管本任务；因此继续采用受审 Markdown、Git worktree 和独立人工顶层 session 的窄 bootstrap exception，不创建或伪造 task JSON/offer/claim/activation。
   - Impact: 固定 base 为 `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`，branch 为 `task/m2-role-routing-core`，planning head 为 `51fee63a8b600df4f94aa042ea42ef09e3b73986`，Draft PR 为 `KNaiFen/gkd#6`。execution session 只实现 M2-A，停在 fixed-head delivery；不得验收/合并、启动 M2-B、启用 auto route或修改生产/AIO。
+
+- [2026-08-19] `GKD-M2-A` 首轮固定头验收拒绝并转人工返工。
+  - Why: 对 PR #6 implementation head `cd8c89899039070c29b2c5209e7c5afaefba0616` 的独立复验发现三项实现级阻塞：迁移 rollback failure 会在 `MIGRATION_FROZEN` 后删除唯一 backup；activation provider/digest 由调用者自由选择且 activation 时间未绑定 offer 有效窗口；wait transition 忽略 `deadlineAt`，13 小时 observation 仍返回 `wait_again`。现有 M2 51、task-core 104、foundation 53、watcher core 47、live-negative 15 测试和 evidence 再生均通过/逐字节一致，但未覆盖这些反例。
+  - Impact: main 在候选任务文档记录 F-001 至 F-004 的 `findings.md`，提交 `c4a737f` 并推送到 PR #6；任务保持未合并，execution session 只处理 findings 后重新交付。fresh trusted custom-role handshake 仍未建立（F-004），因此不得启动 M2-B、启用 auto route、安装生产 `~/.codex` 或接入 AIO。
