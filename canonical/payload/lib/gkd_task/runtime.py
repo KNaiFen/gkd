@@ -260,12 +260,6 @@ class RuntimeStore:
         require_sha256(claim_id, "INVALID_CLAIM_RECEIPT")
         unlink_file(self._path("claim-receipts", claim_id))
 
-    def write_activation(self, value: dict[str, Any]) -> None:
-        from gkd_role.activation import validate_activation
-
-        validate_activation(value)
-        self._write_private(self._path("activations", value["activationId"]), value)
-
     def read_activation(self, activation_id: str) -> dict[str, Any]:
         from gkd_role.activation import validate_activation
 

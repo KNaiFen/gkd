@@ -168,21 +168,7 @@ def _service(args: Any) -> TaskService:
         getattr(args, "activation_id", None),
     )
     if any(value is not None for value in activation_values):
-        if runtime is None:
-            raise TaskError("INVALID_ARGUMENTS")
-        from gkd_role.activation import ActivationEvidenceProvider
-        from gkd_role.roles import locked_bundle_digest, role_catalog, role_record
-
-        bundle_root = Path(__file__).resolve().parents[2]
-        activation = runtime.read_activation(args.activation_id)
-        bundle_digest = locked_bundle_digest(bundle_root)
-        if activation["bundleDigest"] != bundle_digest:
-            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-        catalog = role_catalog(bundle_root, bundle_digest)
-        role = role_record(catalog, activation["roleName"])
-        if role["roleDigest"] != activation["roleDigest"] or role["configDigest"] != activation["configDigest"]:
-            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-        provider = ActivationEvidenceProvider(runtime, args.activation_id, catalog)
+        raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
     else:
         provider = None
     return TaskService(args.candidate_root, args.task_path, runtime=runtime, evidence_provider=provider)

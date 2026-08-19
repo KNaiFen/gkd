@@ -857,6 +857,8 @@ class TaskService:
                 raise TaskError("CAPABILITY_MISMATCH")
             if offer["expiresAt"] <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
+            if offer["schemaVersion"] == 2:
+                self._require_activation_authority()
             evidence_expectation = {
                 "route": offer["route"],
                 "roleDigest": offer["roleDigest"],
@@ -936,6 +938,11 @@ class TaskService:
             consume(claim["claimId"], result["head"], receipt["receiptDigest"], self.clock.now())
         return result
 
+    def _require_activation_authority(self) -> None:
+        """The installed candidate has no trusted host attestation boundary."""
+
+        raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
+
     def _retire(
         self,
         expected_head: str,
@@ -1003,6 +1010,7 @@ class TaskService:
         return result
 
     def recover_activation(self) -> dict[str, Any]:
+        self._require_activation_authority()
         recover = getattr(self.evidence_provider, "recover_consumption", None)
         if recover is None:
             raise TaskError("RUNTIME_EVIDENCE_UNAVAILABLE")

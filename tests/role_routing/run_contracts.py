@@ -71,8 +71,8 @@ def _validate_handshake(value: dict[str, object]) -> None:
         for field in ("bundleDigest", "roleDigest", "configDigest", "providerDigest", "handshakeDigest"):
             require_sha256(value[field], "INVALID_ROLE_HANDSHAKE")
     elif value.get("outcome") == "blocked":
-        require_keys(value, {"schemaVersion", "outcome", "error", "hostFailure", "evidenceClass", "attempts", "codexExitCode", "eventTypes", "events", "agentIdentities", "customRoleReferenceObserved", "customRoleActivationProven", "childTerminalObserved", "parentTerminalObserved", "productionProtectedUnchanged", "historicalLiveProbeRun", "realOneHourWaitRun", "pathFree", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
-        if value["schemaVersion"] != 1 or value["error"] != "TRUSTED_ROLE_HANDSHAKE_NOT_ESTABLISHED" or value["hostFailure"] != "CUSTOM_ROLE_MODEL_UNSUPPORTED" or value["evidenceClass"] != "host-runtime-evidence-insufficient" or value["attempts"] != 1 or value["customRoleActivationProven"] is not False or value["childTerminalObserved"] is not False or value["parentTerminalObserved"] is not False or value["pathFree"] is not True:
+        require_keys(value, {"schemaVersion", "outcome", "error", "hostFailure", "evidenceClass", "attempts", "codexExitCode", "eventTypes", "events", "agentIdentities", "customRoleReferenceObserved", "customRoleActivationProven", "childTerminalObserved", "parentTerminalObserved", "productionProtectedUnchanged", "historicalLiveProbeRun", "realOneHourWaitRun", "pathFree", "setupFacts", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
+        if value["schemaVersion"] != 1 or value["error"] != "TRUSTED_ROLE_HANDSHAKE_NOT_ESTABLISHED" or value["hostFailure"] != "HANDSHAKE_SETUP_FAILED" or value["evidenceClass"] != "host-runtime-evidence-insufficient" or value["attempts"] != 1 or value["codexExitCode"] is not None or value["customRoleReferenceObserved"] is not False or value["customRoleActivationProven"] is not False or value["childTerminalObserved"] is not False or value["parentTerminalObserved"] is not False or value["pathFree"] is not True or value["setupFacts"] != {"roleFilesMounted": False, "skillFilesMounted": False, "bundleBindingPrepared": False, "temporaryRepoCleaned": True}:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         require_sha256(value["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
     else:
@@ -167,7 +167,7 @@ def main() -> int:
             "error": None if handshake["outcome"] == "role_handshake_ready" else handshake["error"],
             "bundleVersion": lock["bundleVersion"],
             "contentDigest": bundle_digest,
-            "activationProvider": {"name": catalog["activationProvider"]["name"], "digest": catalog["activationProviderDigest"], "trustedHostRequired": True, "cliFailClosed": True},
+            "activationProvider": {"name": catalog["activationProvider"]["name"], "digest": catalog["activationProviderDigest"], "trustedHostRequired": True, "cliFailClosed": True, "candidateWriterPresent": False, "testHostSeamInBundle": False, "trustedBoundaryAvailable": False, "candidateClaimFailClosed": True, "planDelta": "candidate-inaccessible-host-attestation-required"},
             "roleSourceDigest": catalog["roleSourceDigest"],
             "hardRulesDigest": catalog["hardRulesDigest"],
             "roles": {role["name"]: {"roleDigest": role["roleDigest"], "configDigest": role["configDigest"]} for role in catalog["roles"]},
