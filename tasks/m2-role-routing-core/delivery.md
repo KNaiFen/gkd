@@ -1,94 +1,71 @@
-# GKD-M2-A F-004 v4 Live Probe 交付
+# GKD-M2-A F-004 v5 交付
 
 ## 结果
 
-- Outcome: `blocked`
-- F-005: 保持已整改，本轮未修改 activation/claim/recovery
-- F-004: 唯一正常环境 live probe 未产生 `gkd_executor` activation 或 child terminal
-- Error: `CUSTOM_ROLE_ACTIVATION_MISSING`
+- Outcome: `role_routing_core_ready`
+- F-001/F-002/F-003/F-005: 已整改，本轮未修改其业务设计
+- F-004: 已通过 trusted custom-role handshake
 - Fixed base: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
-- Synchronized main: `302fab499f86ebbc1fe23602ba28670b27132692`
-- Live authorization head: `26b8e9c185a0bdf365266efdb45f42260c8922b3`
-- Implementation/evidence commit: `58155234713e146b321267b1c56468bc1951d561`
-- PR: [KNaiFen/gkd#6](https://github.com/KNaiFen/gkd/pull/6)，保持 Draft
+- Implementation commit: `8f2ac63b4fcf5bc3c9741be362fd041e3ff5de38`
+- Evidence commit: 本次最终 evidence/delivery commit（完整 SHA 在提交后回填）
+- PR: [KNaiFen/gkd#6](https://github.com/KNaiFen/gkd/pull/6)，交付后标记 Ready
 
-本交付不宣称 `role_routing_core_ready`，不启用 automatic route，不进入 M2-B，不验收或合并。v4 live 授权已消耗，禁止再次调用。
+本交付只表示 M2-A role/routing core ready，route 仍为 `manual_only`。不宣称 M2-B 一小时等待、automatic route、生产安装、AIO 接入或里程碑 3；本 session 不验收、不合并、不清理 worktree/branch。
 
-## 冻结命令
+## Handshake
 
-live parent 使用正常用户 `CODEX_HOME`、provider、auth 和 model routing；项目级 `.codex/agents/gkd_executor.toml` 固定 child 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`。执行命令为：
+用户在 fresh probe Git 根通过正常 Codex trust UI 选择 `Yes, continue` 后退出提示。执行 session 未写入或回滚生产 `~/.codex`；该用户动作使调用前保护 digest 从历史 `db47d57e...` 变为 `f1b9cb277305039196067cb6621ecc2c50b09b0349824bc04ff684be775c1232`。
+
+静态命令为：
 
 ```text
-codex exec --ephemeral --json \
-  --cd "$GKD_PROBE_REPO" \
-  --sandbox workspace-write \
-  -c 'approval_policy="never"' \
-  -c 'agents.enabled=true' \
-  -c "$GKD_PROJECT_TRUST" \
-  '<固定握手 Prompt>'
+cd "$GKD_PROBE_REPO"
+codex exec --json '<固定握手 Prompt>'
 ```
 
-命令不包含 `--strict-config`、`--ignore-user-config`、parent `--model`、parent effort override、`--ask-for-approval`、alternate `CODEX_HOME`、角色替换或 fallback。
+无 `--strict-config`、`--ignore-user-config`、parent model/effort/sandbox/approval/agents/trust 覆盖或 alternate `CODEX_HOME`；项目 `.codex/config.toml` 启用 agents，`.codex/agents/gkd_executor.toml` 固定 child 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`。
 
-## 启动门
+确定性 preflight 证明 `tomllib` 解析、project role discovery、非 strict no-transport、role/config/bundle/project/Skill/AGENTS digest、CLI 参数解析、clean repo 和生产/AIO 非漂移。用户 trust UI 后的最新 parent rollout 记录证明：
 
-- Authorization head/local/upstream/remote/PR: 全部 `26b8e9c185a0bdf365266efdb45f42260c8922b3`
-- Worktree/probe repo: clean
-- Login: 正常 ChatGPT 登录态，只读取 `codex login status`
-- Codex version/digest: `codex-cli 0.147.0` / `19c4f144c5226a9f17c58e6f0fa854843b0f77a6eb420f40e2745a12f10f5d37`
-- Generated project/role TOML strict parse: `true` / `true`
-- Project trust / agents enabled / role definition accepted: `true` / `true` / `true`
-- Non-strict no-transport / live command parse: `true` / `true`
-- Before live model invocations / attempts: `0` / `0`
-- Production/AIO protection digest: matched recorded values
+- 唯一 `agents.spawn_agent`，`agent_type=gkd_executor`、`task_name=gkd_executor_handshake`、`fork_turns=none`；
+- 唯一 child activity 绑定 hashed child thread，无 alternate role/downgrade/fallback；
+- child `task_complete` marker 为 `GKD_EXECUTOR_CHILD_TERMINAL`；
+- parent `task_complete` marker 为 `GKD_PARENT_TERMINAL`；
+- Codex exit code `0`。
 
-新的临时 Git repo 由 `handshake_preflight.py` 生成，preflight 绑定 exact bundle/role/config/project/Skill digest。no-transport 只作为静态启动边界，不作为 activation。
-
-## Host Evidence
-
-- Codex exit code: `0`
-- Attempts/model invocations: `1` / `1`
-- Parent turn entered/terminal: `true` / `true`
-- Activated roles: `[]`
-- Unexpected roles: `[]`
-- Downgrade/fallback observed: `false` / `false`
-- Child terminal: `false`
-- Host error: `null`
-- Observed collaboration tool: `wait`，receiver thread 与 agent state 均为空
-
-结构化事件序列为 `thread.started`、`turn.started`、`item.started:collab_tool_call:wait`、`item.completed:collab_tool_call:wait`、`item.completed:agent_message`、`turn.completed`。证据只使用事件类型、tool/status、hashed parent identity 和 terminal 事件；没有读取或使用 Agent 消息正文、固定 terminal marker、自述、fixture 或候选输出。由于没有 spawn、child identity 或 custom-role activation，parent terminal 不能补足缺失的 child 事实。
-
-第一次 live 包装器准备因二进制路径解析错误，在操作系统创建进程前以 `PermissionError` 结束；两个输出文件均为零字节，没有 Codex 子进程、模型调用、live-call 元数据或已消耗 attempt。清理空文件并改用 preflight 同一 `discover_codex()` 后，只执行了一次真实 `codex exec`。没有第二次 Codex 调用、重试、降级或 fallback。
-
-原始 JSONL、stderr、临时 repo、调用元数据和临时输出均已删除。生产配置、AIO 和临时 repo 在真实调用前后未漂移。
+stdout 曾把 function-call 链压缩为 wait-only；经用户授权读取对应 test-session rollout 后确认其完整 function-call 记录。证据生成器只保留 path-free event types、hashed thread identities、exact role、terminal 和 exit facts，不保留 prompt/session 正文。宿主自动维护的原始 `~/.codex/sessions` 未删除，以遵守不得清理生产 Codex 状态的边界；其内容未复制到仓库 evidence。
 
 ## Digests
 
 - Bundle version: `0.0.0-dev.0`
 - Bundle content: `c6cb148b8ff57838fea23100968d241e003307e5284b49f67a95582e3728c4f6`
-- M2 evidence: `c905be8cb97e54e7e5eca0e23ad5e383e1f414bae386c412b1e004e5bc32df25`
-- Evidence file SHA-256: `10e196a0b542b0c341d84109105f2c84a980b4112ab44e992cbd2f6ab9638a86`
-- Preflight: `01c910ce24e9a62c90a361fdcf98df2259cbd8e5dfe4fe1836855ef59def10ea`
-- Handshake: `fbacd3ff2dcf8b6068e2505450520ffaae0c04f47a0f730868cc48d3a171434c`
-- Handshake file SHA-256: `2ab481dbad40480331c87416ebeb0c9cf13b5908105f0507810eebad96953923`
-- Executor role/config/project config: `7eeca24f18113f1c58d8cf7a712d431e790f721d5dba8cd0706cdfefe1033d16` / `10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e` / `9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0`
+- M2 evidence digest: `47d78f5460f5dfdf81866296b95c9c58709b94dee4d19cd25790da01c28ce649`
+- M2 evidence file SHA-256: `9810beb93dbc5f7275eb0a68b023e291d34703d4e68ffa0e55f4c32632027d29`
+- Handshake digest: `101be87f86a78111b47152a0056006343786f60872bbaad8a0c1f5cdaa97387c`
+- Handshake file SHA-256: `e6afb79ac18a57f8c533a50238f180b418fe9052040f02ff4907b47c66773542`
+- Preflight digest: `7777c1ded263c51cdf22ee54d58660d2f763fe96d13e7f9558ac262ad162cfa0`
+- Codex: `codex-cli 0.147.0`; executable SHA-256 `19c4f144c5226a9f17c58e6f0fa854843b0f77a6eb420f40e2745a12f10f5d37`
+- Role/config/project config: `7eeca24f18113f1c58d8cf7a712d431e790f721d5dba8cd0706cdfefe1033d16` / `10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e` / `9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0`
+- Probe AGENTS instructions: `777519597b1a4ca62ee662bfdbe03760ffe64eed6cd6066b0d4b4585011a41da`
+- Skills: `gkd-ci-monitor` `45589e31a888437774b67c9c20be2ab4075c48bbb9de918f8ad7c068c82dc7a0`; `gkd-execute` `d7d61e528d5d32f67ea69152193ecaaef7a2aaa6ac4ff12972c866f312806524`; `gkd-local-verify` `3ec80b83782c7e1ff69d7fb72e6fb1665c6a5add66d97c19dd235908c33d6ad3`
 - Executor context: `89ed5ac0e9e641cabeebfbfb790912f6058adcc6b55f86a43a1c36db835b36dc`
-- Executor Skills: `gkd-ci-monitor` `45589e31a888437774b67c9c20be2ab4075c48bbb9de918f8ad7c068c82dc7a0`; `gkd-execute` `d7d61e528d5d32f67ea69152193ecaaef7a2aaa6ac4ff12972c866f312806524`; `gkd-local-verify` `3ec80b83782c7e1ff69d7fb72e6fb1665c6a5add66d97c19dd235908c33d6ad3`
 
-v3 strict compatibility failure 和更早的隔离模式 HTTP 400 均继续保留在 handshake 的历史证据字段中，不用于补足本轮 host facts。
+历史 v3 `USER_CONFIG_PARSE_FAILED`、隔离模式 HTTP 400、v4 stdout orchestration miss 均保留在 handshake/finding 历史字段，不用于补足本次 host facts。
 
 ## 验证
 
 | Contract | Result |
 | --- | ---: |
-| M2-A role/routing | 65/65 |
+| M2-A role/routing | 67/67 |
 | M1 task-core | 104/104 |
 | Foundation | 53/53 |
 | Watcher core | 47/47 |
 | Watcher live-negative | 15/15 |
 
-最终实现上两个独立系统临时根生成的 M2 evidence 逐字节一致；既有回归 219/219 通过。两次安装 inventory 均为 49 文件。生产保护面保持 2289 entries / `db47d57e24c9a23f185ecafad1ac0d9bb8c7b4fa5c930b1b3a6abfb2776dcd6d`，AIO 保护面保持 8 entries / `21c4d0c64f9ceacfc0e18a38084422982bb6f2134ce57b316e5f2cb9d1f26b58`。未运行历史 watcher live probe、真实一小时等待、大型构建或依赖安装。
+M2 evidence 在两个独立系统临时根逐字节一致；每次临时根结束为空。两次安装 inventory 均为 49 文件。生产/AIO 保护面在本 session 调用期间未漂移，除用户主动 trust UI 造成的已记录生产 Codex digest 变化外，没有执行 session 写入。未安装依赖、未运行大型构建、未运行历史四场景 live probe、未等待真实一小时。
 
-## 停止边界
+## PR 与停止边界
 
-PR #6 保持 OPEN/Draft。仓库无 configured checks，事实为 `required_checks_not_configured_bootstrap`，不构成 CI 成功。F-004 尚缺可信 `gkd_executor` activation 与 child terminal；本轮授权不可重用，需由独立 main/acceptance 决定后续计划。M2-A 保持 manual-only，禁止 acceptance/merge、M2-B、automatic route、生产安装、AIO 修改和后续里程碑。
+最终 push 后核对本地 HEAD、upstream、origin branch 和 PR #6 head 完全一致；PR 从 Draft 标记 Ready。PR 无 configured checks，事实仍为 `required_checks_not_configured_bootstrap`，不伪装为 CI 成功。
+
+停止于独立验收前：不验收、不合并、不清理 worktree/branch、不启动 M2-B、不启用 automatic route、不修改生产 `~/.codex` 或 AIO，不进入后续里程碑。
