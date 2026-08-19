@@ -22,6 +22,7 @@ from tests.role_routing.handshake_preflight import (
     prepare_probe_repo,
     static_parser_command,
     trust_override,
+    validate_generated_toml,
 )
 from tests.role_routing.helpers import BUNDLE_ROOT
 
@@ -44,6 +45,8 @@ class HandshakePreflightContracts(unittest.TestCase):
             self.assertEqual("agents/gkd_executor.toml", project["agents"]["gkd_executor"]["config_file"])
             self.assertEqual(role["configDigest"], facts["configDigest"])
             self.assertEqual(catalog["bundleDigest"], facts["bundleDigest"])
+            self.assertIs(facts["generatedProjectConfigParsed"], True)
+            self.assertIs(facts["generatedRoleConfigParsed"], True)
             self.assertEqual(
                 {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
                 facts["requestedRole"],
@@ -64,15 +67,41 @@ class HandshakePreflightContracts(unittest.TestCase):
             parsed = tomllib.loads(trust_override(repo))
             self.assertEqual({repo.as_posix(): {"trust_level": "trusted"}}, parsed["projects"])
             command = static_parser_command("codex", repo)
-            self.assertIn("--strict-config", command)
+            self.assertNotIn("--strict-config", command)
             self.assertIn("agents.enabled=true", command)
+
+    def test_generated_toml_parser_rejects_malformed_project_and_role(self) -> None:
+        definition = {
+            "name": "gkd_executor",
+            "description": "Executor",
+            "model": "gpt-5.6-sol",
+            "modelReasoningEffort": "xhigh",
+            "sandboxMode": "workspace-write",
+            "developerInstructions": "Return the marker.",
+            "skills": ["gkd-execute"],
+        }
+        project = b'[agents]\nenabled = true\n[agents.gkd_executor]\ndescription = "Executor"\nconfig_file = "agents/gkd_executor.toml"\n'
+        role = b'name = "gkd_executor"\ndescription = "Executor"\nmodel = "gpt-5.6-sol"\nmodel_reasoning_effort = "xhigh"\nsandbox_mode = "workspace-write"\ndeveloper_instructions = "Return the marker."\n[agents]\nenabled = false\n[[skills.config]]\npath = "../skills/gkd-execute/SKILL.md"\nenabled = true\n'
+        self.assertEqual(
+            {"generatedProjectConfigParsed": True, "generatedRoleConfigParsed": True},
+            validate_generated_toml(project, role, definition, ["gkd-execute"]),
+        )
+        for malformed, valid, code in (
+            (b"[agents\n", role, "GENERATED_PROJECT_CONFIG_PARSE_FAILED"),
+            (project, b'name = "unterminated\n', "GENERATED_ROLE_CONFIG_PARSE_FAILED"),
+        ):
+            with self.subTest(code=code), self.assertRaises(PreflightError) as raised:
+                validate_generated_toml(malformed, valid, definition, ["gkd-execute"])
+            self.assertEqual(code, raised.exception.code)
 
     def test_parser_requires_trust_role_parse_and_no_transport_sentinel(self) -> None:
         classify_parser_result(1, "", f"Error: {PARSER_SENTINEL}\n")
+        classify_parser_result(1, "", f"unknown configuration field `legacy`\nError: {PARSER_SENTINEL}\n")
         failures = (
             ("Project-local config, hooks, and exec policies are disabled", "PROJECT_TRUST_NOT_EFFECTIVE"),
             ("Ignoring malformed agent role definition", "CUSTOM_ROLE_PARSE_FAILED"),
-            ("unknown configuration field `bad`", "PROJECT_CONFIG_PARSE_FAILED"),
+            ("Error parsing project config", "PROJECT_CONFIG_PARSE_FAILED"),
+            ("fatal startup error", "STATIC_PARSER_UNEXPECTED_RESULT"),
         )
         for message, code in failures:
             with self.subTest(code=code), self.assertRaisesRegex(PreflightError, ".+") as raised:
@@ -93,9 +122,9 @@ class HandshakePreflightContracts(unittest.TestCase):
             repo = Path(root_name).resolve()
             command = live_command("codex", repo)
             self.assertEqual("exec", command[1])
-            for value in ("--ephemeral", "--strict-config", "--json", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
+            for value in ("--ephemeral", "--json", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
                 self.assertIn(value, command)
-            for forbidden in ("--ignore-user-config", "--model", "gpt-5.6-sol", "--ask-for-approval", 'model_reasoning_effort="xhigh"'):
+            for forbidden in ("--strict-config", "--ignore-user-config", "--model", "gpt-5.6-sol", "--ask-for-approval", 'model_reasoning_effort="xhigh"'):
                 self.assertNotIn(forbidden, command)
             self.assertIn(trust_override(repo), command)
             self.assertNotIn("CODEX_HOME", json.dumps(command))
@@ -112,10 +141,12 @@ class HandshakePreflightContracts(unittest.TestCase):
             "projectConfigDigest": "4" * 64,
             "skillDigests": {"gkd-execute": "5" * 64},
             "codexExecutableDigest": "6" * 64,
-            "userConfigurationParsed": True,
+            "generatedProjectConfigParsed": True,
+            "generatedRoleConfigParsed": True,
+            "normalEnvironmentReachedNoTransport": True,
             "trustedProjectLayerLoaded": True,
             "agentsEnabled": True,
-            "customRoleDiscovered": True,
+            "projectRoleDefinitionAccepted": True,
             "liveCommandParsed": True,
             "probeRepo": {"clean": True},
             "probeRepoUnchanged": True,
@@ -128,6 +159,10 @@ class HandshakePreflightContracts(unittest.TestCase):
             "codexExitCode": 1,
             "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical isolation-mode rejection"},
             "handshakeDigest": "8" * 64,
+            "preflightFailure": {"code": "USER_CONFIG_PARSE_FAILED", "message": "strict compatibility rejection"},
+            "preflightDigest": "9" * 64,
+            "modelInvocations": 0,
+            "liveAttemptsConsumed": 0,
         }
         first = pending_handshake(preflight, historical)
         second = pending_handshake(preflight, historical)
@@ -136,7 +171,10 @@ class HandshakePreflightContracts(unittest.TestCase):
         self.assertEqual(0, first["liveAttemptsConsumed"])
         self.assertEqual("normal-user-config", first["parentConfigurationSource"])
         self.assertIs(first["parentModelOverride"], False)
+        self.assertIs(first["parentStrictConfig"], False)
         self.assertEqual("HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT", first["historicalNegativeEvidence"]["hostFailure"])
+        self.assertEqual("USER_CONFIG_PARSE_FAILED", first["historicalCompatibilityEvidence"]["failure"])
+        self.assertIs(first["setupFacts"]["customRoleActivationProven"], False)
 
     def test_blocked_preflight_records_no_model_or_live_attempt(self) -> None:
         setup = {
@@ -146,6 +184,8 @@ class HandshakePreflightContracts(unittest.TestCase):
             "configDigest": "3" * 64,
             "projectConfigDigest": "4" * 64,
             "skillDigests": {"gkd-execute": "5" * 64},
+            "generatedProjectConfigParsed": True,
+            "generatedRoleConfigParsed": True,
             "probeRepo": {"clean": True},
         }
         historical = {
@@ -154,6 +194,10 @@ class HandshakePreflightContracts(unittest.TestCase):
             "codexExitCode": 1,
             "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical isolation-mode rejection"},
             "handshakeDigest": "8" * 64,
+            "preflightFailure": {"code": "USER_CONFIG_PARSE_FAILED", "message": "strict compatibility rejection"},
+            "preflightDigest": "9" * 64,
+            "modelInvocations": 0,
+            "liveAttemptsConsumed": 0,
         }
         value = blocked_preflight_handshake(
             setup,
@@ -166,7 +210,8 @@ class HandshakePreflightContracts(unittest.TestCase):
         self.assertEqual("PROJECT_CONFIG_PARSE_FAILED", value["preflightFailure"]["code"])
         self.assertEqual(0, value["modelInvocations"])
         self.assertEqual(0, value["liveAttemptsConsumed"])
-        self.assertIs(value["setupFacts"]["customRoleDiscovered"], False)
+        self.assertIs(value["setupFacts"]["projectRoleDefinitionAccepted"], False)
+        self.assertIs(value["setupFacts"]["customRoleActivationProven"], False)
         self.assertIs(value["setupFacts"]["liveCommandParsed"], True)
 
 

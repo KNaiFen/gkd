@@ -1,4 +1,4 @@
-# GKD-M2-A Implementation Notes v3
+# GKD-M2-A Implementation Notes v4
 
 ## Internal Design
 
@@ -54,12 +54,15 @@
   and recovery fixtures.
 - After hermetic contracts pass, prepare a clean temporary Git repo and render
   the exact candidate `gkd_executor` plus required Skills into project scope.
-  Resolve the normal CLI with `command -v codex`; use `--strict-config` without
-  `--ignore-user-config` to parse normal user and project configuration, and use
-  the exact live command with `--help` for argument parsing. Prove zero model
-  invocations/attempts, exact digests, trust/discovery, clean repo, and unchanged
-  production configuration. Push this static fixed head and stop for a new live
-  authorization.
+  Resolve the normal CLI with `command -v codex`; strictly parse the generated
+  project config and `gkd_executor.toml` using Python `tomllib` and exact source
+  comparison. Then run non-strict `codex app-server --listen off` with explicit
+  project trust and `agents.enabled=true`, accepting only its no-transport
+  boundary, and use the exact live command with `--help` for argument parsing.
+  Prove zero model invocations/attempts, exact digests, trust, accepted project
+  role definition, clean repo, and unchanged production configuration. Do not
+  interpret no-transport as real custom-role activation. Push this static fixed
+  head and stop for a new live authorization.
 - Under that later authorization, launch one ephemeral parent with normal user
   provider/auth/model routing and no parent `--model` or effort override. The
   project role fixes the child to `gpt-5.6-sol`/`xhigh`/`workspace-write`.
@@ -68,6 +71,9 @@
   Delete raw events and the temporary repo. Do not set alternate `CODEX_HOME`,
   copy authentication, install production files, retry, downgrade, or perform
   repository implementation work.
+- The live command omits `--strict-config`. The v3 strict parser rejection is
+  retained as historical environment-compatibility evidence with zero model
+  invocations and zero consumed live attempts.
 - Generate evidence twice from disjoint clean system temporary roots. Confirm
   byte identity, temporary cleanup, production/AIO protection snapshots,
   manifest/lock consistency, and installed inventory/modes.

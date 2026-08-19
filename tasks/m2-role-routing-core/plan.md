@@ -1,4 +1,4 @@
-# GKD-M2-A Plan v3
+# GKD-M2-A Plan v4
 
 ## Goal
 
@@ -27,6 +27,10 @@ until the separate M2-B live wait gate passes.
   Never create an alternate Codex home, copy auth state, or modify production
   configuration. Finish and push static preflight first; each later live launch
   requires one new fixed-head authorization.
+- Strictness is scoped to generated project and role TOML through Python
+  `tomllib` plus exact canonical comparison. The host compatibility check is
+  non-strict and must reach only the expected app-server no-transport boundary;
+  it does not establish a real role activation.
 
 ## Behavior And Defaults
 
@@ -217,3 +221,7 @@ until the separate M2-B live wait gate passes.
   establish F-004. A callable writer inside the installable bundle cannot
   establish activation provenance and must remain fail-closed unless a
   candidate-inaccessible host boundary is demonstrated.
+- Preserve the v3 `USER_CONFIG_PARSE_FAILED` result as historical compatibility
+  evidence. It records that `codex-cli 0.147.0 --strict-config` rejected the
+  existing user field `disable_response_storage` before project discovery; it is
+  neither a live attempt nor a reason to edit production configuration.

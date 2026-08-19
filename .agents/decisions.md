@@ -188,3 +188,7 @@
 - [2026-08-19] GKD-M2-A v3 正常环境静态预检因用户配置严格解析失败。
   - Why: `command -v codex` 解析的 `codex-cli 0.147.0` 在 `app-server --strict-config --listen off` 启动时拒绝正常用户 `config.toml` 的未知字段 `disable_response_storage`；失败发生在 project trust/custom-role discovery 之前。冻结 live 参数向量通过 `--help` 解析，临时 repo/digest 正确且生产配置前后一致。
   - Impact: 当前机器分类为 `USER_CONFIG_PARSE_FAILED`，`modelInvocations=0`、`liveAttemptsConsumed=0`；不修改生产配置，不放宽 strict-config，不启动 live。M2 63 项双 evidence 与 219 项保留回归通过，总体保持 `blocked`，PR #6 保持 Draft。
+
+- [2026-08-19] GKD-M2-A F-004 v4 将生成配置严格性与宿主兼容启动分离。
+  - Why: `codex-cli 0.147.0 --strict-config` 会因正常用户字段 `disable_response_storage` 在项目发现前失败，不能验证日常生产使用环境；用户明确要求保留正常配置且不修改生产 `~/.codex`。项目生成物仍可由标准库 `tomllib` 和 canonical source 精确比较实现严格校验。
+  - Impact: 生成 project config 与 `gkd_executor.toml` 继续 strict/fail-closed；宿主预检改为非 strict `codex app-server --listen off` 加显式 trust/`agents.enabled=true`，只接受 no-transport 边界并拒绝 trust disabled、malformed project/role 或其他 fatal startup。live command 删除 `--strict-config`，继续使用正常 provider/auth/model routing。no-transport 不作为 activation；v3 `USER_CONFIG_PARSE_FAILED` 作为零模型/零尝试历史兼容性事实保留。静态门通过后仍须对新 fixed head 单独授权一次 live probe，F-004 成功前总体保持 `blocked`。

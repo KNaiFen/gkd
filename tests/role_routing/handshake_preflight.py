@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tomllib
 
 import gkd_bundle
 from gkd_role.roles import load_role_source, locked_bundle_digest, role_catalog, role_files, role_record
@@ -122,6 +123,48 @@ def _project_config(description: str) -> bytes:
     ).encode("utf-8")
 
 
+def validate_generated_toml(
+    project_config: bytes,
+    role_config: bytes,
+    definition: dict[str, object],
+    all_skills: list[str],
+) -> dict[str, bool]:
+    try:
+        project = tomllib.loads(project_config.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise PreflightError("GENERATED_PROJECT_CONFIG_PARSE_FAILED", "generated project config is not valid TOML") from error
+    try:
+        role = tomllib.loads(role_config.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise PreflightError("GENERATED_ROLE_CONFIG_PARSE_FAILED", "generated role config is not valid TOML") from error
+
+    expected_registration = {
+        "description": definition["description"],
+        "config_file": f"agents/{ROLE_NAME}.toml",
+    }
+    if project != {"agents": {"enabled": True, ROLE_NAME: expected_registration}}:
+        raise PreflightError("GENERATED_PROJECT_CONFIG_INVALID", "generated project config does not match the fixed registration")
+
+    expected_role = {
+        "name": definition["name"],
+        "description": definition["description"],
+        "model": definition["model"],
+        "model_reasoning_effort": definition["modelReasoningEffort"],
+        "sandbox_mode": definition["sandboxMode"],
+        "developer_instructions": definition["developerInstructions"],
+        "agents": {"enabled": False},
+        "skills": {
+            "config": [
+                {"path": f"../skills/{name}/SKILL.md", "enabled": name in definition["skills"]}
+                for name in all_skills
+            ]
+        },
+    }
+    if role != expected_role:
+        raise PreflightError("GENERATED_ROLE_CONFIG_INVALID", "generated role config does not match the fixed role definition")
+    return {"generatedProjectConfigParsed": True, "generatedRoleConfigParsed": True}
+
+
 def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
     bundle_root = bundle_root.resolve()
     repo = repo.resolve()
@@ -158,6 +201,7 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
         shutil.copytree(bundle_root / "skills" / name, skills / name)
     project_config = _project_config(definition["description"])
     (repo / ".codex" / "config.toml").write_bytes(project_config)
+    generated_toml = validate_generated_toml(project_config, role_bytes, definition, source["skills"])
 
     actual_skills = {name: _skill_tree_digest(skills / name) for name in role["skills"]}
     expected_skills = {name: catalog["skillDigests"][name] for name in role["skills"]}
@@ -217,6 +261,7 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
             "reasoningEffort": role["modelReasoningEffort"],
             "sandbox": role["sandboxMode"],
         },
+        **generated_toml,
         "probeRepo": _repo_snapshot(repo),
     }
 
@@ -225,7 +270,6 @@ def static_parser_command(codex: str, repo: Path) -> list[str]:
     return [
         codex,
         "app-server",
-        "--strict-config",
         "--listen",
         "off",
         "-c",
@@ -249,7 +293,7 @@ def classify_parser_result(returncode: int, stdout: str, stderr: str) -> None:
         raise PreflightError("PROJECT_TRUST_NOT_EFFECTIVE", "project-scoped .codex layer was disabled")
     if "Ignoring malformed agent role definition" in combined:
         raise PreflightError("CUSTOM_ROLE_PARSE_FAILED", "Codex rejected the custom role definition")
-    if "unknown configuration field" in combined or "Error parsing project config" in combined:
+    if "Error parsing project config" in combined:
         raise PreflightError("PROJECT_CONFIG_PARSE_FAILED", "Codex rejected the project configuration")
     if returncode != 1 or PARSER_SENTINEL not in stderr:
         raise PreflightError("STATIC_PARSER_UNEXPECTED_RESULT", "Codex did not reach the expected no-transport boundary")
@@ -276,14 +320,12 @@ def run_static_parser(codex: Path, repo: Path) -> dict[str, object]:
     if repo_before != repo_after or repo_after["clean"] is not True:
         raise PreflightError("PROBE_REPO_CHANGED", "probe repository changed during static parsing")
     try:
-        if (_production_root() / "config.toml").as_posix() in f"{result.stdout}\n{result.stderr}" and ("unknown configuration field" in result.stderr or "Error parsing" in result.stderr):
-            raise PreflightError("USER_CONFIG_PARSE_FAILED", "Codex rejected the normal user configuration")
         classify_parser_result(result.returncode, result.stdout, result.stderr)
     except PreflightError as error:
         raise PreflightError(error.code, _redact(f"{error}: {result.stderr}", (repo,))) from error
     return {
-        "parserOutcome": "normal_user_config_and_project_role_loaded_before_no_transport",
-        "userConfigurationParsed": True,
+        "parserOutcome": "normal_environment_reached_no_transport",
+        "normalEnvironmentReachedNoTransport": True,
         "productionConfigUnchanged": True,
         "productionConfigDigest": production_after["digest"],
         "productionConfigEntries": production_after["entries"],
@@ -298,7 +340,6 @@ def live_command(codex: str | Path, repo: Path) -> list[str]:
         codex,
         "exec",
         "--ephemeral",
-        "--strict-config",
         "--json",
         "--cd",
         repo.as_posix(),
@@ -307,9 +348,9 @@ def live_command(codex: str | Path, repo: Path) -> list[str]:
         "-c",
         'approval_policy="never"',
         "-c",
-        trust_override(repo),
-        "-c",
         "agents.enabled=true",
+        "-c",
+        trust_override(repo),
         LIVE_PROMPT,
     ]
 
@@ -358,6 +399,39 @@ def _historical_negative(value: dict[str, object]) -> dict[str, object]:
     return {**expected, "hostError": host_error, "handshakeDigest": digest}
 
 
+def _historical_compatibility(value: dict[str, object]) -> dict[str, object]:
+    nested = value.get("historicalCompatibilityEvidence")
+    if isinstance(nested, dict):
+        compatibility = nested
+    else:
+        failure = value.get("preflightFailure")
+        if not isinstance(failure, dict) or failure.get("code") != "USER_CONFIG_PARSE_FAILED":
+            raise PreflightError("INVALID_HISTORICAL_HANDSHAKE", "historical strict-config compatibility evidence is missing")
+        compatibility = {
+            "failure": "USER_CONFIG_PARSE_FAILED",
+            "evidenceClass": "strict-user-config-compatibility-rejection",
+            "strictConfigUsed": True,
+            "message": failure.get("message"),
+            "modelInvocations": value.get("modelInvocations"),
+            "liveAttemptsConsumed": value.get("liveAttemptsConsumed"),
+            "preflightDigest": value.get("preflightDigest"),
+        }
+    expected = {
+        "failure": "USER_CONFIG_PARSE_FAILED",
+        "evidenceClass": "strict-user-config-compatibility-rejection",
+        "strictConfigUsed": True,
+        "modelInvocations": 0,
+        "liveAttemptsConsumed": 0,
+    }
+    if any(compatibility.get(key) != expected_value for key, expected_value in expected.items()):
+        raise PreflightError("INVALID_HISTORICAL_HANDSHAKE", "historical strict-config compatibility evidence is invalid")
+    message = compatibility.get("message")
+    digest = compatibility.get("preflightDigest")
+    if not isinstance(message, str) or not message or not isinstance(digest, str) or len(digest) != 64:
+        raise PreflightError("INVALID_HISTORICAL_HANDSHAKE", "historical strict-config compatibility evidence is incomplete")
+    return {**expected, "message": message, "preflightDigest": digest}
+
+
 def pending_handshake(preflight: dict[str, object], historical: dict[str, object]) -> dict[str, object]:
     requested = preflight["requestedRole"]
     if requested != {"name": ROLE_NAME, "model": ROLE_MODEL, "reasoningEffort": ROLE_REASONING_EFFORT, "sandbox": ROLE_SANDBOX}:
@@ -376,6 +450,7 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
         "parentConfigurationSource": "normal-user-config",
         "parentModelOverride": False,
         "parentReasoningEffortOverride": False,
+        "parentStrictConfig": False,
         "boundDigests": {
             "bundleDigest": preflight["bundleDigest"],
             "roleDigest": preflight["roleDigest"],
@@ -386,10 +461,13 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
         "setupFacts": {
             "codexExecutableResolution": "command-v",
             "codexExecutableDigest": preflight["codexExecutableDigest"],
-            "userConfigurationParsed": preflight["userConfigurationParsed"],
+            "generatedProjectConfigParsed": preflight["generatedProjectConfigParsed"],
+            "generatedRoleConfigParsed": preflight["generatedRoleConfigParsed"],
+            "normalEnvironmentReachedNoTransport": preflight["normalEnvironmentReachedNoTransport"],
             "trustedProjectLayerLoaded": preflight["trustedProjectLayerLoaded"],
             "agentsEnabled": preflight["agentsEnabled"],
-            "customRoleDiscovered": preflight["customRoleDiscovered"],
+            "projectRoleDefinitionAccepted": preflight["projectRoleDefinitionAccepted"],
+            "customRoleActivationProven": False,
             "liveCommandParsed": preflight["liveCommandParsed"],
             "probeRepoClean": preflight["probeRepo"]["clean"],
             "probeRepoUnchanged": preflight["probeRepoUnchanged"],
@@ -397,6 +475,7 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
         },
         "preflightDigest": preflight["preflightDigest"],
         "historicalNegativeEvidence": _historical_negative(historical),
+        "historicalCompatibilityEvidence": _historical_compatibility(historical),
     }
     value["handshakeDigest"] = digest_object(value)
     return value
@@ -442,6 +521,7 @@ def blocked_preflight_handshake(
         "parentConfigurationSource": "normal-user-config",
         "parentModelOverride": False,
         "parentReasoningEffortOverride": False,
+        "parentStrictConfig": False,
         "boundDigests": {
             "bundleDigest": setup["bundleDigest"],
             "roleDigest": setup["roleDigest"],
@@ -452,10 +532,13 @@ def blocked_preflight_handshake(
         "setupFacts": {
             "codexExecutableResolution": "command-v",
             "codexExecutableDigest": codex_digest,
-            "userConfigurationParsed": False,
+            "generatedProjectConfigParsed": setup["generatedProjectConfigParsed"],
+            "generatedRoleConfigParsed": setup["generatedRoleConfigParsed"],
+            "normalEnvironmentReachedNoTransport": False,
             "trustedProjectLayerLoaded": False,
             "agentsEnabled": True,
-            "customRoleDiscovered": False,
+            "projectRoleDefinitionAccepted": False,
+            "customRoleActivationProven": False,
             "liveCommandParsed": live_command_parsed,
             "probeRepoClean": setup["probeRepo"]["clean"],
             "probeRepoUnchanged": True,
@@ -464,6 +547,7 @@ def blocked_preflight_handshake(
         "preflightDigest": preflight_digest,
         "preflightFailure": preflight_failure,
         "historicalNegativeEvidence": _historical_negative(historical),
+        "historicalCompatibilityEvidence": _historical_compatibility(historical),
     }
     value["handshakeDigest"] = digest_object(value)
     return value
@@ -501,7 +585,8 @@ def main() -> int:
             "liveAttemptsConsumed": 0,
             "trustedProjectLayerLoaded": True,
             "agentsEnabled": True,
-            "customRoleDiscovered": True,
+            "projectRoleDefinitionAccepted": True,
+            "customRoleActivationProven": False,
             "roleName": ROLE_NAME,
             "codexExecutableResolution": "command-v",
             "codexExecutableDigest": sha256_bytes(codex.read_bytes()),

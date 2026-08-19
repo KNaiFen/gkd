@@ -13,7 +13,7 @@ enable automatic routing, or start milestone 3.
 
 ## Task Identity
 
-- Status: `delivered_blocked`
+- Status: `awaiting_live_probe_authorization`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
@@ -23,9 +23,9 @@ enable automatic routing, or start milestone 3.
 - Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 unresolved;
   F-005 remediated); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
-- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 3
-- Plan: `tasks/m2-role-routing-core/plan.md`, version 3
-- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 3
+- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 4
+- Plan: `tasks/m2-role-routing-core/plan.md`, version 4
+- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 4
 - Route: manual top-level execution session
 - Action mode: `implement_and_merge_on_acceptance`
 
@@ -139,20 +139,26 @@ authorization bound to that exact full head.
 2. Create a clean explicit system-temporary Git repository. Render the exact
    candidate `gkd_executor` and required Skills into project `.codex/agents` and
    `.codex/skills`; commit them and bind bundle/role/config/project/Skill digests.
-3. With normal `CODEX_HOME` and user configuration, run only
-   `codex app-server --strict-config --listen off` plus trust and
-   `agents.enabled=true`. This must reach the no-transport boundary without a
-   user/project config, trust, or role parse failure. Do not set an alternate
-   home or use `--ignore-user-config`.
+3. Strictly parse the generated project config and `gkd_executor.toml` with
+   Python `tomllib`, and compare every field to the canonical role source. With
+   normal `CODEX_HOME` and user configuration, then run only
+   `codex app-server --listen off` plus trust and `agents.enabled=true`. This
+   non-strict host startup must reach the no-transport boundary without a project
+   config, trust, role, or other fatal startup failure. Do not set an alternate
+   home or use `--ignore-user-config`. A normal user unknown-field warning is not
+   a project-config failure when the expected boundary is reached.
 4. Parse the frozen live command with `--help`, consuming no model turn. The
-   command is `codex exec --ephemeral --strict-config --json --cd <repo>
+   command is `codex exec --ephemeral --json --cd <repo>
    --sandbox workspace-write -c 'approval_policy="never"' -c
    'agents.enabled=true' -c <project-trust> <fixed-prompt>`. It contains no
-   parent `--model`, parent effort override, `--ignore-user-config`, fallback,
-   or alternate role. The child TOML remains Sol/xhigh/workspace-write.
-5. Static evidence owns requested role configuration, all GKD digests,
-   trust/discovery, CLI resolution, command parsing, clean repo, and production
-   configuration non-drift. If any fact is missing, record one redacted
+   `--strict-config`, parent `--model`, parent effort override,
+   `--ignore-user-config`, fallback, or alternate role. The child TOML remains
+   Sol/xhigh/workspace-write.
+5. Static evidence owns requested role configuration, all GKD digests, strict
+   generated-TOML parsing, trust, accepted project-role definition, CLI
+   resolution, command parsing, clean repo, and production configuration
+   non-drift. The expected no-transport boundary is not activation evidence. If
+   any fact is missing, record one redacted
    machine-readable preflight failure, keep model/attempt counts at zero, and
    stop without requesting a live launch.
 6. After static gates pass and the fixed head is pushed, wait for a separate
@@ -212,8 +218,9 @@ Implement every approved requirement and material plan field. In particular:
 - Retained task-core/foundation/watcher short regressions and two byte-identical
   M2 evidence generations from disjoint clean temporary roots.
 - Tests prove the live command has no `--ignore-user-config`, parent `--model`,
-  parent effort override, alternate `CODEX_HOME`, built-in role, or approval
-  prompt, and that its exact argument vector parses without a model invocation.
+  parent effort override, `--strict-config`, alternate `CODEX_HOME`, built-in
+  role, or approval prompt, and that its exact argument vector parses without a
+  model invocation.
 
 ## Packaging And Evidence
 

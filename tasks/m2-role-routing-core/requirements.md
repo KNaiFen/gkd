@@ -1,4 +1,4 @@
-# GKD-M2-A Requirements v3
+# GKD-M2-A Requirements v4
 
 ## Goal
 
@@ -47,6 +47,10 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   remains fixed by `gkd_executor.toml` to GPT-5.6 Sol, `xhigh`, and
   `workspace-write`. Each live launch requires a separate authorization bound to
   its exact static fixed head and may run once with no fallback or downgrade.
+- Generated project and custom-role TOML are parsed strictly with Python
+  `tomllib` and compared to the canonical role source. Host startup uses the
+  normal compatibility parser rather than `--strict-config`, because the current
+  CLI rejects a normal user field before project discovery in strict mode.
 
 ## Scope
 
@@ -80,12 +84,16 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   retained regression coverage proportional to the new bundle surface.
 - Prepare one short, bounded production-environment role handshake after
   deterministic tests pass. Static preflight must use the `codex` resolved by
-  `command -v`, parse normal user and trusted-project configuration with
-  `--strict-config`, verify exact role/Skill/bundle digests and a clean temporary
-  Git repository, and consume zero model/live attempts. Push that static fixed
-  head before requesting a separate one-call live authorization. The later
-  probe must not implement repository code, modify production configuration, or
-  serve as the M2-B one-hour gate.
+  `command -v`, strictly parse the generated project and role TOML with
+  `tomllib`, then run non-strict `codex app-server --listen off` with explicit
+  project trust and `agents.enabled=true`. Only the expected no-transport
+  boundary is accepted; trust disabled, malformed role/project configuration,
+  or any other fatal startup error fails closed. The preflight verifies exact
+  role/Skill/bundle digests and a clean temporary Git repository and consumes
+  zero model/live attempts. Push that static fixed head before requesting a
+  separate one-call live authorization. The later probe must not implement
+  repository code, modify production configuration, or serve as the M2-B
+  one-hour gate.
 
 ## Non-Goals
 
@@ -155,11 +163,13 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
     core contracts, and watcher live-negative tests pass. No historical live
     watcher probe, dependency installation, large build, or paid API runs.
 12. Deterministic preflight binds bundle/role/config/Skill digests, requested
-    child model/effort/sandbox, project trust, custom-role discovery, clean repo,
-    and configuration non-drift. Host evidence is responsible only for a parent
-    turn, exactly one named `gkd_executor` activation with no other role or
-    fallback, child terminal, parent terminal, exit code, and a redacted error if
-    present. JSONL need not echo GKD digests. Success requires both evidence
+    child model/effort/sandbox, strict generated-TOML parsing, project trust,
+    accepted project-role definition, the expected non-strict no-transport
+    startup boundary, clean repo, and configuration non-drift. No-transport is
+    not custom-role activation evidence. Host evidence is responsible only for
+    a parent turn, exactly one named `gkd_executor` activation with no other role
+    or fallback, child terminal, parent terminal, exit code, and a redacted error
+    if present. JSONL need not echo GKD digests. Success requires both evidence
     classes and configuration/repo non-drift. A failed preflight or host probe
     remains `blocked`; fixture self-report, candidate output, downgrade,
     fallback, or a second call under the same authorization cannot upgrade it.

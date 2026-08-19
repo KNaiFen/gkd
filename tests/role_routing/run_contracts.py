@@ -64,10 +64,10 @@ def _snapshot_tree(root_value: Path) -> dict[str, object]:
 
 
 def _validate_handshake(value: dict[str, object]) -> None:
-    common = {"schemaVersion", "outcome", "evidenceClass", "attempts", "pathFree", "realOneHourWaitRun", "requestedRole", "parentConfigurationSource", "parentModelOverride", "parentReasoningEffortOverride", "boundDigests", "setupFacts", "preflightDigest", "handshakeDigest"}
+    common = {"schemaVersion", "outcome", "evidenceClass", "attempts", "pathFree", "realOneHourWaitRun", "requestedRole", "parentConfigurationSource", "parentModelOverride", "parentReasoningEffortOverride", "parentStrictConfig", "boundDigests", "setupFacts", "preflightDigest", "handshakeDigest"}
     outcome = value.get("outcome")
     if outcome == "awaiting_authorized_live_probe":
-        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "historicalNegativeEvidence"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "historicalNegativeEvidence", "historicalCompatibilityEvidence"}, "INVALID_ROLE_HANDSHAKE")
         if value["schemaVersion"] != 2 or value["error"] != "AUTHORIZED_LIVE_PROBE_REQUIRED" or value["evidenceClass"] != "deterministic-production-environment-preflight" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         history = value["historicalNegativeEvidence"]
@@ -77,11 +77,11 @@ def _validate_handshake(value: dict[str, object]) -> None:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         require_sha256(history["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
     elif outcome == "blocked" and value.get("evidenceClass") == "deterministic-production-environment-preflight-failure":
-        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "preflightFailure", "historicalNegativeEvidence"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "preflightFailure", "historicalNegativeEvidence", "historicalCompatibilityEvidence"}, "INVALID_ROLE_HANDSHAKE")
         if value["schemaVersion"] != 2 or value["error"] != "STATIC_PREFLIGHT_FAILED" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         require_keys(value["preflightFailure"], {"code", "message"}, "INVALID_ROLE_HANDSHAKE")
-        if value["preflightFailure"]["code"] not in {"USER_CONFIG_PARSE_FAILED", "PROJECT_CONFIG_PARSE_FAILED", "PROJECT_TRUST_NOT_EFFECTIVE", "CUSTOM_ROLE_PARSE_FAILED", "STATIC_PARSER_UNEXPECTED_RESULT", "LIVE_COMMAND_PARSE_FAILED", "PRODUCTION_CONFIG_CHANGED", "PROBE_REPO_CHANGED"}:
+        if value["preflightFailure"]["code"] not in {"GENERATED_PROJECT_CONFIG_PARSE_FAILED", "GENERATED_ROLE_CONFIG_PARSE_FAILED", "GENERATED_PROJECT_CONFIG_INVALID", "GENERATED_ROLE_CONFIG_INVALID", "PROJECT_CONFIG_PARSE_FAILED", "PROJECT_TRUST_NOT_EFFECTIVE", "CUSTOM_ROLE_PARSE_FAILED", "STATIC_PARSER_UNEXPECTED_RESULT", "LIVE_COMMAND_PARSE_FAILED", "PRODUCTION_CONFIG_CHANGED", "PROBE_REPO_CHANGED"}:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         history = value["historicalNegativeEvidence"]
         require_keys(history, {"hostFailure", "evidenceClass", "codexExitCode", "hostError", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
@@ -106,7 +106,13 @@ def _validate_handshake(value: dict[str, object]) -> None:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
     else:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
-    if value["pathFree"] is not True or value["realOneHourWaitRun"] is not False or value["parentConfigurationSource"] != "normal-user-config" or value["parentModelOverride"] is not False or value["parentReasoningEffortOverride"] is not False:
+    compatibility = value.get("historicalCompatibilityEvidence")
+    if compatibility is not None:
+        require_keys(compatibility, {"failure", "evidenceClass", "strictConfigUsed", "message", "modelInvocations", "liveAttemptsConsumed", "preflightDigest"}, "INVALID_ROLE_HANDSHAKE")
+        if compatibility["failure"] != "USER_CONFIG_PARSE_FAILED" or compatibility["evidenceClass"] != "strict-user-config-compatibility-rejection" or compatibility["strictConfigUsed"] is not True or compatibility["modelInvocations"] != 0 or compatibility["liveAttemptsConsumed"] != 0 or not isinstance(compatibility["message"], str) or not compatibility["message"]:
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        require_sha256(compatibility["preflightDigest"], "INVALID_ROLE_HANDSHAKE")
+    if value["pathFree"] is not True or value["realOneHourWaitRun"] is not False or value["parentConfigurationSource"] != "normal-user-config" or value["parentModelOverride"] is not False or value["parentReasoningEffortOverride"] is not False or value["parentStrictConfig"] is not False:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
     require_keys(value["requestedRole"], {"name", "model", "reasoningEffort", "sandbox"}, "INVALID_ROLE_HANDSHAKE")
     if value["requestedRole"] != {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"}:
@@ -118,10 +124,12 @@ def _validate_handshake(value: dict[str, object]) -> None:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
     for digest in value["boundDigests"]["skillDigests"].values():
         require_sha256(digest, "INVALID_ROLE_HANDSHAKE")
-    require_keys(value["setupFacts"], {"codexExecutableResolution", "codexExecutableDigest", "userConfigurationParsed", "trustedProjectLayerLoaded", "agentsEnabled", "customRoleDiscovered", "liveCommandParsed", "probeRepoClean", "probeRepoUnchanged", "productionConfigUnchanged"}, "INVALID_ROLE_HANDSHAKE")
+    require_keys(value["setupFacts"], {"codexExecutableResolution", "codexExecutableDigest", "generatedProjectConfigParsed", "generatedRoleConfigParsed", "normalEnvironmentReachedNoTransport", "trustedProjectLayerLoaded", "agentsEnabled", "projectRoleDefinitionAccepted", "customRoleActivationProven", "liveCommandParsed", "probeRepoClean", "probeRepoUnchanged", "productionConfigUnchanged"}, "INVALID_ROLE_HANDSHAKE")
     if value["setupFacts"]["codexExecutableResolution"] != "command-v" or value["setupFacts"]["probeRepoClean"] is not True or value["setupFacts"]["probeRepoUnchanged"] is not True or value["setupFacts"]["productionConfigUnchanged"] is not True:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
     require_sha256(value["setupFacts"]["codexExecutableDigest"], "INVALID_ROLE_HANDSHAKE")
+    if value["setupFacts"]["customRoleActivationProven"] is not False:
+        raise TaskError("INVALID_ROLE_HANDSHAKE")
     require_sha256(value["preflightDigest"], "INVALID_ROLE_HANDSHAKE")
     require_sha256(value["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
     unsigned = dict(value); actual = unsigned.pop("handshakeDigest")
