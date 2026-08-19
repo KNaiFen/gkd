@@ -6,14 +6,19 @@ import subprocess
 import tempfile
 import tomllib
 import unittest
+from unittest.mock import patch
 
 from gkd_role.roles import locked_bundle_digest, role_catalog, role_files, role_record
 from tests.role_routing.handshake_preflight import (
     LIVE_PROMPT,
     PARSER_SENTINEL,
     PreflightError,
+    blocked_preflight_handshake,
     classify_parser_result,
+    discover_codex,
+    live_argument_parser_command,
     live_command,
+    pending_handshake,
     prepare_probe_repo,
     static_parser_command,
     trust_override,
@@ -39,6 +44,11 @@ class HandshakePreflightContracts(unittest.TestCase):
             self.assertEqual("agents/gkd_executor.toml", project["agents"]["gkd_executor"]["config_file"])
             self.assertEqual(role["configDigest"], facts["configDigest"])
             self.assertEqual(catalog["bundleDigest"], facts["bundleDigest"])
+            self.assertEqual(
+                {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
+                facts["requestedRole"],
+            )
+            self.assertIs(facts["probeRepo"]["clean"], True)
             status = subprocess.run(
                 ["git", "status", "--porcelain"],
                 cwd=repo,
@@ -69,17 +79,95 @@ class HandshakePreflightContracts(unittest.TestCase):
                 classify_parser_result(1, "", message)
             self.assertEqual(code, raised.exception.code)
 
-    def test_live_command_is_fixed_and_never_uses_an_alternate_codex_home(self) -> None:
+    def test_command_v_resolution_is_the_only_codex_discovery(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gkd-handshake-codex-test-") as root_name:
+            executable = Path(root_name) / "codex"
+            executable.write_text("#!/bin/sh\n", encoding="utf-8")
+            executable.chmod(0o755)
+            with patch("tests.role_routing.handshake_preflight.shutil.which", return_value=executable.as_posix()) as which:
+                self.assertEqual(executable.resolve(), discover_codex())
+            which.assert_called_once_with("codex")
+
+    def test_live_command_uses_normal_user_routing_and_fixed_child_role(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gkd-handshake-command-test-") as root_name:
             repo = Path(root_name).resolve()
             command = live_command("codex", repo)
             self.assertEqual("exec", command[1])
-            for value in ("--ephemeral", "--ignore-user-config", "--strict-config", "--json", "gpt-5.6-sol", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
+            for value in ("--ephemeral", "--strict-config", "--json", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
                 self.assertIn(value, command)
-            self.assertNotIn("--ask-for-approval", command)
-            self.assertIn('model_reasoning_effort="xhigh"', command)
+            for forbidden in ("--ignore-user-config", "--model", "gpt-5.6-sol", "--ask-for-approval", 'model_reasoning_effort="xhigh"'):
+                self.assertNotIn(forbidden, command)
             self.assertIn(trust_override(repo), command)
             self.assertNotIn("CODEX_HOME", json.dumps(command))
+            parser_command = live_argument_parser_command("codex", repo)
+            self.assertEqual("--help", parser_command[-1])
+            self.assertNotIn(LIVE_PROMPT, parser_command)
+
+    def test_pending_handshake_keeps_static_and_historical_evidence_separate(self) -> None:
+        preflight = {
+            "requestedRole": {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
+            "bundleDigest": "1" * 64,
+            "roleDigest": "2" * 64,
+            "configDigest": "3" * 64,
+            "projectConfigDigest": "4" * 64,
+            "skillDigests": {"gkd-execute": "5" * 64},
+            "codexExecutableDigest": "6" * 64,
+            "userConfigurationParsed": True,
+            "trustedProjectLayerLoaded": True,
+            "agentsEnabled": True,
+            "customRoleDiscovered": True,
+            "liveCommandParsed": True,
+            "probeRepo": {"clean": True},
+            "probeRepoUnchanged": True,
+            "productionConfigUnchanged": True,
+            "preflightDigest": "7" * 64,
+        }
+        historical = {
+            "hostFailure": "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT",
+            "evidenceClass": "host-runtime-model-rejection",
+            "codexExitCode": 1,
+            "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical isolation-mode rejection"},
+            "handshakeDigest": "8" * 64,
+        }
+        first = pending_handshake(preflight, historical)
+        second = pending_handshake(preflight, historical)
+        self.assertEqual(first, second)
+        self.assertEqual("awaiting_authorized_live_probe", first["outcome"])
+        self.assertEqual(0, first["liveAttemptsConsumed"])
+        self.assertEqual("normal-user-config", first["parentConfigurationSource"])
+        self.assertIs(first["parentModelOverride"], False)
+        self.assertEqual("HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT", first["historicalNegativeEvidence"]["hostFailure"])
+
+    def test_blocked_preflight_records_no_model_or_live_attempt(self) -> None:
+        setup = {
+            "requestedRole": {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
+            "bundleDigest": "1" * 64,
+            "roleDigest": "2" * 64,
+            "configDigest": "3" * 64,
+            "projectConfigDigest": "4" * 64,
+            "skillDigests": {"gkd-execute": "5" * 64},
+            "probeRepo": {"clean": True},
+        }
+        historical = {
+            "hostFailure": "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT",
+            "evidenceClass": "host-runtime-model-rejection",
+            "codexExitCode": 1,
+            "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical isolation-mode rejection"},
+            "handshakeDigest": "8" * 64,
+        }
+        value = blocked_preflight_handshake(
+            setup,
+            "6" * 64,
+            PreflightError("PROJECT_CONFIG_PARSE_FAILED", "unknown configuration field"),
+            historical,
+            True,
+        )
+        self.assertEqual("blocked", value["outcome"])
+        self.assertEqual("PROJECT_CONFIG_PARSE_FAILED", value["preflightFailure"]["code"])
+        self.assertEqual(0, value["modelInvocations"])
+        self.assertEqual(0, value["liveAttemptsConsumed"])
+        self.assertIs(value["setupFacts"]["customRoleDiscovered"], False)
+        self.assertIs(value["setupFacts"]["liveCommandParsed"], True)
 
 
 if __name__ == "__main__":

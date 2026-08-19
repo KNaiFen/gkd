@@ -10,13 +10,16 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import tempfile
 
+import gkd_bundle
 from gkd_role.roles import load_role_source, locked_bundle_digest, role_catalog, role_files, role_record
-from gkd_task.canonical import canonical_bytes, digest_object, sha256_bytes
+from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, sha256_bytes
 
 
 ROLE_NAME = "gkd_executor"
+ROLE_MODEL = "gpt-5.6-sol"
+ROLE_REASONING_EFFORT = "xhigh"
+ROLE_SANDBOX = "workspace-write"
 PARSER_SENTINEL = "no transport configured; use --listen or enable remote control"
 LIVE_PROMPT = (
     "Perform one no-side-effect custom-role handshake. Spawn exactly one agent with "
@@ -48,6 +51,59 @@ def _skill_tree_digest(root: Path) -> str:
                 }
             )
     return digest_object(records)
+
+
+def discover_codex() -> Path:
+    discovered = shutil.which("codex")
+    if discovered is None:
+        raise PreflightError("CODEX_NOT_FOUND", "command -v codex did not resolve an executable")
+    resolved = Path(discovered).resolve()
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise PreflightError("CODEX_NOT_EXECUTABLE", "command -v codex did not resolve an executable file")
+    return resolved
+
+
+def _production_root() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    return Path(configured).resolve() if configured else (Path.home() / ".codex").resolve()
+
+
+def _production_snapshot() -> dict[str, object]:
+    return gkd_bundle._snapshot_protected(_production_root())
+
+
+def _repo_snapshot(repo: Path) -> dict[str, object]:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    tree = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0 or commit.returncode != 0 or tree.returncode != 0:
+        raise PreflightError("PROBE_REPO_INSPECTION_FAILED", (result.stderr or commit.stderr or tree.stderr).strip())
+    return {
+        "clean": result.stdout == "",
+        "commitIdentitySha256": sha256_bytes(commit.stdout.strip().encode("ascii")),
+        "treeIdentitySha256": sha256_bytes(tree.stdout.strip().encode("ascii")),
+    }
 
 
 def trust_override(repo: Path) -> str:
@@ -155,6 +211,13 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
         "projectConfigDigest": sha256_bytes(project_config),
         "skillDigests": actual_skills,
         "repoIdentitySha256": _path_hash(repo),
+        "requestedRole": {
+            "name": role["name"],
+            "model": role["model"],
+            "reasoningEffort": role["modelReasoningEffort"],
+            "sandbox": role["sandboxMode"],
+        },
+        "probeRepo": _repo_snapshot(repo),
     }
 
 
@@ -192,47 +255,57 @@ def classify_parser_result(returncode: int, stdout: str, stderr: str) -> None:
         raise PreflightError("STATIC_PARSER_UNEXPECTED_RESULT", "Codex did not reach the expected no-transport boundary")
 
 
-def run_static_parser(codex: str, repo: Path) -> str:
+def run_static_parser(codex: Path, repo: Path) -> dict[str, object]:
     repo = repo.resolve()
-    with tempfile.TemporaryDirectory(prefix="gkd-codex-parser-", dir=repo.parent) as home_name:
-        parser_home = Path(home_name).resolve()
-        environment = dict(os.environ)
-        environment["CODEX_HOME"] = parser_home.as_posix()
-        result = subprocess.run(
-            static_parser_command(codex, repo),
-            cwd=repo,
-            env=environment,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        try:
-            classify_parser_result(result.returncode, result.stdout, result.stderr)
-        except PreflightError as error:
-            raise PreflightError(error.code, _redact(f"{error}: {result.stderr}", (repo, parser_home))) from error
-    return "loaded_before_no_transport"
+    production_before = _production_snapshot()
+    repo_before = _repo_snapshot(repo)
+    if repo_before["clean"] is not True:
+        raise PreflightError("PROBE_REPO_NOT_CLEAN", "probe repository changed before static parser validation")
+    result = subprocess.run(
+        static_parser_command(codex.as_posix(), repo),
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    production_after = _production_snapshot()
+    repo_after = _repo_snapshot(repo)
+    if production_before != production_after:
+        raise PreflightError("PRODUCTION_CONFIG_CHANGED", "normal user configuration changed during static parsing")
+    if repo_before != repo_after or repo_after["clean"] is not True:
+        raise PreflightError("PROBE_REPO_CHANGED", "probe repository changed during static parsing")
+    try:
+        if (_production_root() / "config.toml").as_posix() in f"{result.stdout}\n{result.stderr}" and ("unknown configuration field" in result.stderr or "Error parsing" in result.stderr):
+            raise PreflightError("USER_CONFIG_PARSE_FAILED", "Codex rejected the normal user configuration")
+        classify_parser_result(result.returncode, result.stdout, result.stderr)
+    except PreflightError as error:
+        raise PreflightError(error.code, _redact(f"{error}: {result.stderr}", (repo,))) from error
+    return {
+        "parserOutcome": "normal_user_config_and_project_role_loaded_before_no_transport",
+        "userConfigurationParsed": True,
+        "productionConfigUnchanged": True,
+        "productionConfigDigest": production_after["digest"],
+        "productionConfigEntries": production_after["entries"],
+        "probeRepoUnchanged": True,
+        "probeRepo": repo_after,
+    }
 
 
-def live_command(codex: str, repo: Path) -> list[str]:
+def live_command(codex: str | Path, repo: Path) -> list[str]:
     repo = repo.resolve()
     return [
         codex,
         "exec",
         "--ephemeral",
-        "--ignore-user-config",
         "--strict-config",
         "--json",
         "--cd",
         repo.as_posix(),
-        "--model",
-        "gpt-5.6-sol",
         "--sandbox",
-        "workspace-write",
+        ROLE_SANDBOX,
         "-c",
         'approval_policy="never"',
-        "-c",
-        'model_reasoning_effort="xhigh"',
         "-c",
         trust_override(repo),
         "-c",
@@ -241,23 +314,186 @@ def live_command(codex: str, repo: Path) -> list[str]:
     ]
 
 
+def live_argument_parser_command(codex: str | Path, repo: Path) -> list[str]:
+    return [*live_command(codex, repo)[:-1], "--help"]
+
+
+def run_live_argument_parser(codex: Path, repo: Path) -> dict[str, object]:
+    production_before = _production_snapshot()
+    repo_before = _repo_snapshot(repo)
+    result = subprocess.run(
+        live_argument_parser_command(codex, repo),
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    production_after = _production_snapshot()
+    repo_after = _repo_snapshot(repo)
+    if result.returncode != 0:
+        raise PreflightError("LIVE_COMMAND_PARSE_FAILED", _redact(result.stderr, (repo,)))
+    if production_before != production_after:
+        raise PreflightError("PRODUCTION_CONFIG_CHANGED", "normal user configuration changed during argument parsing")
+    if repo_before != repo_after or repo_after["clean"] is not True:
+        raise PreflightError("PROBE_REPO_CHANGED", "probe repository changed during argument parsing")
+    return {"liveCommandParsed": True, "productionConfigUnchanged": True, "probeRepoUnchanged": True}
+
+
+def _historical_negative(value: dict[str, object]) -> dict[str, object]:
+    nested = value.get("historicalNegativeEvidence")
+    if isinstance(nested, dict):
+        value = nested
+    expected = {
+        "hostFailure": "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT",
+        "evidenceClass": "host-runtime-model-rejection",
+        "codexExitCode": 1,
+    }
+    if any(value.get(key) != expected_value for key, expected_value in expected.items()):
+        raise PreflightError("INVALID_HISTORICAL_HANDSHAKE", "historical handshake is not the fixed isolation-mode rejection")
+    host_error = value.get("hostError")
+    digest = value.get("handshakeDigest")
+    if not isinstance(host_error, dict) or not isinstance(digest, str) or len(digest) != 64:
+        raise PreflightError("INVALID_HISTORICAL_HANDSHAKE", "historical handshake evidence is incomplete")
+    return {**expected, "hostError": host_error, "handshakeDigest": digest}
+
+
+def pending_handshake(preflight: dict[str, object], historical: dict[str, object]) -> dict[str, object]:
+    requested = preflight["requestedRole"]
+    if requested != {"name": ROLE_NAME, "model": ROLE_MODEL, "reasoningEffort": ROLE_REASONING_EFFORT, "sandbox": ROLE_SANDBOX}:
+        raise PreflightError("PROBE_ROLE_CONFIG_DRIFT", "requested role configuration does not match the fixed handshake")
+    value = {
+        "schemaVersion": 2,
+        "outcome": "awaiting_authorized_live_probe",
+        "error": "AUTHORIZED_LIVE_PROBE_REQUIRED",
+        "evidenceClass": "deterministic-production-environment-preflight",
+        "attempts": 0,
+        "modelInvocations": 0,
+        "liveAttemptsConsumed": 0,
+        "pathFree": True,
+        "realOneHourWaitRun": False,
+        "requestedRole": requested,
+        "parentConfigurationSource": "normal-user-config",
+        "parentModelOverride": False,
+        "parentReasoningEffortOverride": False,
+        "boundDigests": {
+            "bundleDigest": preflight["bundleDigest"],
+            "roleDigest": preflight["roleDigest"],
+            "configDigest": preflight["configDigest"],
+            "projectConfigDigest": preflight["projectConfigDigest"],
+            "skillDigests": preflight["skillDigests"],
+        },
+        "setupFacts": {
+            "codexExecutableResolution": "command-v",
+            "codexExecutableDigest": preflight["codexExecutableDigest"],
+            "userConfigurationParsed": preflight["userConfigurationParsed"],
+            "trustedProjectLayerLoaded": preflight["trustedProjectLayerLoaded"],
+            "agentsEnabled": preflight["agentsEnabled"],
+            "customRoleDiscovered": preflight["customRoleDiscovered"],
+            "liveCommandParsed": preflight["liveCommandParsed"],
+            "probeRepoClean": preflight["probeRepo"]["clean"],
+            "probeRepoUnchanged": preflight["probeRepoUnchanged"],
+            "productionConfigUnchanged": preflight["productionConfigUnchanged"],
+        },
+        "preflightDigest": preflight["preflightDigest"],
+        "historicalNegativeEvidence": _historical_negative(historical),
+    }
+    value["handshakeDigest"] = digest_object(value)
+    return value
+
+
+def blocked_preflight_handshake(
+    setup: dict[str, object],
+    codex_digest: str,
+    error: PreflightError,
+    historical: dict[str, object],
+    live_command_parsed: bool,
+) -> dict[str, object]:
+    requested = setup["requestedRole"]
+    if requested != {"name": ROLE_NAME, "model": ROLE_MODEL, "reasoningEffort": ROLE_REASONING_EFFORT, "sandbox": ROLE_SANDBOX}:
+        raise PreflightError("PROBE_ROLE_CONFIG_DRIFT", "requested role configuration does not match the fixed handshake")
+    preflight_failure = {"code": error.code, "message": _redact(str(error), ())}
+    preflight_digest = digest_object(
+        {
+            "boundDigests": {
+                "bundleDigest": setup["bundleDigest"],
+                "roleDigest": setup["roleDigest"],
+                "configDigest": setup["configDigest"],
+                "projectConfigDigest": setup["projectConfigDigest"],
+                "skillDigests": setup["skillDigests"],
+            },
+            "codexExecutableDigest": codex_digest,
+            "failure": preflight_failure,
+            "modelInvocations": 0,
+            "liveAttemptsConsumed": 0,
+        }
+    )
+    value = {
+        "schemaVersion": 2,
+        "outcome": "blocked",
+        "error": "STATIC_PREFLIGHT_FAILED",
+        "evidenceClass": "deterministic-production-environment-preflight-failure",
+        "attempts": 0,
+        "modelInvocations": 0,
+        "liveAttemptsConsumed": 0,
+        "pathFree": True,
+        "realOneHourWaitRun": False,
+        "requestedRole": requested,
+        "parentConfigurationSource": "normal-user-config",
+        "parentModelOverride": False,
+        "parentReasoningEffortOverride": False,
+        "boundDigests": {
+            "bundleDigest": setup["bundleDigest"],
+            "roleDigest": setup["roleDigest"],
+            "configDigest": setup["configDigest"],
+            "projectConfigDigest": setup["projectConfigDigest"],
+            "skillDigests": setup["skillDigests"],
+        },
+        "setupFacts": {
+            "codexExecutableResolution": "command-v",
+            "codexExecutableDigest": codex_digest,
+            "userConfigurationParsed": False,
+            "trustedProjectLayerLoaded": False,
+            "agentsEnabled": True,
+            "customRoleDiscovered": False,
+            "liveCommandParsed": live_command_parsed,
+            "probeRepoClean": setup["probeRepo"]["clean"],
+            "probeRepoUnchanged": True,
+            "productionConfigUnchanged": True,
+        },
+        "preflightDigest": preflight_digest,
+        "preflightFailure": preflight_failure,
+        "historicalNegativeEvidence": _historical_negative(historical),
+    }
+    value["handshakeDigest"] = digest_object(value)
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-root", type=Path, required=True)
     parser.add_argument("--repo", type=Path, required=True)
-    parser.add_argument("--codex", default="codex")
+    parser.add_argument("--historical-handshake", type=Path)
+    parser.add_argument("--handshake-output", type=Path)
     args = parser.parse_args()
+    setup: dict[str, object] | None = None
+    codex: Path | None = None
+    production_before: dict[str, object] | None = None
+    argument_facts: dict[str, object] | None = None
     try:
+        codex = discover_codex()
+        production_before = _production_snapshot()
         setup = prepare_probe_repo(args.bundle_root, args.repo)
-        parser_outcome = run_static_parser(args.codex, args.repo)
+        argument_facts = run_live_argument_parser(codex, args.repo)
+        parser_facts = run_static_parser(codex, args.repo)
         version = subprocess.run(
-            [args.codex, "--version"],
+            [codex.as_posix(), "--version"],
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
         ).stdout.strip()
-        result = {
+        result: dict[str, object] = {
             "schemaVersion": 1,
             "outcome": "ready_for_authorized_live_probe",
             "codexVersion": version,
@@ -267,10 +503,23 @@ def main() -> int:
             "agentsEnabled": True,
             "customRoleDiscovered": True,
             "roleName": ROLE_NAME,
-            "parserOutcome": parser_outcome,
+            "codexExecutableResolution": "command-v",
+            "codexExecutableDigest": sha256_bytes(codex.read_bytes()),
+            **parser_facts,
+            **argument_facts,
             **setup,
         }
+        unsigned = dict(result)
+        result["preflightDigest"] = digest_object(unsigned)
+        if (args.historical_handshake is None) != (args.handshake_output is None):
+            raise PreflightError("HANDSHAKE_OUTPUT_ARGUMENT_MISMATCH", "historical handshake and output must be supplied together")
+        if args.historical_handshake is not None and args.handshake_output is not None:
+            historical = read_canonical_json(args.historical_handshake, "INVALID_HISTORICAL_HANDSHAKE", lambda value: value)
+            atomic_write(args.handshake_output, canonical_bytes(pending_handshake(result, historical)))
     except (OSError, subprocess.CalledProcessError, PreflightError) as error:
+        production_after = _production_snapshot() if production_before is not None else None
+        if production_before is not None and production_before != production_after:
+            error = PreflightError("PRODUCTION_CONFIG_CHANGED", "normal user configuration changed during static preflight")
         code = error.code if isinstance(error, PreflightError) else "STATIC_PREFLIGHT_FAILED"
         result = {
             "schemaVersion": 1,
@@ -279,7 +528,11 @@ def main() -> int:
             "message": _redact(str(error), (args.repo.resolve(),)),
             "modelInvocations": 0,
             "liveAttemptsConsumed": 0,
+            "productionConfigUnchanged": production_before == production_after if production_before is not None else False,
         }
+        if args.historical_handshake is not None and args.handshake_output is not None and setup is not None and codex is not None and isinstance(error, PreflightError):
+            historical = read_canonical_json(args.historical_handshake, "INVALID_HISTORICAL_HANDSHAKE", lambda value: value)
+            atomic_write(args.handshake_output, canonical_bytes(blocked_preflight_handshake(setup, sha256_bytes(codex.read_bytes()), error, historical, argument_facts is not None and argument_facts["liveCommandParsed"] is True)))
         print(canonical_bytes(result).decode("utf-8"), end="")
         return 1
     print(canonical_bytes(result).decode("utf-8"), end="")

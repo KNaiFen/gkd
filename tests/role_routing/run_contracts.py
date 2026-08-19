@@ -64,26 +64,66 @@ def _snapshot_tree(root_value: Path) -> dict[str, object]:
 
 
 def _validate_handshake(value: dict[str, object]) -> None:
-    if value.get("outcome") == "role_handshake_ready":
-        require_keys(value, {"schemaVersion", "outcome", "evidenceClass", "roleName", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "bundleDigest", "roleDigest", "configDigest", "providerDigest", "pathFree", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
-        if value["schemaVersion"] != 1 or value["evidenceClass"] != "host-runtime-event" or value["roleName"] not in {"gkd_executor", "gkd_acceptor", "gkd_ci_reviewer"} or value["pathFree"] is not True:
+    common = {"schemaVersion", "outcome", "evidenceClass", "attempts", "pathFree", "realOneHourWaitRun", "requestedRole", "parentConfigurationSource", "parentModelOverride", "parentReasoningEffortOverride", "boundDigests", "setupFacts", "preflightDigest", "handshakeDigest"}
+    outcome = value.get("outcome")
+    if outcome == "awaiting_authorized_live_probe":
+        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "historicalNegativeEvidence"}, "INVALID_ROLE_HANDSHAKE")
+        if value["schemaVersion"] != 2 or value["error"] != "AUTHORIZED_LIVE_PROBE_REQUIRED" or value["evidenceClass"] != "deterministic-production-environment-preflight" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
-        for field in ("bundleDigest", "roleDigest", "configDigest", "providerDigest", "handshakeDigest"):
-            require_sha256(value[field], "INVALID_ROLE_HANDSHAKE")
-    elif value.get("outcome") == "blocked":
-        require_keys(value, {"schemaVersion", "outcome", "error", "hostFailure", "hostError", "evidenceClass", "attempts", "codexExitCode", "eventTypes", "events", "threadIdentityHashes", "agentIdentities", "customRoleDiscoveredBeforeLaunch", "customRoleReferenceObserved", "customRoleActivationProven", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "childTerminalObserved", "parentTerminalObserved", "productionProtectedUnchanged", "aioProtectedUnchanged", "historicalLiveProbeRun", "realOneHourWaitRun", "pathFree", "setupFacts", "boundDigests", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
-        if value["schemaVersion"] != 1 or value["error"] != "TRUSTED_ROLE_HANDSHAKE_NOT_ESTABLISHED" or value["hostFailure"] != "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT" or value["evidenceClass"] != "host-runtime-model-rejection" or value["attempts"] != 1 or value["codexExitCode"] != 1 or value["eventTypes"] != ["error", "item.completed", "thread.started", "turn.failed", "turn.started"] or value["events"] != 5 or value["agentIdentities"] != 0 or value["customRoleDiscoveredBeforeLaunch"] is not True or value["customRoleReferenceObserved"] is not False or value["customRoleActivationProven"] is not False or any(value[field] is not None for field in ("effectiveModel", "effectiveReasoningEffort", "effectiveSandbox")) or value["childTerminalObserved"] is not False or value["parentTerminalObserved"] is not False or value["productionProtectedUnchanged"] is not True or value["aioProtectedUnchanged"] is not True or value["pathFree"] is not True or value["setupFacts"] != {"agentsEnabled": True, "roleFilesMounted": True, "skillFilesMounted": True, "bundleBindingPrepared": True, "temporaryRepoCleaned": True, "trustedProjectLayerLoaded": True, "customRoleDiscoveredBeforeLaunch": True, "hostRoleBindingObserved": False, "hostConfigBindingObserved": False}:
+        history = value["historicalNegativeEvidence"]
+        require_keys(history, {"hostFailure", "evidenceClass", "codexExitCode", "hostError", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(history["hostError"], {"code", "httpStatus", "message"}, "INVALID_ROLE_HANDSHAKE")
+        if history["hostFailure"] != "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT" or history["evidenceClass"] != "host-runtime-model-rejection" or history["codexExitCode"] != 1:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
-        require_keys(value["hostError"], {"code", "httpStatus", "message"}, "INVALID_ROLE_HANDSHAKE")
-        if value["hostError"] != {"code": "invalid_request_error", "httpStatus": 400, "message": "The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account."} or not isinstance(value["threadIdentityHashes"], list) or len(value["threadIdentityHashes"]) != 1:
+        require_sha256(history["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
+    elif outcome == "blocked" and value.get("evidenceClass") == "deterministic-production-environment-preflight-failure":
+        require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "preflightFailure", "historicalNegativeEvidence"}, "INVALID_ROLE_HANDSHAKE")
+        if value["schemaVersion"] != 2 or value["error"] != "STATIC_PREFLIGHT_FAILED" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
-        require_sha256(value["threadIdentityHashes"][0], "INVALID_ROLE_HANDSHAKE")
-        require_keys(value["boundDigests"], {"bundleDigest", "roleDigest", "configDigest"}, "INVALID_ROLE_HANDSHAKE")
-        for field in ("bundleDigest", "roleDigest", "configDigest"):
-            require_sha256(value["boundDigests"][field], "INVALID_ROLE_HANDSHAKE")
-        require_sha256(value["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
+        require_keys(value["preflightFailure"], {"code", "message"}, "INVALID_ROLE_HANDSHAKE")
+        if value["preflightFailure"]["code"] not in {"USER_CONFIG_PARSE_FAILED", "PROJECT_CONFIG_PARSE_FAILED", "PROJECT_TRUST_NOT_EFFECTIVE", "CUSTOM_ROLE_PARSE_FAILED", "STATIC_PARSER_UNEXPECTED_RESULT", "LIVE_COMMAND_PARSE_FAILED", "PRODUCTION_CONFIG_CHANGED", "PROBE_REPO_CHANGED"}:
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        history = value["historicalNegativeEvidence"]
+        require_keys(history, {"hostFailure", "evidenceClass", "codexExitCode", "hostError", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(history["hostError"], {"code", "httpStatus", "message"}, "INVALID_ROLE_HANDSHAKE")
+        if history["hostFailure"] != "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT" or history["evidenceClass"] != "host-runtime-model-rejection" or history["codexExitCode"] != 1:
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        require_sha256(history["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
+    elif outcome in {"role_handshake_ready", "blocked"}:
+        require_keys(value, common | {"error", "hostFacts"}, "INVALID_ROLE_HANDSHAKE")
+        facts = value["hostFacts"]
+        require_keys(facts, {"parentTurnEntered", "activatedRoles", "unexpectedRoles", "childTerminalObserved", "parentTerminalObserved", "codexExitCode", "eventTypes", "threadIdentityHashes", "hostError"}, "INVALID_ROLE_HANDSHAKE")
+        if value["schemaVersion"] != 2 or value["evidenceClass"] != "host-runtime-events-plus-deterministic-preflight" or value["attempts"] != 1:
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        if not isinstance(facts["threadIdentityHashes"], list) or any(not isinstance(item, str) for item in facts["threadIdentityHashes"]):
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        for identity in facts["threadIdentityHashes"]:
+            require_sha256(identity, "INVALID_ROLE_HANDSHAKE")
+        if outcome == "role_handshake_ready":
+            if value["error"] is not None or facts["parentTurnEntered"] is not True or facts["activatedRoles"] != ["gkd_executor"] or facts["unexpectedRoles"] != [] or facts["childTerminalObserved"] is not True or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
+                raise TaskError("INVALID_ROLE_HANDSHAKE")
+        elif not isinstance(value["error"], str) or not value["error"] or facts["hostError"] is not None and not isinstance(facts["hostError"], dict):
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
     else:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
+    if value["pathFree"] is not True or value["realOneHourWaitRun"] is not False or value["parentConfigurationSource"] != "normal-user-config" or value["parentModelOverride"] is not False or value["parentReasoningEffortOverride"] is not False:
+        raise TaskError("INVALID_ROLE_HANDSHAKE")
+    require_keys(value["requestedRole"], {"name", "model", "reasoningEffort", "sandbox"}, "INVALID_ROLE_HANDSHAKE")
+    if value["requestedRole"] != {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"}:
+        raise TaskError("INVALID_ROLE_HANDSHAKE")
+    require_keys(value["boundDigests"], {"bundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "skillDigests"}, "INVALID_ROLE_HANDSHAKE")
+    for field in ("bundleDigest", "roleDigest", "configDigest", "projectConfigDigest"):
+        require_sha256(value["boundDigests"][field], "INVALID_ROLE_HANDSHAKE")
+    if not isinstance(value["boundDigests"]["skillDigests"], dict) or not value["boundDigests"]["skillDigests"]:
+        raise TaskError("INVALID_ROLE_HANDSHAKE")
+    for digest in value["boundDigests"]["skillDigests"].values():
+        require_sha256(digest, "INVALID_ROLE_HANDSHAKE")
+    require_keys(value["setupFacts"], {"codexExecutableResolution", "codexExecutableDigest", "userConfigurationParsed", "trustedProjectLayerLoaded", "agentsEnabled", "customRoleDiscovered", "liveCommandParsed", "probeRepoClean", "probeRepoUnchanged", "productionConfigUnchanged"}, "INVALID_ROLE_HANDSHAKE")
+    if value["setupFacts"]["codexExecutableResolution"] != "command-v" or value["setupFacts"]["probeRepoClean"] is not True or value["setupFacts"]["probeRepoUnchanged"] is not True or value["setupFacts"]["productionConfigUnchanged"] is not True:
+        raise TaskError("INVALID_ROLE_HANDSHAKE")
+    require_sha256(value["setupFacts"]["codexExecutableDigest"], "INVALID_ROLE_HANDSHAKE")
+    require_sha256(value["preflightDigest"], "INVALID_ROLE_HANDSHAKE")
+    require_sha256(value["handshakeDigest"], "INVALID_ROLE_HANDSHAKE")
     unsigned = dict(value); actual = unsigned.pop("handshakeDigest")
     if digest_object(unsigned) != actual:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
@@ -150,12 +190,11 @@ def main() -> int:
         lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
         bundle_digest = lock["contentDigest"]
         catalog = role_catalog(bundle_root, bundle_digest)
-        if handshake["outcome"] == "role_handshake_ready":
-            if handshake["bundleDigest"] != bundle_digest:
-                raise TaskError("ROLE_HANDSHAKE_BUNDLE_DRIFT")
-            matching = next((role for role in catalog["roles"] if role["name"] == handshake["roleName"]), None)
-            if matching is None or handshake["roleDigest"] != matching["roleDigest"] or handshake["configDigest"] != matching["configDigest"] or handshake["effectiveModel"] != matching["model"] or handshake["effectiveReasoningEffort"] != matching["modelReasoningEffort"] or handshake["effectiveSandbox"] != matching["sandboxMode"] or handshake["runtimeSeconds"] != matching["runtimeSeconds"]:
-                raise TaskError("ROLE_HANDSHAKE_CONFIG_DRIFT")
+        if handshake["boundDigests"]["bundleDigest"] != bundle_digest:
+            raise TaskError("ROLE_HANDSHAKE_BUNDLE_DRIFT")
+        matching = next((role for role in catalog["roles"] if role["name"] == handshake["requestedRole"]["name"]), None)
+        if matching is None or handshake["boundDigests"]["roleDigest"] != matching["roleDigest"] or handshake["boundDigests"]["configDigest"] != matching["configDigest"] or handshake["requestedRole"] != {"name": matching["name"], "model": matching["model"], "reasoningEffort": matching["modelReasoningEffort"], "sandbox": matching["sandboxMode"]} or handshake["boundDigests"]["skillDigests"] != {name: catalog["skillDigests"][name] for name in matching["skills"]}:
+            raise TaskError("ROLE_HANDSHAKE_CONFIG_DRIFT")
         first = _exercise_install(source, temporary, "a", bundle_digest)
         second = _exercise_install(source, temporary, "b", bundle_digest)
         if first != second:

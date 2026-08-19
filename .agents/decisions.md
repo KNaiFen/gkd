@@ -180,3 +180,11 @@
 - [2026-08-19] GKD-M2-A 新增授权本机握手在宿主模型准入阶段终止。
   - Why: 授权锚点、分支/远程/PR head、干净 worktree 和静态 parser preflight 均通过；preflight 证明临时项目 trust、`agents.enabled=true`、精确 `gkd_executor` discovery 与 role/config/bundle digest，且此时模型调用/已消耗尝试均为 0。本轮唯一 live 启动后，Codex 在 parent turn 前以 HTTP 400 `invalid_request_error` 明确拒绝 ChatGPT account 使用 `gpt-5.6-sol`。
   - Impact: 失败分类收窄为 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`；未产生 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal，F-004 和总体 outcome 保持 `blocked`。未重试、降级、fallback 或替换角色；PR #6 必须保持 Draft，不得启动 M2-B 或 automatic route。
+
+- [2026-08-19] GKD-M2-A F-004 改为正常生产使用环境握手合同。
+  - Why: 隔离模式的 parent `--model gpt-5.6-sol` 与 `--ignore-user-config` 绕过了日常 provider/model routing，其 HTTP 400 不能判定正常环境中 project-scoped child role 的可用性。官方 Codex 合同规定 project role 位于 `.codex/agents`，agent TOML 中的 model/effort 优先；user config 承载 machine-local provider/auth，受信项目才加载 project `.codex` 层。
+  - Impact: v3 live parent 使用正常用户 provider/auth/model routing，不传 `--ignore-user-config`、parent `--model` 或 effort override；临时 `gkd_executor.toml` 继续固定 child Sol/xhigh/workspace-write。确定性 preflight 负责 digest/trust/discovery/non-drift，host 只负责 parent turn、按名唯一 activation、无 fallback 和双 terminal。先推送静态 fixed head，再由用户单独授权一次 live。
+
+- [2026-08-19] GKD-M2-A v3 正常环境静态预检因用户配置严格解析失败。
+  - Why: `command -v codex` 解析的 `codex-cli 0.147.0` 在 `app-server --strict-config --listen off` 启动时拒绝正常用户 `config.toml` 的未知字段 `disable_response_storage`；失败发生在 project trust/custom-role discovery 之前。冻结 live 参数向量通过 `--help` 解析，临时 repo/digest 正确且生产配置前后一致。
+  - Impact: 当前机器分类为 `USER_CONFIG_PARSE_FAILED`，`modelInvocations=0`、`liveAttemptsConsumed=0`；不修改生产配置，不放宽 strict-config，不启动 live。M2 63 项双 evidence 与 219 项保留回归通过，总体保持 `blocked`，PR #6 保持 Draft。

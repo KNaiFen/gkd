@@ -1,4 +1,4 @@
-# GKD-M2-A Requirements v2
+# GKD-M2-A Requirements v3
 
 ## Goal
 
@@ -39,15 +39,14 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   from discovery through generated `skills.config` entries but are not deleted.
 - Production `~/.codex`, AIO, paid runners, Secrets, repository settings, tags,
   Releases, and milestone 3 behavior remain outside this task.
-- On 2026-08-19 the user authorized one additional short live handshake through
-  the normally logged-in local Codex runtime. The probe must use a temporary Git
-  repository with project-scoped `.codex/agents` files rendered from the
-  candidate bundle and an ephemeral parent session. It may use the existing
-  ChatGPT login only as host authentication; the execution session may not
-  directly read, copy, expose, or edit authentication material or install
-  anything into production `~/.codex`. This is a real local-host probe, not an
-  alternate simulated Codex home; the role's fixed `workspace-write` sandbox is
-  still part of the exact configuration being tested.
+- F-004 validates the actual local production-use environment, not an isolated
+  CLI cold start. The parent reads the normal user-level provider, model-routing,
+  and login configuration without modifying it; the temporary trusted project
+  supplies the exact `gkd_executor` role and required Skills. The parent command
+  does not use `--ignore-user-config` or a parent `--model` override. The child
+  remains fixed by `gkd_executor.toml` to GPT-5.6 Sol, `xhigh`, and
+  `workspace-write`. Each live launch requires a separate authorization bound to
+  its exact static fixed head and may run once with no fallback or downgrade.
 
 ## Scope
 
@@ -79,11 +78,14 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   Skills and instructions. Omitted context must be explicit and testable.
 - Add L1/L2 contracts, deterministic evidence, manifest/lock regeneration, and
   retained regression coverage proportional to the new bundle surface.
-- Permit one additional short, bounded role-handshake verification after
-  deterministic tests pass. It must use the normal logged-in local Codex host,
-  a clean temporary Git repository, project-scoped custom-agent files, and an
-  ephemeral parent session. It must not implement repository code, modify the
-  production Codex configuration, or serve as the M2-B one-hour gate.
+- Prepare one short, bounded production-environment role handshake after
+  deterministic tests pass. Static preflight must use the `codex` resolved by
+  `command -v`, parse normal user and trusted-project configuration with
+  `--strict-config`, verify exact role/Skill/bundle digests and a clean temporary
+  Git repository, and consume zero model/live attempts. Push that static fixed
+  head before requesting a separate one-call live authorization. The later
+  probe must not implement repository code, modify production configuration, or
+  serve as the M2-B one-hour gate.
 
 ## Non-Goals
 
@@ -96,8 +98,10 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   sources, changing the user's global AGENTS file, or replacing the live legacy
   CI reviewer role.
 - Copying credentials into a temporary home, inspecting authentication files,
-  persisting raw host JSONL, or treating normal runtime-owned operational state
-  as task evidence.
+  printing user configuration, persisting raw host JSONL, or treating normal
+  runtime-owned operational state as task evidence. Normal Codex may read its
+  existing provider, routing, and login configuration through its ordinary
+  startup path; those bytes must remain unchanged.
 - Modifying AIO, adding consumer-specific repository identity/check names, or
   treating AIO's `.trellis` workflow as canonical GKD mechanism.
 - Using candidate code, candidate role files, Agent self-report, conversation
@@ -145,15 +149,17 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
 10. Two temporary installs have identical version, content digest, inventory,
     modes, role digests, Skill digests, and migration output. Production Codex
     configuration and installed agents/Skills, AIO, and unrelated repository
-    state remain byte-unchanged. The authorized live handshake may use existing
-    login state but may not inspect or publish it.
+    state remain byte-unchanged. Static and live invocation may read normal user
+    configuration and login state but may not inspect, publish, or modify them.
 11. All milestone 1 task-core contracts, foundation contracts, retained watcher
     core contracts, and watcher live-negative tests pass. No historical live
     watcher probe, dependency installation, large build, or paid API runs.
-12. One additional bounded local-authenticated role handshake uses the normal
-    logged-in Codex host, a temporary project-scoped custom-agent definition,
-    and an ephemeral parent session. Success requires host facts binding the
-    exact role, effective model/effort/sandbox, bundle/role/config digests, and
-    child/parent terminal result. If reliable evidence cannot be established,
-    the task stops as `blocked`; fixture self-report, candidate output, model
-    fallback, or a second local-authenticated attempt cannot upgrade it.
+12. Deterministic preflight binds bundle/role/config/Skill digests, requested
+    child model/effort/sandbox, project trust, custom-role discovery, clean repo,
+    and configuration non-drift. Host evidence is responsible only for a parent
+    turn, exactly one named `gkd_executor` activation with no other role or
+    fallback, child terminal, parent terminal, exit code, and a redacted error if
+    present. JSONL need not echo GKD digests. Success requires both evidence
+    classes and configuration/repo non-drift. A failed preflight or host probe
+    remains `blocked`; fixture self-report, candidate output, downgrade,
+    fallback, or a second call under the same authorization cannot upgrade it.

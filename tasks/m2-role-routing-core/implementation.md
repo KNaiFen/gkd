@@ -1,4 +1,4 @@
-# GKD-M2-A Implementation Notes v2
+# GKD-M2-A Implementation Notes v3
 
 ## Internal Design
 
@@ -52,13 +52,22 @@
 - Build L1 schema/unit/property and mutation contracts first, followed by L2
   temporary-home, real Git/worktree, concurrent activation/claim, installer,
   and recovery fixtures.
-- After hermetic contracts pass, run the one additionally authorized live role
-  handshake through the normally logged-in local Codex runtime. Use a clean
-  temporary Git repo, render the exact candidate `gkd_executor` into its
-  project-scoped `.codex/agents`, and launch an ephemeral parent session. Do not
-  set an alternate Codex home, copy authentication, install production files,
-  or perform repository implementation work. Record only minimized structured
-  facts and delete raw event output and the temporary repo after normalization.
+- After hermetic contracts pass, prepare a clean temporary Git repo and render
+  the exact candidate `gkd_executor` plus required Skills into project scope.
+  Resolve the normal CLI with `command -v codex`; use `--strict-config` without
+  `--ignore-user-config` to parse normal user and project configuration, and use
+  the exact live command with `--help` for argument parsing. Prove zero model
+  invocations/attempts, exact digests, trust/discovery, clean repo, and unchanged
+  production configuration. Push this static fixed head and stop for a new live
+  authorization.
+- Under that later authorization, launch one ephemeral parent with normal user
+  provider/auth/model routing and no parent `--model` or effort override. The
+  project role fixes the child to `gpt-5.6-sol`/`xhigh`/`workspace-write`.
+  Normalize only host turn, named activation/no-fallback, child/parent terminal,
+  exit and redacted error facts; deterministic preflight owns digest binding.
+  Delete raw events and the temporary repo. Do not set alternate `CODEX_HOME`,
+  copy authentication, install production files, retry, downgrade, or perform
+  repository implementation work.
 - Generate evidence twice from disjoint clean system temporary roots. Confirm
   byte identity, temporary cleanup, production/AIO protection snapshots,
   manifest/lock consistency, and installed inventory/modes.

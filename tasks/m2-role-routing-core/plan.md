@@ -1,4 +1,4 @@
-# GKD-M2-A Plan v2
+# GKD-M2-A Plan v3
 
 ## Goal
 
@@ -21,10 +21,12 @@ until the separate M2-B live wait gate passes.
 - Canonicalize five existing GKD Skills, disable discovery of six approved
   duplicates without deleting them, and preserve all mapped AGENTS hard rules.
 - Do not install or modify production user configuration in this task.
-- Use the user's 2026-08-19 authorization for one additional live handshake
-  through the normally logged-in local Codex host. Mount the candidate role as
-  project-scoped temporary configuration; do not create an alternate Codex
-  home, copy auth state, or modify production configuration.
+- Validate F-004 through the normal production-use Codex environment. The parent
+  loads existing user provider/auth/model routing and receives no explicit model
+  override; a trusted temporary project supplies the candidate custom role.
+  Never create an alternate Codex home, copy auth state, or modify production
+  configuration. Finish and push static preflight first; each later live launch
+  requires one new fixed-head authorization.
 
 ## Behavior And Defaults
 
@@ -61,9 +63,10 @@ until the separate M2-B live wait gate passes.
 - Minimal role-context manifests and five canonical GKD Skills.
 - Temporary installer migration for three roles, old CI reviewer replacement,
   six duplicate Skill discovery overrides, and AGENTS hard-rule mapping.
-- L1/L2 fixtures, one short local-authenticated/project-scoped role handshake,
-  deterministic machine evidence, canonical manifest/lock, and retained
-  regressions.
+- L1/L2 fixtures, static preparation for one short local-authenticated and
+  project-scoped role handshake, deterministic machine evidence, canonical
+  manifest/lock, and retained regressions. The live launch follows only under a
+  separate authorization for the resulting fixed head.
 
 ## Non-Goals
 
@@ -93,8 +96,9 @@ until the separate M2-B live wait gate passes.
   preservation.
 - All retained M1/foundation/watcher short regressions pass and protected
   production/AIO surfaces remain unchanged.
-- Outcome is `role_routing_core_ready` only when trustworthy activation is
-  demonstrated. Otherwise delivery is `blocked` with the unsupported fact.
+- Outcome is `role_routing_core_ready` only when deterministic preflight and
+  trustworthy host activation/terminal evidence are both demonstrated.
+  Otherwise delivery is `blocked` with the exact failed stage.
 
 ## Compatibility
 
@@ -119,11 +123,13 @@ until the separate M2-B live wait gate passes.
 - Keep plaintext claim capabilities and machine-local agent identifiers outside
   Git and published evidence. Evidence may contain only stable digests and
   synthetic fixture identifiers.
-- Use `codex login status` only as a boolean preflight. Do not read or copy auth
-  files, tokens, cookies, private session state, or unrelated user config. Raw
-  handshake JSONL may exist only in an explicit temporary directory while it is
-  minimized; delete it before delivery and commit only path-free structured
-  facts.
+- Use `codex login status` only as a boolean preflight. Normal Codex startup may
+  parse existing user provider, routing, and login configuration, but the task
+  must not print configuration, read or copy auth files, tokens, cookies, or
+  private session state. Snapshot approved production configuration surfaces
+  before/after and require byte identity. Raw handshake JSONL may exist only in
+  an explicit temporary directory while minimized; delete it before delivery
+  and commit only path-free structured facts.
 - Reject unknown fields, path traversal, symlinks, credential-shaped echoed
   identifiers, cross-task reuse, stale bundle/role/config digests, and replay.
 - Role permissions follow least authority: executor cannot merge; acceptor does
@@ -164,9 +170,10 @@ until the separate M2-B live wait gate passes.
 - This task uses a manually opened independent top-level execution session in
   its registered worktree. It does not use `gkd_executor` to implement itself.
 - The executor may not delegate investigation, design, implementation, review
-  judgment, or repository writes. After deterministic contracts pass, it may
-  run one additional bounded live handshake from a clean temporary Git repo.
-  The parent uses the normal logged-in Codex host with `--ephemeral`; the tested
+  judgment, or repository writes. After deterministic contracts pass, it must
+  push a static fixed head and stop. A subsequent explicit authorization may run
+  one bounded live handshake from a clean temporary Git repo. The parent uses
+  normal user provider/auth/model routing with `--ephemeral`; the tested child
   role is discovered only from temporary project-scoped `.codex/agents` files.
 - The existing M1 CLI cannot provide trusted production claim evidence, so this
   task retains a documented bootstrap exception and does not create a fake
@@ -175,11 +182,11 @@ until the separate M2-B live wait gate passes.
 
 ## External Side Effects
 
-- Allowed: changes in the M2-A worktree, temporary fixture homes/repos, the
-  existing task branch and Draft PR, task-related push/PR updates, and one short
-  additional local-authenticated role-handshake verification after local
-  deterministic gates pass. That authorization includes one bounded ChatGPT
-  Codex parent/child handshake session but no API-key billed request.
+- Allowed now: changes in the M2-A worktree, temporary fixture homes/repos, the
+  existing task branch and Draft PR, task-related push/PR updates, and no-model
+  static parsing of normal user/project configuration. A later short
+  local-authenticated parent/child handshake is allowed only after the user
+  explicitly authorizes one call against the new static fixed head.
 - Forbidden: production `~/.codex`, AIO writes, GitHub settings, Secrets,
   runners, billing, tags, Releases, sandbox repository initialization, and any
   live one-hour or 12-hour wait claim.

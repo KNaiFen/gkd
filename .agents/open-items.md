@@ -20,7 +20,8 @@
 - [x] `GKD-M2-A` v1 requirements/plan/implementation/execution 已在base `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea` 建立；branch `task/m2-role-routing-core`，planning head `51fee63a8b600df4f94aa042ea42ef09e3b73986`，PR #6。
 - [x] 独立 GPT-5.6 Sol / xhigh 人工顶层 execution session 已交付 M2-A 初始 fixed head `cd8c89899039070c29b2c5209e7c5afaefba0616`；独立验收确认 M2-A 仍为 `blocked`，未合并。
 - [x] 同一隔离 worktree 已处理 F-001 至 F-003 并生成两份一致 evidence；implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`。
-- [x] F-004：本轮新增授权本机握手的静态 trust/agents/role discovery 通过，live 只启动一次并在 parent turn 前被宿主以 HTTP 400 拒绝 ChatGPT account 使用 `gpt-5.6-sol`，分类 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT` 并保持 blocked；未读取认证材料、降级、fallback 或重试，未产生可信 custom-role/config/child/parent evidence。
+- [x] F-004 历史：隔离模式本机握手只启动一次，并在 parent turn 前被宿主以 HTTP 400 拒绝 ChatGPT account 使用 `gpt-5.6-sol`；该结果只作为旧 `--ignore-user-config`/parent-model-override 路径的负向证据。
+- [ ] F-004 v3：正常用户 provider/auth/model routing 静态预检在 project role discovery 前因 `disable_response_storage` 未知字段返回 `USER_CONFIG_PARSE_FAILED`；live 参数解析通过，生产配置未改，模型调用/已消耗尝试为 0。完整 strict static preflight 通过前不得请求或执行新 live probe。
 - [x] F-005：canonical/installable payload 已移除 activation writer、`FixtureEvidenceProvider` 和 `make_fixture_evidence`；test seam 不在 bundle/manifest/inventory。无 host attestation 时正常 CLI/library claim/recovery fail-closed 且 runtime/tracked bytes 不变。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。

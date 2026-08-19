@@ -2,9 +2,9 @@
 
 ## 当前轮次
 
-- 结论：F-005 已整改；F-004 的新增授权 live probe 已执行且被宿主在模型准入阶段拒绝，继续阻塞
+- 结论：F-005 已整改；F-004 已切换到正常生产使用环境合同，但静态 strict-config 预检失败，继续阻塞且未调用模型
 - PR：https://github.com/KNaiFen/gkd/pull/6
-- 本轮授权锚点：固定 head `5b2e342e4cff07faa56cd63c62b36bc6c627f024`
+- 本轮静态整改基线：固定 head `0cafbdc2a865620ffcd9b22426a97021cdd186ec`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
 - 已解决：F-001、F-003
 - 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；真实 host attestation 仍由 F-004 阻塞
@@ -54,18 +54,18 @@
 
 ## F-004：fresh trusted custom-role handshake 尚未建立
 
-- 状态：本机登录态复验已执行；可信 host evidence 仍未建立
+- 状态：v3 正常环境静态预检已执行；用户配置 strict parse 失败，尚不具备新 live probe 条件
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
-- 证据：`evidence/m2-role-routing-core/role-handshake.json` 的静态 preflight 已证明 project trust、`agents.enabled=true` 和 `gkd_executor` discovery，且 launch 前 `modelInvocations=0`、`liveAttemptsConsumed=0`。本轮唯一授权调用随后以 Codex exit 1、HTTP 400 `invalid_request_error` 终止，宿主明确返回 ChatGPT account 不支持 `gpt-5.6-sol`；`customRoleActivationProven=false`、`childTerminalObserved=false`、`parentTerminalObserved=false`。
+- 证据：`evidence/m2-role-routing-core/role-handshake.json` 以 schema v2 区分确定性 preflight 与未来 host evidence。当前 `command-v` CLI、临时 repo、精确 child role/config/bundle/Skill digest、live 参数解析和生产配置 before/after 已固定；正常用户配置在 `codex-cli 0.147.0 --strict-config` 下因未知字段 `disable_response_storage` 返回 `USER_CONFIG_PARSE_FAILED`。因此 `liveCommandParsed=true`，但 `userConfigurationParsed=false`、`customRoleDiscovered=false`、`modelInvocations=0`、`liveAttemptsConsumed=0`。此前隔离模式 HTTP 400 仅保留在 `historicalNegativeEvidence`。
 - 当前行为与影响：当前宿主运行事实没有证明真实 `gkd_executor` custom-role activation，不能把 M2-A 标为 `role_routing_core_ready`，也不能启动 M2-B 或 automatic route。
-- 必须达到的结果：按 v2 execution 的 `Authorized Local-Authenticated Handshake` 执行一次本机登录态 live probe。只有可信 host event 同时绑定预期角色、模型/effort/sandbox、bundle/role/config digest、child/parent terminal 且 path-free 时，才可改为 ready。宿主仍不给出可信事实时继续 `blocked`，不得用 fixture、自述、候选文件、模型降级或第二次尝试升级。
+- 必须达到的结果：按 v3 execution 先通过正常用户配置与项目角色的 strict static preflight 并推送固定 head，再取得绑定该 head 的一次 live 授权。确定性证据负责角色配置、digest、trust/discovery 和非漂移；host 只需证明 parent turn、按名启动唯一 `gkd_executor`、无其他角色/fallback 和 child/parent terminal。两类证据均通过才可改为 ready。
 - 修改边界：使用正常本机 Codex 登录态和一个临时 Git repo 内的项目级 `.codex/agents`/`.codex/skills`；父会话必须 ephemeral。不得设置 alternate `CODEX_HOME`、读取/复制认证材料、写生产配置、修改 AIO、启用 auto route 或运行真实一小时等待。
 - 测试与文档：保留旧 blocked 证据作为历史；新 probe 只提交最小化 path-free 事件事实，原始 JSONL 和临时 repo 必须删除。成功或再次 blocked 都要更新 delivery/evidence 并明确唯一尝试的宿主事实。
 - 复验方式：独立审查本机登录态 probe 的完整临时事件后只保留规范化结果；复核角色文件与 fixed bundle digest、真实 custom-role activation、effective model/effort/sandbox 以及 child/parent terminal。任何缺失均保持阻塞。
-- 执行回应：本轮只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`；严格静态 parser preflight 在模型调用前确认 trust、multi-agent、精确 role/config/bundle digest 和 custom-role discovery。本轮新增授权只启动一次冻结命令，固定 `gkd_executor`、`gpt-5.6-sol`、`xhigh`、`workspace-write`、`approval_policy="never"`、ephemeral、ignore-user-config 和 strict-config。宿主在 parent turn 前以 HTTP 400 `invalid_request_error` 拒绝 ChatGPT account 使用该模型，Codex exit 1；机器分类为 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`。未产生 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal，未降级、fallback、替换角色或重试。最小证据 path-free；原始 JSONL 与临时 repo 已删除；生产/AIO 保护面不变，outcome 保持 `blocked`。
-- 静态追加诊断（未调用模型、未消耗 live attempt）：Codex 0.147.0 对未受信项目仍发现 project Skills，但会跳过 project config/agents；因此“Skill 已发现”不是 role discovery 证据。`projects."<path>".trust_level` 形式的 CLI dotted override 未使规范化临时路径生效，改为单个 TOML inline table `projects={"<canonical-path>"={trust_level="trusted"}}` 后项目层才加载。新增 tests-only preflight：项目 config 显式注册 `agents.gkd_executor.config_file`，隔离 parser home 使用当前 Codex `--strict-config --listen off` 在 no-transport 边界前验证 trust、`agents.enabled=true` 和角色解析；任一 trust/parse/discovery warning 都在 `codex exec` 前 fail-closed。真实 live command 仍使用正常本机 `CODEX_HOME`/登录态，并保留 `--ignore-user-config`。
+- 历史执行回应：隔离模式命令固定 parent `--model gpt-5.6-sol` 并使用 `--ignore-user-config`，宿主在 parent turn 前以 HTTP 400 `invalid_request_error` 拒绝 ChatGPT account 使用该模型，Codex exit 1；分类 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`。该事实不再代表 v3 正常 provider/routing 环境，但继续作为历史负向证据。
+- v3 静态执行回应：live command 已删除 `--ignore-user-config`、parent `--model` 和 parent effort override，保留 ephemeral、strict-config、JSONL、workspace-write、`approval_policy="never"`、project trust、`agents.enabled=true` 与固定 prompt；child TOML 仍固定 Sol/xhigh/workspace-write。tests-only preflight 使用 `command -v codex`，不设置 alternate `CODEX_HOME`，并在调用前后核对生产保护面和临时 repo。正常用户配置 strict parse 先于 project role discovery 失败，脱敏分类 `USER_CONFIG_PARSE_FAILED`；未运行 `codex exec` 模型 turn，未消耗新 live attempt，生产配置未改变。当前不具备请求下一次 live 授权的条件。
 
 ## F-005：安装态 activation writer 仍可由候选进程直接调用
 
@@ -87,7 +87,7 @@
 - 不要顺带处理：M2-B 真实一小时等待、production install、AIO adoption、GitHub settings、里程碑 3/4/5、旧 watcher 或大型依赖构建。
 - 可以自主决定：在不改变 requirements/plan 用户锁定行为的前提下选择 provider 锚定和 migration recovery 的最小实现方式。
 
-本轮新增 live probe 授权已消耗且结果为宿主模型拒绝；不得执行第二次 probe、模型降级、角色替换或 fallback。完成 evidence、回归、Draft PR 与新固定 head 交付后停在独立验收前；PR 仍不得由执行 session 自行验收或合并。
+本轮只交付 v3 静态 fixed head，不执行 live probe。只有 strict static preflight 完整通过后，才可由用户对新固定 head 单独授权一次 live 调用。当前 `USER_CONFIG_PARSE_FAILED` 必须如实保持 `blocked`；PR 仍不得由执行 session 自行验收或合并。
 
 ## CI 或环境问题
 
