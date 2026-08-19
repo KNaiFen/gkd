@@ -14,7 +14,7 @@ not accept, merge, start GKD-M2-B, enable automatic routing, or start milestone
 
 ## Task Identity
 
-- Status: `awaiting_manual_execution`
+- Status: `awaiting_manual_rework`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
