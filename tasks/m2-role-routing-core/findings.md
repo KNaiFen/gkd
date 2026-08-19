@@ -2,9 +2,9 @@
 
 ## 当前轮次
 
-- 结论：F-005 已整改；F-004 仍阻塞，等待用户明确授权新增一次 live probe
+- 结论：F-005 已整改；F-004 的新增授权 live probe 已执行且被宿主在模型准入阶段拒绝，继续阻塞
 - PR：https://github.com/KNaiFen/gkd/pull/6
-- 审查锚点：固定 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da`
+- 本轮授权锚点：固定 head `5b2e342e4cff07faa56cd63c62b36bc6c627f024`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
 - 已解决：F-001、F-003
 - 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；真实 host attestation 仍由 F-004 阻塞
@@ -58,13 +58,13 @@
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
-- 证据：`evidence/m2-role-routing-core/role-handshake.json` 的 `customRoleActivationProven=false`、`childTerminalObserved=false`、`parentTerminalObserved=false`，仅观察到 `error`、`thread.started`、`turn.started`、`item.completed`、`turn.failed`；交付正确保持 `blocked`。独立只读 preflight 已确认本机 `codex-cli 0.147.0` 为 `Logged in using ChatGPT`，因此旧结果不能归因为本机未登录，只能说明旧 temporary-home 路径没有建立可信握手。
+- 证据：`evidence/m2-role-routing-core/role-handshake.json` 的静态 preflight 已证明 project trust、`agents.enabled=true` 和 `gkd_executor` discovery，且 launch 前 `modelInvocations=0`、`liveAttemptsConsumed=0`。本轮唯一授权调用随后以 Codex exit 1、HTTP 400 `invalid_request_error` 终止，宿主明确返回 ChatGPT account 不支持 `gpt-5.6-sol`；`customRoleActivationProven=false`、`childTerminalObserved=false`、`parentTerminalObserved=false`。
 - 当前行为与影响：当前宿主运行事实没有证明真实 `gkd_executor` custom-role activation，不能把 M2-A 标为 `role_routing_core_ready`，也不能启动 M2-B 或 automatic route。
 - 必须达到的结果：按 v2 execution 的 `Authorized Local-Authenticated Handshake` 执行一次本机登录态 live probe。只有可信 host event 同时绑定预期角色、模型/effort/sandbox、bundle/role/config digest、child/parent terminal 且 path-free 时，才可改为 ready。宿主仍不给出可信事实时继续 `blocked`，不得用 fixture、自述、候选文件、模型降级或第二次尝试升级。
 - 修改边界：使用正常本机 Codex 登录态和一个临时 Git repo 内的项目级 `.codex/agents`/`.codex/skills`；父会话必须 ephemeral。不得设置 alternate `CODEX_HOME`、读取/复制认证材料、写生产配置、修改 AIO、启用 auto route 或运行真实一小时等待。
 - 测试与文档：保留旧 blocked 证据作为历史；新 probe 只提交最小化 path-free 事件事实，原始 JSONL 和临时 repo 必须删除。成功或再次 blocked 都要更新 delivery/evidence 并明确唯一尝试的宿主事实。
 - 复验方式：独立审查本机登录态 probe 的完整临时事件后只保留规范化结果；复核角色文件与 fixed bundle digest、真实 custom-role activation、effective model/effort/sandbox 以及 child/parent terminal。任何缺失均保持阻塞。
-- 执行回应：只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`。在干净临时 Git repo 写入并校验当前 bundle 的精确 `gkd_executor.toml` 与三个所需 Skills 后，仅启动一次 `codex exec --ephemeral --ignore-user-config --json`，固定 `gpt-5.6-sol`、`xhigh`、`workspace-write` 和 no-approval。宿主退出码 1，仅产生 `error`、`thread.started`、`turn.started`、`item.completed`、`turn.failed`；未提供 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal。机器分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，原始 JSONL 与临时 repo 已删除；未降级、fallback 或重试，outcome 保持 `blocked`。
+- 执行回应：本轮只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`；严格静态 parser preflight 在模型调用前确认 trust、multi-agent、精确 role/config/bundle digest 和 custom-role discovery。本轮新增授权只启动一次冻结命令，固定 `gkd_executor`、`gpt-5.6-sol`、`xhigh`、`workspace-write`、`approval_policy="never"`、ephemeral、ignore-user-config 和 strict-config。宿主在 parent turn 前以 HTTP 400 `invalid_request_error` 拒绝 ChatGPT account 使用该模型，Codex exit 1；机器分类为 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`。未产生 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal，未降级、fallback、替换角色或重试。最小证据 path-free；原始 JSONL 与临时 repo 已删除；生产/AIO 保护面不变，outcome 保持 `blocked`。
 - 静态追加诊断（未调用模型、未消耗 live attempt）：Codex 0.147.0 对未受信项目仍发现 project Skills，但会跳过 project config/agents；因此“Skill 已发现”不是 role discovery 证据。`projects."<path>".trust_level` 形式的 CLI dotted override 未使规范化临时路径生效，改为单个 TOML inline table `projects={"<canonical-path>"={trust_level="trusted"}}` 后项目层才加载。新增 tests-only preflight：项目 config 显式注册 `agents.gkd_executor.config_file`，隔离 parser home 使用当前 Codex `--strict-config --listen off` 在 no-transport 边界前验证 trust、`agents.enabled=true` 和角色解析；任一 trust/parse/discovery warning 都在 `codex exec` 前 fail-closed。真实 live command 仍使用正常本机 `CODEX_HOME`/登录态，并保留 `--ignore-user-config`。
 
 ## F-005：安装态 activation writer 仍可由候选进程直接调用
@@ -87,7 +87,7 @@
 - 不要顺带处理：M2-B 真实一小时等待、production install、AIO adoption、GitHub settings、里程碑 3/4/5、旧 watcher 或大型依赖构建。
 - 可以自主决定：在不改变 requirements/plan 用户锁定行为的前提下选择 provider 锚定和 migration recovery 的最小实现方式。
 
-新增 live probe 尚未获本轮明确授权；当前只允许静态诊断和握手准备。用户明确授权后，执行 session 才可在全部 deterministic/L2 合同通过后运行一次 F-004 本机登录态 probe，随后重新运行 M2-A 与保留回归、更新 `delivery.md`/evidence、推送新的固定 head 并停在独立验收前。PR 仍不得由执行 session 自行验收或合并。
+本轮新增 live probe 授权已消耗且结果为宿主模型拒绝；不得执行第二次 probe、模型降级、角色替换或 fallback。完成 evidence、回归、Draft PR 与新固定 head 交付后停在独立验收前；PR 仍不得由执行 session 自行验收或合并。
 
 ## CI 或环境问题
 

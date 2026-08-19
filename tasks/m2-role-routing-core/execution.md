@@ -20,8 +20,8 @@ enable automatic routing, or start milestone 3.
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
-- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 and F-005
-  unresolved); this handoff does not authorize
+- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 unresolved;
+  F-005 remediated); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
 - Requirements: `tasks/m2-role-routing-core/requirements.md`, version 2
 - Plan: `tasks/m2-role-routing-core/plan.md`, version 2

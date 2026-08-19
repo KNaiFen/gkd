@@ -176,3 +176,7 @@
 - [2026-08-19] GKD-M2-A 完成最小安装面整改与本机握手复验。
   - Why: canonical/installable payload 进一步移除 M1 的 `FixtureEvidenceProvider` 与 `make_fixture_evidence`，所有 activation/fixture writer seam 只留在 tests；正常 CLI/library v2 claim/recovery 无 host attestation 时在任何 runtime/tracked 写前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。唯一 live probe 已从校验过 digest 的项目级 `gkd_executor`/Skills 启动，但宿主只给出失败事件，未证明角色、effective config 或双 terminal。
   - Impact: F-005 最小整改闭环，F-004 分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，总体仍为 `blocked`。不引入 daemon、IPC、签名协议或恶意 subclass 防御；PR #6 保持 Draft，auto route 与 M2-B 继续禁用。
+
+- [2026-08-19] GKD-M2-A 新增授权本机握手在宿主模型准入阶段终止。
+  - Why: 授权锚点、分支/远程/PR head、干净 worktree 和静态 parser preflight 均通过；preflight 证明临时项目 trust、`agents.enabled=true`、精确 `gkd_executor` discovery 与 role/config/bundle digest，且此时模型调用/已消耗尝试均为 0。本轮唯一 live 启动后，Codex 在 parent turn 前以 HTTP 400 `invalid_request_error` 明确拒绝 ChatGPT account 使用 `gpt-5.6-sol`。
+  - Impact: 失败分类收窄为 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`；未产生 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal，F-004 和总体 outcome 保持 `blocked`。未重试、降级、fallback 或替换角色；PR #6 必须保持 Draft，不得启动 M2-B 或 automatic route。
