@@ -75,7 +75,7 @@ codex exec --ephemeral --json \
 - Executor context: `89ed5ac0e9e641cabeebfbfb790912f6058adcc6b55f86a43a1c36db835b36dc`
 - Executor Skills: `gkd-ci-monitor` `45589e31a888437774b67c9c20be2ab4075c48bbb9de918f8ad7c068c82dc7a0`; `gkd-execute` `d7d61e528d5d32f67ea69152193ecaaef7a2aaa6ac4ff12972c866f312806524`; `gkd-local-verify` `3ec80b83782c7e1ff69d7fb72e6fb1665c6a5add66d97c19dd235908c33d6ad3`
 
-v3 strict compatibility failure和更早的隔离模式 HTTP 400 均继续保留在 handshake 的历史证据字段中，不用于补足本轮 host facts。
+v3 strict compatibility failure 和更早的隔离模式 HTTP 400 均继续保留在 handshake 的历史证据字段中，不用于补足本轮 host facts。
 
 ## 验证
 
