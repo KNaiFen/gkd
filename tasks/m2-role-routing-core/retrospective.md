@@ -2,11 +2,12 @@
 
 ## 进度结论
 
-里程碑 0、里程碑 1 和 M2-A 已完成。M2-A 固定 head
+里程碑 0、里程碑 1、M2-A 和 M2-B 已完成。M2-A 固定 head
 `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 已由独立 main 验收并以
-`9351d628d198ec8638311901cf288abadc643a42` 合并。当前唯一下一项是人工顶层
-M2-B；route 仍为 `manual_only`，生产安装、AIO 接入、里程碑 3 和 automatic
-route 均未开始。
+`9351d628d198ec8638311901cf288abadc643a42` 合并。用户随后明确确认 M2-B 的
+一小时等待与 child early-final 已验证可用并免于重新取证。manual 仍为默认，
+但里程碑 3、4、5 现在可以显式使用专用 `gkd_executor` automatic route；生产
+安装和 AIO 接入仍未授权。
 
 ## 子代理与角色实现的实际偏移
 
@@ -41,14 +42,12 @@ route 均未开始。
 
 ## 后续最小路线
 
-1. 从本地已同步的 `main`（当前收尾 head `902001a...`，其功能合并父提交为
-   `9351d628...`）新建独立人工 M2-B worktree；固定
-   M2-A bundle digest `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880`。
-2. 在 fresh runtime 只验证实际接受 `wait_agent(timeout_ms=3600000)`、child
-   early-final、最多 12 个静默 interval、deadline 单一 timeout，以及固定 bundle
-   digest 绑定。工具上限不足一小时就保持 blocked，不改成短循环。
-3. M2-B 通过后才重新评估 automatic route；在此之前继续人工交接。M3/4/5 的
-   专用 executor 只有在角色、offer/claim 和一小时等待门均有固定证据后才可启动。
+1. 从同步 main 规划里程碑 3 的首个任务，并按已有 hybrid B 授权显式请求
+   automatic route；不再创建 M2-B worktree。
+2. main 只能启动一个 `gkd_executor`，绑定 exact bundle、role/config、offer/claim、
+   activation 和 M2-B gate；executor 不验收、不合并、不清理，也不派生替代 worker。
+3. 每次健康等待只调用 `wait_agent(timeout_ms=3600000)`；超时后立即重等，最多
+   12轮。终态、错误、用户介入或deadline结束循环，不使用短wait或外部watcher。
 
 ## 长上下文治理
 

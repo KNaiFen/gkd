@@ -9,7 +9,7 @@
 - [x] `GKD-M0-A` 新固定head `68c418aef398dd6c2a3576c330d744e5d351acfa` 已通过独立终验并squash merge为 `2207645ab7a3bfc4b0ad4a15cf4bbe743612933c`；结论仅为 `canonical_foundation_ready`。
 - [x] 里程碑0的正式范围已由M0-A全部覆盖；未定义、未批准具体范围的M0-B占位不再作为任务。
 - [x] M0-A终态验收已落盘；任务worktree、本地分支和远端分支均已删除并回填实际清理结果。
-- [ ] 在目标 fresh runtime 证明 `wait_agent(timeout_ms=3600000)` 被实际工具接受、child final 可提前返回，并用确定性/fake-clock 合同验证最多12轮静默重等与单一timeout；当前工具层只声明360,000ms，门禁未通过前不得使用更短循环替代。
+- [x] 用户已明确确认目标 runtime 的 `wait_agent(timeout_ms=3600000)` 与 child early-final 可用，并要求免于重新定位 session 或重跑；结合 M2-A fake-clock 合同，M2-B 以 `tasks/m2-one-hour-live-gate/acceptance.md` 固化完成。
 - [x] `GKD-M1-A` v1 requirements/plan/execution 已在base `1335ac6a9a4dbb5c63570f5a02ba9e713705eebd` 建立，planning head `b1e8b8d9f00ad53b68162c240134c3cd740d937a` 已推送到Draft PR #5。
 - [x] `GKD-M1-A` 已由独立人工顶层execution session实现并形成implementation/evidence commit `1798b0f2c32571c803c399179c27090f94d21c0a`；候选结论仅为 `deterministic_task_core_ready`。
 - [x] PR #5首个delivery head `c35ac55fd299196a463bc31e8ff0f98ef37c3858` 的独立验收未通过且未合并；四项阻塞已由原execution session在implementation/evidence commit `fee072bf6849d87ffd6a6323ea75a81af3504831` 修复并重新取证。
@@ -26,6 +26,6 @@
 - [x] `GKD-M2-A` 本轮 implementation/evidence commit 为 `f86a092a9ba42fd8965209dfe18f3a70debe0ef6` / `0108c1c50dc3c4437cadf0cbea1ebd480768e83c`；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致，等待 PR #6 新 fixed head 独立验收。
 - [x] `GKD-M2-A` fixed head `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 已独立验收并以 squash merge `9351d628d198ec8638311901cf288abadc643a42` 进入 main；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致。
 - [x] `GKD-M2-A` 收尾已完成：候选 worktree、本地任务分支、远端任务分支和跟踪引用均已删除；终态记录为 `tasks/m2-role-routing-core/acceptance.md`，复盘为 `tasks/m2-role-routing-core/retrospective.md`。
-- [ ] `GKD-M2-B`：从同步 main 新建人工 worktree，在 fresh runtime 实际证明 `wait_agent(timeout_ms=3600000)`、child early-final、最多12轮静默重等、deadline单一timeout和固定 M2-A bundle digest 绑定；通过前 auto route 保持禁用。
+- [x] `GKD-M2-B` 已按用户明确确认绑定 M2-A bundle digest 固化；里程碑2完成，manual仍默认，M3/M4/M5现可显式使用专用`gkd_executor` automatic route。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

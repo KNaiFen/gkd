@@ -212,3 +212,7 @@
 - [2026-08-20] M2-A 长会话复盘收敛子代理实施边界。
   - Why: 原始会话中嵌套 `codex exec` 的隔离参数、strict-config、parent model override 和 wait-only stdout 曾造成编排失败被误读为角色失败；首次 ready 还缺少 activation→claim 可消费正向链。独立验收和完整 rollout 事实随后纠正了这些判断。
   - Impact: 后续里程碑继续使用人工顶层 session 完成规划、实现和材料性判断；`gkd_executor` 只在固定角色/offer-claim/一小时等待门全部通过后用于后续自动路线，且 executor 不验收、不合并、不清理。执行 session 应在授权范围内自主完成静态验证、有限诊断、修复、证据和交付，只有真实平台硬阻塞才返回 main；新 session 以固定 head 和持久记录为准，不复制历史 blocked 叙述。
+
+- [2026-08-20] 用户确认 M2-B 一小时原生等待门可用并免于重新取证。
+  - Why: 用户明确说明已经验证 `wait_agent(timeout_ms=3600000)` 与 child early-final 可用，并要求直接按可用事实固化，不再定位 session 记录或重跑 live gate。M2-A 已由 fake-clock 合同覆盖最多12轮静默重等、绝对deadline、一次interrupt和单一timeout。
+  - Impact: 用户确认作为本计划的 M2-B 接受依据，绑定 M2-A bundle digest `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880`；不伪装成重新生成的机器 session evidence。里程碑2完成，manual继续默认，M3/M4/M5可按已有hybrid B授权显式启动唯一`gkd_executor` automatic route；门禁漂移仍fail-closed。生产安装与AIO授权不变。
