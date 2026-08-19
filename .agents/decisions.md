@@ -156,3 +156,7 @@
 - [2026-08-19] `GKD-M2-A` 首轮固定头验收拒绝并转人工返工。
   - Why: 对 PR #6 implementation head `cd8c89899039070c29b2c5209e7c5afaefba0616` 的独立复验发现三项实现级阻塞：迁移 rollback failure 会在 `MIGRATION_FROZEN` 后删除唯一 backup；activation provider/digest 由调用者自由选择且 activation 时间未绑定 offer 有效窗口；wait transition 忽略 `deadlineAt`，13 小时 observation 仍返回 `wait_again`。现有 M2 51、task-core 104、foundation 53、watcher core 47、live-negative 15 测试和 evidence 再生均通过/逐字节一致，但未覆盖这些反例。
   - Impact: main 在候选任务文档记录 F-001 至 F-004 的 `findings.md`，提交 `c4a737f` 并推送到 PR #6；任务保持未合并，execution session 只处理 findings 后重新交付。fresh trusted custom-role handshake 仍未建立（F-004），因此不得启动 M2-B、启用 auto route、安装生产 `~/.codex` 或接入 AIO。
+
+- [2026-08-19] `GKD-M2-A` 实现级返工完成，但可信角色握手继续 fail-closed。
+  - Why: migration rollback failure 现在保留 backup/stage/freeze；activation provider 固定由 locked bundle catalog 派生且绑定 offer window/activation/envelope；wait transition 在 absolute deadline 终止。全部短合同与两次隔离 evidence 通过，但唯一 fresh handshake 被宿主以 `gpt-5.6-sol` 不支持当前 ChatGPT-account runtime 拒绝，未产生 custom-role activation 或 child/parent terminal。
+  - Impact: implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`，bundle digest 为 `6e9cc8a73fa9e80e3a3061114f53c3daf152439a2886e40000e07d19b9c37a6b`，evidence digest 为 `5092c31dd1aaab13623e1131da84e248eb4af0018ce0c37f1a63ba85161b00b6`。F-001 至 F-003 转待独立复验，F-004 与总体 outcome 保持 `blocked`；PR #6 保持 Draft，不得验收、合并、启动 M2-B 或自动路线。

@@ -19,7 +19,8 @@
 - [x] `GKD-M1-A` worktree、本地任务分支和远端任务分支已删除并回填实际清理结果。
 - [x] `GKD-M2-A` v1 requirements/plan/implementation/execution 已在base `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea` 建立；branch `task/m2-role-routing-core`，planning head `51fee63a8b600df4f94aa042ea42ef09e3b73986`，PR #6。
 - [x] 独立 GPT-5.6 Sol / xhigh 人工顶层 execution session 已交付 M2-A 初始 fixed head `cd8c89899039070c29b2c5209e7c5afaefba0616`；独立验收确认 M2-A 仍为 `blocked`，未合并。
-- [ ] 按 `tasks/m2-role-routing-core/findings.md` 在同一隔离 worktree 处理 F-001 至 F-003，并重新尝试 F-004 trusted custom-role handshake；不得由main或未来候选角色直接实现、验收或合并。
+- [x] 同一隔离 worktree 已处理 F-001 至 F-003 并生成两份一致 evidence；implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`。
+- [ ] F-004 trusted custom-role handshake 仍因宿主不支持 ChatGPT-account runtime 的 `gpt-5.6-sol` 而阻塞；PR #6 保持 Draft，不得由 execution session 验收或合并。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

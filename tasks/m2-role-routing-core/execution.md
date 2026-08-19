@@ -8,21 +8,21 @@ plan, and implementation documents completely before any implementation.
 
 The session must use GPT-5.6 Sol with `xhigh` reasoning. It is a manually opened
 top-level execution session, not main and not the future `gkd_executor`. It must
-stop after the Draft PR is ready for independent fixed-head acceptance. It must
+stop after blocked fixed-head delivery with the PR kept Draft. It must
 not accept, merge, start GKD-M2-B, enable automatic routing, or start milestone
 3.
 
 ## Task Identity
 
-- Status: `awaiting_manual_rework`
+- Status: `delivered_blocked`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
-- Current acceptance findings: `tasks/m2-role-routing-core/findings.md` (F-001,
-  F-002, F-003, F-004); this is a manual rework handoff and does not authorize
+- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-001 through F-003
+  fixed; F-004 blocked); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
 - Requirements: `tasks/m2-role-routing-core/requirements.md`, version 1
 - Plan: `tasks/m2-role-routing-core/plan.md`, version 1
@@ -77,8 +77,8 @@ The existing `gkd_core_implementation` authorization permits this session to:
    Codex homes/configs, fake clocks/nonces, fake host adapters, and temporary
    Git repositories for L1/L2 contracts;
 3. inspect production GKD Skills/legacy role and AIO planning inputs read-only;
-4. commit and push the task branch, create/update its Draft PR, perform
-   task-related repair, and mark the PR ready;
+4. commit and push the task branch, create/update its Draft PR, and perform
+   task-related repair;
 5. after hermetic gates pass, run one bounded short isolated role-handshake
    verification that performs no repository implementation work.
 
@@ -194,8 +194,9 @@ Before handoff to main:
 2. Write `delivery.md` with fixed base, synchronized main, implementation and
    evidence commit, PR, exact validation, test matrix, bundle/role/Skill/context
    digests, migration facts, deviations, and residual risks.
-3. Commit and push, update the Draft PR body, mark it ready, and verify the live
-   remote head equals the final local 40-character head.
+3. Commit and push, update the Draft PR body, keep it Draft for a blocked
+   outcome, and verify the live remote head equals the final local 40-character
+   head.
 4. Report outcome, fixed head, implementation/evidence commit, bundle/evidence
    digests, test totals, PR/check reality, protected-surface result, and every
    unmet condition.
