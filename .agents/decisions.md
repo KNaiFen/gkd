@@ -168,3 +168,7 @@
 - [2026-08-19] M2-A 续交验收新增 F-005 activation writer 阻塞。
   - Why: PR #6 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da` 的安装态 `gkd_role.activation.record_activation` 仍接受调用者构造的 observation 并写入同权限 runtime；独立临时复现可绕过 fail-closed CLI 后令 claim 进入 `implementing`。固定 provider 字段不能证明写入者是 host/main。
   - Impact: canonical/installable payload 必须移除候选可调用的可信 activation writer，test seam 只能存在于 tests；若宿主没有候选不可伪造的 receipt 边界，安装态 activation/claim 保持 fail-closed。F-005 与 F-004 均闭环前 PR #6 不得合并，auto route 保持禁用。
+
+- [2026-08-19] GKD-M2-A F-005 已整改但可信宿主边界仍缺失。
+  - Why: canonical payload 删除 `record_activation`、`ActivationEvidenceProvider` 与 `RuntimeStore.write_activation`；测试 host seam 移入 tests，安装态 CLI 与库级 v2 claim/recovery 在无 host attestation 时固定返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。56 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过。
+  - Impact: 当前唯一允许结论仍为 `blocked`。本机登录态握手只执行一次并在临时 role/Skill 准备阶段以 `HANDSHAKE_SETUP_FAILED` 结束，未建立 custom-role activation 或 child/parent terminal；plan delta 固定为 `candidate-inaccessible-host-attestation-required`。PR #6 保持 Draft，禁止验收、合并、M2-B、automatic route 与生产/AIO 修改。
