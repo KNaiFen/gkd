@@ -224,3 +224,7 @@
 - [2026-08-20] 里程碑3拆分为三个依赖有序任务。
   - Why: fixed-head monitor/policy、资源与防泄漏基础、用户工作流Skills虽同属M3，但接口和验收风险不同；合并为单一PR会扩大审查面并让资源/审查语义阻塞CI最小核心。
   - Impact: `GKD-M3-A`只实现通用`.gkd` policy与GitHub fixed-head monitor；`GKD-M3-B`实现产物分类、资源预设、GitHub facts/推荐和固定scanner wrapper；`GKD-M3-C`实现共享review core、`gkd-optimize-ci`、`gkd-review-remediation`及七Skill收口。三者依次依赖并在M2-C后自动执行。
+
+- [2026-08-20] `GKD-M2-C` 候选达到 `automatic_runtime_bridge_ready`。
+  - Why: canonical payload 现已提供确定性非生产 project staging、六门 automatic decision 的 offer/envelope 绑定、唯一 direct `gkd_executor` spawn 校验、trusted-main activation/exact claim 与中断恢复；claim 中的 execution bundle 和 delivery 中的 candidate output bundle 分离并有状态不变量。17 项 M2-C 合同在两个独立临时根逐字节生成相同 evidence，全部保留回归通过。
+  - Impact: implementation/evidence commit 为 `958a313f48ea7fd5d190dfa5b200230d81d29fd4`；candidate output bundle/evidence digest 为 `2d8117b5ac8ecf9d30fa578424d208ff7795192a3396eb653ee641376955116a` / `5ffe2feef2646b39f5bf293e2365fcbf509fd5518d9a5885250716d1b9814e0e`。M2-C task state 按 bootstrap exception 保持 planning/revision 5/epoch 1 且无 claim/receipt；旧 offer 保持 revoked。PR #7 必须在新 fixed head 独立验收，验收前不视为 accepted runtime upgrade，不启动 fresh main、M3、生产安装或 AIO 修改。
