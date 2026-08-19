@@ -41,7 +41,8 @@ route 均未开始。
 
 ## 后续最小路线
 
-1. 从本地已同步的 `main`（`9351d628...`）新建独立人工 M2-B worktree；固定
+1. 从本地已同步的 `main`（当前收尾 head `902001a...`，其功能合并父提交为
+   `9351d628...`）新建独立人工 M2-B worktree；固定
    M2-A bundle digest `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880`。
 2. 在 fresh runtime 只验证实际接受 `wait_agent(timeout_ms=3600000)`、child
    early-final、最多 12 个静默 interval、deadline 单一 timeout，以及固定 bundle
