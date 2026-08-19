@@ -152,3 +152,7 @@
 - [2026-08-19] `GKD-M2-A` 固定角色与路由核心已实现，但交付结论固定为 `blocked`。
   - Why: 51 项 hermetic/L2 合同、M1 task-core 104、foundation 53、watcher core 47 和 live-negative 15 均通过，两次隔离安装/迁移 evidence 逐字节一致；但唯一一次获准的短时 fresh host handshake 只证明 custom role reference，未证明可信 custom role activation 或 parent/child terminal 归属。
   - Impact: bundle digest 固定为 `943301005912c05bb137d6c44a597e4569e05e9f0e738adaec4a8b675f654649`，M2 evidence digest 固定为 `efe08577c4eabfb91938d2d93473ed142ded4bbe4f651c591a8d830624fbec8c`；不得用 Agent 自述、fixture 或候选文件补足证据。PR #6 只交付 fixed head/Ready，不能验收、合并、启动 M2-B、执行真实一小时等待或启用 auto route。
+
+- [2026-08-19] `GKD-M2-A` 首轮固定头验收拒绝并转人工返工。
+  - Why: 对 PR #6 implementation head `cd8c89899039070c29b2c5209e7c5afaefba0616` 的独立复验发现三项实现级阻塞：迁移 rollback failure 会在 `MIGRATION_FROZEN` 后删除唯一 backup；activation provider/digest 由调用者自由选择且 activation 时间未绑定 offer 有效窗口；wait transition 忽略 `deadlineAt`，13 小时 observation 仍返回 `wait_again`。现有 M2 51、task-core 104、foundation 53、watcher core 47、live-negative 15 测试和 evidence 再生均通过/逐字节一致，但未覆盖这些反例。
+  - Impact: main 在候选任务文档记录 F-001 至 F-004 的 `findings.md`，提交 `c4a737f` 并推送到 PR #6；任务保持未合并，execution session 只处理 findings 后重新交付。fresh trusted custom-role handshake 仍未建立（F-004），因此不得启动 M2-B、启用 auto route、安装生产 `~/.codex` 或接入 AIO。
