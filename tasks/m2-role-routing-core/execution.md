@@ -19,7 +19,7 @@ enable automatic routing, or start milestone 3.
 - Base branch: `main`
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
-- Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
+- PR: `https://github.com/KNaiFen/gkd/pull/6`
 - Rework findings: `tasks/m2-role-routing-core/findings.md` (F-001 through F-005
   resolved and awaiting independent acceptance); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
@@ -115,7 +115,7 @@ manufacture approval.
    task registration/coordination records. Inspect every intervening commit and
    path. Merge only that allowed main update; unknown product drift is a
    blocker. Record the synchronized main SHA in delivery.
-4. Confirm the Draft PR head/branch/base match this task after main has supplied
+4. Confirm the PR head/branch/base match this task after main has supplied
    the final PR number.
 5. Run baseline task-core 104, foundation 53, watcher core 47, and watcher
    live-negative 15 tests. Do not run the four-scenario live probe.
@@ -267,9 +267,9 @@ Before handoff to main:
 2. Write `delivery.md` with fixed base, synchronized main, implementation and
    evidence commit, PR, exact validation, test matrix, bundle/role/Skill/context
    digests, migration facts, deviations, and residual risks.
-3. Commit and push, update the Draft PR body, keep it Draft for a blocked
-   outcome, and verify the live remote head equals the final local 40-character
-   head.
+3. Commit and push, update the PR body, mark it Ready for a successful outcome
+   or keep it Draft when blocked, and verify the live remote head equals the
+   final local 40-character head.
 4. Report outcome, fixed head, implementation/evidence commit, bundle/evidence
    digests, test totals, PR/check reality, protected-surface result, and every
    unmet condition.
