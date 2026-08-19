@@ -2,13 +2,13 @@
 
 ## 当前轮次
 
-- 结论：再次验收未通过；已授权一次本机登录态握手并新增 activation writer 整改
+- 结论：F-005 已整改；F-004 仍阻塞，等待用户明确授权新增一次 live probe
 - PR：https://github.com/KNaiFen/gkd/pull/6
 - 审查锚点：固定 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
 - 已解决：F-001、F-003
-- 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；其可信写入者要求由 F-005 继续阻塞
-- 未解决：F-004、F-005
+- 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；真实 host attestation 仍由 F-004 阻塞
+- 未解决：F-004
 
 ## F-001：迁移回滚冻结会删除唯一原始 backup
 
@@ -65,6 +65,7 @@
 - 测试与文档：保留旧 blocked 证据作为历史；新 probe 只提交最小化 path-free 事件事实，原始 JSONL 和临时 repo 必须删除。成功或再次 blocked 都要更新 delivery/evidence 并明确唯一尝试的宿主事实。
 - 复验方式：独立审查本机登录态 probe 的完整临时事件后只保留规范化结果；复核角色文件与 fixed bundle digest、真实 custom-role activation、effective model/effort/sandbox 以及 child/parent terminal。任何缺失均保持阻塞。
 - 执行回应：只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`。在干净临时 Git repo 写入并校验当前 bundle 的精确 `gkd_executor.toml` 与三个所需 Skills 后，仅启动一次 `codex exec --ephemeral --ignore-user-config --json`，固定 `gpt-5.6-sol`、`xhigh`、`workspace-write` 和 no-approval。宿主退出码 1，仅产生 `error`、`thread.started`、`turn.started`、`item.completed`、`turn.failed`；未提供 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal。机器分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，原始 JSONL 与临时 repo 已删除；未降级、fallback 或重试，outcome 保持 `blocked`。
+- 静态追加诊断（未调用模型、未消耗 live attempt）：Codex 0.147.0 对未受信项目仍发现 project Skills，但会跳过 project config/agents；因此“Skill 已发现”不是 role discovery 证据。`projects."<path>".trust_level` 形式的 CLI dotted override 未使规范化临时路径生效，改为单个 TOML inline table `projects={"<canonical-path>"={trust_level="trusted"}}` 后项目层才加载。新增 tests-only preflight：项目 config 显式注册 `agents.gkd_executor.config_file`，隔离 parser home 使用当前 Codex `--strict-config --listen off` 在 no-transport 边界前验证 trust、`agents.enabled=true` 和角色解析；任一 trust/parse/discovery warning 都在 `codex exec` 前 fail-closed。真实 live command 仍使用正常本机 `CODEX_HOME`/登录态，并保留 `--ignore-user-config`。
 
 ## F-005：安装态 activation writer 仍可由候选进程直接调用
 
@@ -82,11 +83,11 @@
 
 ## 本轮边界
 
-- 必须处理：F-005，并按 v2 合同执行 F-004 的一次本机登录态握手。F-001/F-003 只需保留回归；F-002 的 provider/freshness 修复不得回退。
+- 必须处理：仅继续 F-004；F-005 保持已整改，不再修改 activation/claim/recovery 设计。F-001/F-003 只需保留回归；F-002 的 provider/freshness 修复不得回退。
 - 不要顺带处理：M2-B 真实一小时等待、production install、AIO adoption、GitHub settings、里程碑 3/4/5、旧 watcher 或大型依赖构建。
 - 可以自主决定：在不改变 requirements/plan 用户锁定行为的前提下选择 provider 锚定和 migration recovery 的最小实现方式。
 
-再次交付前，执行 session 必须仅在本任务 worktree 处理 F-005，并在全部 deterministic/L2 合同通过后执行唯一一次 F-004 本机登录态 probe。重新运行 M2-A 与保留回归，更新 `delivery.md`/evidence，推送新的固定 head 并停在独立验收前。PR 仍不得由执行 session 自行验收或合并。
+新增 live probe 尚未获本轮明确授权；当前只允许静态诊断和握手准备。用户明确授权后，执行 session 才可在全部 deterministic/L2 合同通过后运行一次 F-004 本机登录态 probe，随后重新运行 M2-A 与保留回归、更新 `delivery.md`/evidence、推送新的固定 head 并停在独立验收前。PR 仍不得由执行 session 自行验收或合并。
 
 ## CI 或环境问题
 
