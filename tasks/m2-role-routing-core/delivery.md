@@ -4,10 +4,10 @@
 
 - Outcome: `blocked`
 - F-005: 最小整改完成
-- F-004: 本机登录态握手已执行一次，可信 host evidence 仍不完整
+- F-004: 本轮新增授权的本机登录态握手已执行一次，宿主在模型准入阶段拒绝
 - Fixed base: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Synchronized main: `302fab499f86ebbc1fe23602ba28670b27132692`
-- Implementation/evidence commit: `707a0c1156fbf14537746bb2a11a4432ff2b0e48`
+- Implementation/evidence commit: `dca66ec3310810a68d77af62a813f1f49c8b6a06`
 - PR: [KNaiFen/gkd#6](https://github.com/KNaiFen/gkd/pull/6)，保持 Draft
 
 本交付不宣称 `role_routing_core_ready`，不启用 automatic route，不进入 M2-B，不验收或合并。
@@ -21,30 +21,34 @@ canonical/installable payload 不再包含 activation writer、`FixtureEvidenceP
 ## F-004
 
 - Preflight: `codex-cli 0.147.0`，`Logged in using ChatGPT`
-- Live attempts: `1`
+- Launch gate: 授权锚点、本地/远程/PR head、干净 worktree 均匹配；静态 parser preflight 证明 project trust、`agents.enabled=true` 和 `gkd_executor` discovery
+- Before launch: `modelInvocations=0`，`liveAttemptsConsumed=0`
+- Live attempts consumed by this authorization: `1`
 - Fixed role/model/effort/sandbox: `gkd_executor` / `gpt-5.6-sol` / `xhigh` / `workspace-write`
 - Bound bundle digest: `c6cb148b8ff57838fea23100968d241e003307e5284b49f67a95582e3728c4f6`
 - Bound role digest: `7eeca24f18113f1c58d8cf7a712d431e790f721d5dba8cd0706cdfefe1033d16`
 - Bound config digest: `10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e`
 - Host exit status: `1`
 - Event types: `error`, `item.completed`, `thread.started`, `turn.failed`, `turn.started`
-- Failure class: `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`
+- Failure class: `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`
+- Host error: HTTP `400` / `invalid_request_error` / `The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account.`
+- Custom-role discovery before launch: 已证明
 - Custom-role activation: 未证明
 - Effective model/effort/sandbox host facts: 未观察到
 - Host digest binding: 未观察到
 - Child terminal / parent terminal: 均未观察到
 - Raw JSONL / temporary repo: 已删除
 
-未切换 `CODEX_HOME`，未读取认证材料，未使用 fixture fallback、模型降级或第二次 live probe。候选输出和自述未被提升为可信证据。
+本轮命令使用 ephemeral、ignore-user-config、strict-config、JSONL 和 `approval_policy="never"`。未切换 `CODEX_HOME`，未读取认证材料，未使用 fixture fallback、模型降级、角色替换或第二次 live probe。候选输出和自述未被提升为可信证据。
 
 ## Digests
 
 - Bundle version: `0.0.0-dev.0`
 - Bundle content digest: `c6cb148b8ff57838fea23100968d241e003307e5284b49f67a95582e3728c4f6`
-- M2 evidence digest: `163f4d549004869614b83b536627a71f3226d995d1e6345be744bdeaaa98dd23`
-- Evidence file SHA-256: `4f6f3133204c47a38318d16b238639d7e1539521f489074b6b1c09f5ffa345bf`
-- Handshake digest: `cedb684eddf07fdd345415d07f59f99dfe34a0687fa6b35cd487072781f175f0`
-- Handshake file SHA-256: `6682ad625e6ddc8002b095fd6c0934847f9e292eaed2fb68e388b5730585ad6b`
+- M2 evidence digest: `76660cd35d68843246b63939c7429ceb0bbf869b4a9a8f2386d9be5922800f49`
+- Evidence file SHA-256: `6273cfbfe779e2052545a5b1b09b642c33ee5fdaed34462c251ff2ba75324fa7`
+- Handshake digest: `78f213622874a4e09836a9f9d395647146f17019339841ac52cbdb267483623c`
+- Handshake file SHA-256: `402c1f48a958d49abf09447959b808f6802062ed75537f162a193aaa283cb9b2`
 - Role source: `469d5ed752d1ff22073eda1b67bbcff19da26f4bb0369459c904b68a17b36819`
 - Hard rules: `7ec55402138ea389afeaa26be68e724384d2a320f64b36e3369089b04ecd2a87`
 - Activation provider catalog: `033c387ce08a71dcaa4f455a0e43e5f28f4e4cb09ee87a36c4509f59bdfc4c94`
@@ -57,7 +61,7 @@ canonical/installable payload 不再包含 activation writer、`FixtureEvidenceP
 
 | Contract | Result |
 | --- | ---: |
-| M2-A role/routing | 56/56 |
+| M2-A role/routing | 60/60 |
 | M1 task-core | 104/104 |
 | Foundation | 53/53 |
 | Watcher core | 47/47 |
@@ -67,4 +71,4 @@ canonical/installable payload 不再包含 activation writer、`FixtureEvidenceP
 
 ## 停止边界
 
-PR #6 保持 OPEN/Draft。仓库无 configured checks，事实为 `required_checks_not_configured_bootstrap`，不构成 CI 成功。未满足条件仍是可信 custom-role activation、effective config host facts、host digest binding、child terminal 与 parent terminal；因此保持 manual-only，并停在独立验收前。
+PR #6 保持 OPEN/Draft。仓库无 configured checks，事实为 `required_checks_not_configured_bootstrap`，不构成 CI 成功。当前宿主不允许 ChatGPT account 使用固定 `gpt-5.6-sol`，因此未满足可信 custom-role activation、effective config host facts、host digest binding、child terminal 与 parent terminal；保持 manual-only，并停在独立验收前。
