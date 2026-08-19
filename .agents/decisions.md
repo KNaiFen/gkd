@@ -204,3 +204,11 @@
 - [2026-08-20] GKD-M2-A 采用 trusted-main 工作流 activation 边界并收紧 rollout 归一化。
   - Why: 用户明确将同一 OS 用户的 monkeypatch、私有 API 和直接 runtime 修改排除出威胁模型，并要求 trusted main 从已验证 host facts 生成最小 activation receipt。原 rollout 证据同时需要绑定唯一 exact spawn 参数、对应 activity child identity 与 exact child terminal，不能接受任意 child record 或硬编码 downgrade/fallback。
   - Impact: canonical payload 增加 `TrustedMainActivationAuthority` 和一次性 provider，candidate-facing CLI/default library 无 provider 时仍在写入前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`；不引入签名、daemon、IPC 或密钥。F-004 负向合同覆盖 wrong task/fork、unrelated terminal、multiple spawn、wrong identity 和 fallback。implementation/evidence commit 为 `f86a092a9ba42fd8965209dfe18f3a70debe0ef6` / `0108c1c50dc3c4437cadf0cbea1ebd480768e83c`；bundle/evidence digest 为 `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880` / `2f292830f2e9674a4ea95db1e4026ccf9abd3b6a3ef2241deec799329b590068`。M2-A 为 `role_routing_core_ready` 且 `manual_only`，等待独立验收。
+
+- [2026-08-20] `GKD-M2-A` fixed head 已独立验收、合并并完成清理。
+  - Why: main 以 `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 为唯一验收 head，复核实时 PR #6、完整任务文档、M2-A 70 项和全部保留回归；候选树与 squash merge tree 完全一致，未发现阻塞 finding。
+  - Impact: PR #6 以 `9351d628d198ec8638311901cf288abadc643a42` 进入 main；本地/远端任务分支和候选 worktree 已删除。M2-A 仍只证明 `role_routing_core_ready`/`manual_only`，下一步是独立人工 M2-B，不得由合并事实推导 automatic route、生产安装或 AIO 授权。
+
+- [2026-08-20] M2-A 长会话复盘收敛子代理实施边界。
+  - Why: 原始会话中嵌套 `codex exec` 的隔离参数、strict-config、parent model override 和 wait-only stdout 曾造成编排失败被误读为角色失败；首次 ready 还缺少 activation→claim 可消费正向链。独立验收和完整 rollout 事实随后纠正了这些判断。
+  - Impact: 后续里程碑继续使用人工顶层 session 完成规划、实现和材料性判断；`gkd_executor` 只在固定角色/offer-claim/一小时等待门全部通过后用于后续自动路线，且 executor 不验收、不合并、不清理。执行 session 应在授权范围内自主完成静态验证、有限诊断、修复、证据和交付，只有真实平台硬阻塞才返回 main；新 session 以固定 head 和持久记录为准，不复制历史 blocked 叙述。

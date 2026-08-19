@@ -24,6 +24,8 @@
 - [x] F-004：用户在精确 fresh probe Git 根通过正常 Codex trust UI 后，parent rollout session record 证明唯一 `agents.spawn_agent` 的 exact `gkd_executor` call；child/parent 各自 `task_complete` terminal marker，Codex exit 0。只保留 path-free normalized facts，session 原文不进入仓库 evidence；M2-A 仍 manual-only，M2-B/automatic route 未启用。
 - [x] F-005：canonical/installable payload 提供 trusted-main activation authority 正向桥接 exact claim/delivery；`FixtureEvidenceProvider`、`make_fixture_evidence` 和 test seam 不在 bundle/manifest/inventory。候选公开 CLI 与默认 library claim/recovery fail-closed 且 runtime/tracked bytes 不变；同 OS 用户主动篡改为非目标。
 - [x] `GKD-M2-A` 本轮 implementation/evidence commit 为 `f86a092a9ba42fd8965209dfe18f3a70debe0ef6` / `0108c1c50dc3c4437cadf0cbea1ebd480768e83c`；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致，等待 PR #6 新 fixed head 独立验收。
-- [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
+- [x] `GKD-M2-A` fixed head `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 已独立验收并以 squash merge `9351d628d198ec8638311901cf288abadc643a42` 进入 main；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致。
+- [x] `GKD-M2-A` 收尾已完成：候选 worktree、本地任务分支、远端任务分支和跟踪引用均已删除；终态记录为 `tasks/m2-role-routing-core/acceptance.md`，复盘为 `tasks/m2-role-routing-core/retrospective.md`。
+- [ ] `GKD-M2-B`：从同步 main 新建人工 worktree，在 fresh runtime 实际证明 `wait_agent(timeout_ms=3600000)`、child early-final、最多12轮静默重等、deadline单一timeout和固定 M2-A bundle digest 绑定；通过前 auto route 保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。
