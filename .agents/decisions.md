@@ -160,3 +160,11 @@
 - [2026-08-19] `GKD-M2-A` 实现级返工完成，但可信角色握手继续 fail-closed。
   - Why: migration rollback failure 现在保留 backup/stage/freeze；activation provider 固定由 locked bundle catalog 派生且绑定 offer window/activation/envelope；wait transition 在 absolute deadline 终止。全部短合同与两次隔离 evidence 通过，但唯一 fresh handshake 被宿主以 `gpt-5.6-sol` 不支持当前 ChatGPT-account runtime 拒绝，未产生 custom-role activation 或 child/parent terminal。
   - Impact: implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`，bundle digest 为 `6e9cc8a73fa9e80e3a3061114f53c3daf152439a2886e40000e07d19b9c37a6b`，evidence digest 为 `5092c31dd1aaab13623e1131da84e248eb4af0018ce0c37f1a63ba85161b00b6`。F-001 至 F-003 转待独立复验，F-004 与总体 outcome 保持 `blocked`；PR #6 保持 Draft，不得验收、合并、启动 M2-B 或自动路线。
+
+- [2026-08-19] 用户授权 M2-A 使用本机登录态执行一次额外 custom-role 握手。
+  - Why: 本机 `codex-cli 0.147.0` 只读 preflight 确认为 ChatGPT 登录；旧 temporary-home probe 的模型拒绝不能证明正常本机登录态不支持固定 Sol role。项目级 custom-agent 配置可以在不安装生产 bundle 的情况下让真实本机 Codex 加载候选角色。
+  - Impact: M2-A requirements/plan/implementation 升为 v2。执行 session 可从干净临时 Git repo 使用项目级 `.codex/agents`/`.codex/skills` 和 `codex exec --ephemeral --ignore-user-config --json` 发起一次真实握手；只保留脱敏结构化事件。不得设置 alternate `CODEX_HOME`、直接读取/复制/编辑认证材料、修改生产配置、模型降级、重试或运行一小时门。宿主自行产生的 operational metadata 不作为配置或证据，也不得检查正文或清理既有状态。
+
+- [2026-08-19] M2-A 续交验收新增 F-005 activation writer 阻塞。
+  - Why: PR #6 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da` 的安装态 `gkd_role.activation.record_activation` 仍接受调用者构造的 observation 并写入同权限 runtime；独立临时复现可绕过 fail-closed CLI 后令 claim 进入 `implementing`。固定 provider 字段不能证明写入者是 host/main。
+  - Impact: canonical/installable payload 必须移除候选可调用的可信 activation writer，test seam 只能存在于 tests；若宿主没有候选不可伪造的 receipt 边界，安装态 activation/claim 保持 fail-closed。F-005 与 F-004 均闭环前 PR #6 不得合并，auto route 保持禁用。

@@ -8,25 +8,24 @@ plan, and implementation documents completely before any implementation.
 
 The session must use GPT-5.6 Sol with `xhigh` reasoning. It is a manually opened
 top-level execution session, not main and not the future `gkd_executor`. It must
-stop after blocked fixed-head delivery with the PR kept Draft. It must
-not accept, merge, start GKD-M2-B, enable automatic routing, or start milestone
-3.
+stop after fixed-head delivery. It must not accept, merge, start GKD-M2-B,
+enable automatic routing, or start milestone 3.
 
 ## Task Identity
 
-- Status: `delivered_blocked`
+- Status: `awaiting_manual_rework`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
-- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-001 through F-003
-  fixed; F-004 blocked); this handoff does not authorize
+- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 and F-005
+  unresolved); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
-- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 1
-- Plan: `tasks/m2-role-routing-core/plan.md`, version 1
-- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 1
+- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 2
+- Plan: `tasks/m2-role-routing-core/plan.md`, version 2
+- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 2
 - Route: manual top-level execution session
 - Action mode: `implement_and_merge_on_acceptance`
 
@@ -79,8 +78,10 @@ The existing `gkd_core_implementation` authorization permits this session to:
 3. inspect production GKD Skills/legacy role and AIO planning inputs read-only;
 4. commit and push the task branch, create/update its Draft PR, and perform
    task-related repair;
-5. after hermetic gates pass, run one bounded short isolated role-handshake
-   verification that performs no repository implementation work.
+5. after hermetic gates pass, run one additional bounded short handshake through
+   the normally logged-in local Codex host from a temporary project-scoped
+   custom-agent configuration; the probe performs no repository implementation
+   work and does not install or modify production configuration.
 
 It must not:
 
@@ -90,7 +91,9 @@ It must not:
 3. change GitHub settings, Secrets, runners, billing, tags, Releases, or the
    sandbox repository;
 4. install dependencies, run Rust/Tauri/frontend builds, generate large caches,
-   invoke paid APIs, or run the historical live watcher probe;
+   invoke API-key billed APIs or any live model request other than the one
+   additionally authorized ChatGPT Codex handshake, or run the historical live
+   watcher probe;
 5. perform the M2-B real one-hour wait or claim automatic routing is ready;
 6. delegate investigation, design, implementation, review judgment, or
    repository writes to a subagent;
@@ -115,9 +118,46 @@ manufacture approval.
    the final PR number.
 5. Run baseline task-core 104, foundation 53, watcher core 47, and watcher
    live-negative 15 tests. Do not run the four-scenario live probe.
-6. Snapshot production `~/.codex` and the read-only AIO planning source with a
-   path-free digest method before implementation. All writes must remain in the
-   task worktree or explicit system temporary roots.
+6. Snapshot the protected production configuration paths and the read-only AIO
+   planning source with a path-free digest method before implementation. All
+   repository/configuration writes must remain in the task worktree or explicit
+   system temporary roots. Host-owned operational metadata created by the
+   authorized live handshake is not configuration or evidence; do not inspect
+   its contents, delete pre-existing state, or claim the entire Codex home is
+   byte-unchanged.
+
+## Authorized Local-Authenticated Handshake
+
+The user authorized one additional attempt on 2026-08-19. It replaces the
+failed temporary-home retry direction; it does not authorize production
+installation or a relaxed trust result. The role's fixed `workspace-write`
+sandbox remains the tested permission setting; the probe is "local" because it
+uses the real logged-in host rather than an alternate simulated Codex home.
+
+1. Preflight only with `codex --version` and `codex login status`. Record the
+   version and boolean login method class, not account identity. Do not inspect
+   auth files, tokens, cookies, private sessions, or unrelated user config.
+2. Create a clean explicit system-temporary Git repository. Under that repo,
+   render the exact candidate `gkd_executor` and required temporary Skill files
+   into project-scoped `.codex/agents` and `.codex/skills`. Bind their bytes to
+   the candidate bundle, role, and config digests before launch.
+3. Launch one `codex exec --ephemeral --ignore-user-config --json` parent
+   through the normal local Codex home/login. Use GPT-5.6 Sol, `xhigh`, the
+   contract sandbox, no approval prompts, and a fixed no-side-effect prompt that
+   asks the parent to spawn exactly one `gkd_executor` and return a fixed
+   terminal marker. The child must not inspect or modify the GKD repository.
+4. Do not fall back to another model/role, retry the live launch, or treat child
+   prose as evidence. Minimize the temporary JSONL to event types, hashed
+   identities, effective role/model/effort/sandbox, bound digests, exit status,
+   and child/parent terminal facts. Delete raw JSONL and the temporary repo.
+5. Success requires trustworthy host events for the exact custom role and both
+   terminal facts. Authentication failure, model rejection, role discovery
+   failure, missing bindings, or insufficient host events remains `blocked`
+   with one narrow machine-readable failure classification.
+6. Compare the protected production configuration paths before/after and prove
+   that `config.toml`, installed agents/Skills, global AGENTS/rules, and other
+   task-owned configuration were not changed. Do not read or publish auth or
+   runtime session contents while making this comparison.
 
 ## Implementation Contract
 
@@ -150,6 +190,9 @@ Implement every approved requirement and material plan field. In particular:
 - Positive/negative/mutation tests for every role authority boundary.
 - Missing/stale/replayed/cross-task/cross-role/candidate-written activation
   rejection before claim commit; concurrent activation/claim has one winner.
+- A subprocess with executor-equivalent file permissions cannot import or call
+  any installable activation writer to create evidence accepted by claim. Test
+  seams must not be present in the canonical payload or installed inventory.
 - Manual default, explicit automatic request, incomplete gate refusal, bundle or
   role drift, zero fallback, and M2-B gate absence tests.
 - Fake-clock intervals 1 through 12, early child final/error, user interruption,
@@ -176,8 +219,9 @@ Implement every approved requirement and material plan field. In particular:
    paths, plaintext capabilities, real agent/session identifiers, credentials,
    AIO-specific policy, undeclared files, and context outside each role's
    allowlist.
-5. Remove all temporary homes and fixtures before the final production/AIO
-   protection snapshot. Do not call configured-check absence a CI pass.
+5. Remove all temporary homes and fixtures, including raw live-handshake JSONL,
+   before the final production/AIO protection snapshot. Do not call configured-
+   check absence a CI pass.
 
 ## Delivery
 

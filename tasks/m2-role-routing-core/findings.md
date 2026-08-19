@@ -2,16 +2,17 @@
 
 ## 当前轮次
 
-- 结论：实现整改完成，宿主握手仍阻塞
+- 结论：再次验收未通过；已授权一次本机登录态握手并新增 activation writer 整改
 - PR：https://github.com/KNaiFen/gkd/pull/6
-- 审查锚点：固定 head `cd8c89899039070c29b2c5209e7c5afaefba0616`
+- 审查锚点：固定 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
-- 已解决：F-001、F-002、F-003
-- 未解决：F-004
+- 已解决：F-001、F-003
+- 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；其可信写入者要求由 F-005 继续阻塞
+- 未解决：F-004、F-005
 
 ## F-001：迁移回滚冻结会删除唯一原始 backup
 
-- 状态：已整改，待独立复验
+- 状态：已整改，独立复验通过
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC7；plan Migration 135-136；execution Required Contracts 155-157
@@ -25,7 +26,7 @@
 
 ## F-002：activation provider 没有可信根或新鲜度绑定
 
-- 状态：已整改，待独立复验
+- 状态：部分整改；可信写入者问题转 F-005
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC4；plan Behavior 35-37、Security 110-118
@@ -53,25 +54,38 @@
 
 ## F-004：fresh trusted custom-role handshake 尚未建立
 
-- 状态：仍阻塞
+- 状态：待按 2026-08-19 用户授权执行一次本机登录态复验
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
-- 证据：`evidence/m2-role-routing-core/role-handshake.json` 的 `customRoleActivationProven=false`、`childTerminalObserved=false`、`parentTerminalObserved=false`，仅观察到 `thread.started`、`turn.started`、`item.completed`、`turn.completed`；交付正确保持 `blocked`。
+- 证据：`evidence/m2-role-routing-core/role-handshake.json` 的 `customRoleActivationProven=false`、`childTerminalObserved=false`、`parentTerminalObserved=false`，仅观察到 `error`、`thread.started`、`turn.started`、`item.completed`、`turn.failed`；交付正确保持 `blocked`。独立只读 preflight 已确认本机 `codex-cli 0.147.0` 为 `Logged in using ChatGPT`，因此旧结果不能归因为本机未登录，只能说明旧 temporary-home 路径没有建立可信握手。
 - 当前行为与影响：当前宿主运行事实没有证明真实 `gkd_executor` custom-role activation，不能把 M2-A 标为 `role_routing_core_ready`，也不能启动 M2-B 或 automatic route。
-- 必须达到的结果：在 F-001 至 F-003 修复并通过 deterministic/L2 合同后，重新执行一次允许的、隔离的 fresh-runtime short handshake；只有可信 host event 同时绑定预期角色、模型/effort/sandbox、bundle/role/config digest、child/parent terminal 且 path-free 时，才可改为 ready。宿主仍不给出可信事实时继续 `blocked`，不得用 fixture、自述或候选文件升级。
-- 修改边界：不得修改生产配置、AIO、auto route 或运行真实一小时等待；只允许一次短时隔离握手与其最小化机器证据。
-- 测试与文档：保留当前 blocked 证据；成功或再次 blocked 都要写入新的 delivery 与 evidence，明确宿主事实。
-- 复验方式：独立 fresh runtime 审查完整事件与绑定 digest；任何缺失 child/parent terminal 或 custom-role activation 证据都保持阻塞。
+- 必须达到的结果：按 v2 execution 的 `Authorized Local-Authenticated Handshake` 执行一次本机登录态 live probe。只有可信 host event 同时绑定预期角色、模型/effort/sandbox、bundle/role/config digest、child/parent terminal 且 path-free 时，才可改为 ready。宿主仍不给出可信事实时继续 `blocked`，不得用 fixture、自述、候选文件、模型降级或第二次尝试升级。
+- 修改边界：使用正常本机 Codex 登录态和一个临时 Git repo 内的项目级 `.codex/agents`/`.codex/skills`；父会话必须 ephemeral。不得设置 alternate `CODEX_HOME`、读取/复制认证材料、写生产配置、修改 AIO、启用 auto route 或运行真实一小时等待。
+- 测试与文档：保留旧 blocked 证据作为历史；新 probe 只提交最小化 path-free 事件事实，原始 JSONL 和临时 repo 必须删除。成功或再次 blocked 都要更新 delivery/evidence 并明确唯一尝试的宿主事实。
+- 复验方式：独立审查本机登录态 probe 的完整临时事件后只保留规范化结果；复核角色文件与 fixed bundle digest、真实 custom-role activation、effective model/effort/sandbox 以及 child/parent terminal。任何缺失均保持阻塞。
 - 执行回应：在 F-001 至 F-003 和全部 deterministic/L2 合同通过后执行了唯一一次隔离 fresh-runtime 尝试。宿主产生 5 个事件和 1 个 thread identity，但以 400 `invalid_request_error` 拒绝 ChatGPT-account runtime 中的 `gpt-5.6-sol`，退出码 1；未发生 custom-role activation，也没有 child/parent terminal。最小 path-free 证据记录 `CUSTOM_ROLE_MODEL_UNSUPPORTED`，不保留 prompt/response 文本，不使用 self-report、fixture 或候选文件升级结论。因此 M2-A outcome 继续为 `blocked`，PR 必须保持 Draft。
+
+## F-005：安装态 activation writer 仍可由候选进程直接调用
+
+- 状态：新增，待整改
+- 严重程度：阻塞
+- 返工责任：执行 session
+- 对应要求：requirements AC4；plan Behavior 35-37、Security And Data；execution Required Contracts
+- 证据：`canonical/payload/lib/gkd_role/activation.py:70-119` 的 `record_activation` 接受调用者构造的 expected/observation/nonce 并写入同权限 runtime；`canonical/payload/lib/gkd_role/activation.py:125-151` 的 `ActivationEvidenceProvider` 只校验记录字段和 catalog digest；`tests/role_routing/test_activation.py:63-75` 直接调用该安装态函数作为成功 host activation。独立临时 runtime 复现未调用 host adapter 或 `gkd-role activation-record`，仅使用候选选择的 `agentId` 调用函数，即得到 `activation_recorded`，随后 claim 返回 `implementing`。
+- 当前行为与影响：CLI 的 `ACTIVATION_PROVIDER_UNAVAILABLE` 只封住命令行入口；executor 等权限进程仍能 import bundle 中的 writer，自行构造满足 schema 的 `host-runtime-event`。固定 provider 名称/digest 只能约束字段，不能证明记录由 trusted main/host 写入。这违反 candidate-written evidence 必须在 claim commit 前失败的合同。
+- 必须达到的结果：canonical/installable payload 不得暴露候选可调用并能生成可信 activation 的 writer。测试 host seam 必须只存在于 tests，不能进入 manifest 或安装 inventory。真实成功路径必须由候选无法调用或伪造的 host/main 边界产生最小 receipt；若当前宿主没有这种边界，安装态 activation/claim 必须 fail-closed，不得以普通 Python API、CLI 包装或同权限文件冒充。
+- 修改边界：仅 activation authority/writer/receipt 边界及测试；不得放宽 task CAS、lock、journal、claim receipt、delivery/acceptance、F-004 host evidence 或 manual-only 路由。若无法在批准范围内建立候选不可访问的宿主边界，停止并提交具体 plan delta。
+- 测试与文档：新增 executor-equivalent 独立子进程测试，尝试 import/call canonical 或 installed payload 中全部 activation 写入路径，必须在写记录或 claim commit 前失败；断言测试 seam 不在 manifest、bundle 和 installed inventory。保留 freshness、replay、cross-task/role/digest 测试。
+- 复验方式：从 clean temporary runtime，以 executor 等权限进程尝试构造完整 observation、直接调用 writer、替换 receipt 和重放；均须失败。真实正向 claim 只能在已证明候选不可伪造的 host receipt 存在时通过。
 
 ## 本轮边界
 
-- 必须处理：F-001、F-002、F-003；F-004 必须重新尝试或如实保持阻塞。
+- 必须处理：F-005，并按 v2 合同执行 F-004 的一次本机登录态握手。F-001/F-003 只需保留回归；F-002 的 provider/freshness 修复不得回退。
 - 不要顺带处理：M2-B 真实一小时等待、production install、AIO adoption、GitHub settings、里程碑 3/4/5、旧 watcher 或大型依赖构建。
 - 可以自主决定：在不改变 requirements/plan 用户锁定行为的前提下选择 provider 锚定和 migration recovery 的最小实现方式。
 
-再次交付前，执行 session 必须仅在本任务 worktree 处理上述 finding，新增针对性回归，重新运行 M2-A 与保留回归，更新 `delivery.md`/evidence，推送新的固定 head 并停在独立验收前。PR 仍不得由执行 session 自行验收或合并。
+再次交付前，执行 session 必须仅在本任务 worktree 处理 F-005，并在全部 deterministic/L2 合同通过后执行唯一一次 F-004 本机登录态 probe。重新运行 M2-A 与保留回归，更新 `delivery.md`/evidence，推送新的固定 head 并停在独立验收前。PR 仍不得由执行 session 自行验收或合并。
 
 ## CI 或环境问题
 

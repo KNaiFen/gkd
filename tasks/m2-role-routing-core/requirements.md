@@ -1,4 +1,4 @@
-# GKD-M2-A Requirements v1
+# GKD-M2-A Requirements v2
 
 ## Goal
 
@@ -39,6 +39,15 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   from discovery through generated `skills.config` entries but are not deleted.
 - Production `~/.codex`, AIO, paid runners, Secrets, repository settings, tags,
   Releases, and milestone 3 behavior remain outside this task.
+- On 2026-08-19 the user authorized one additional short live handshake through
+  the normally logged-in local Codex runtime. The probe must use a temporary Git
+  repository with project-scoped `.codex/agents` files rendered from the
+  candidate bundle and an ephemeral parent session. It may use the existing
+  ChatGPT login only as host authentication; the execution session may not
+  directly read, copy, expose, or edit authentication material or install
+  anything into production `~/.codex`. This is a real local-host probe, not an
+  alternate simulated Codex home; the role's fixed `workspace-write` sandbox is
+  still part of the exact configuration being tested.
 
 ## Scope
 
@@ -70,9 +79,11 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   Skills and instructions. Omitted context must be explicit and testable.
 - Add L1/L2 contracts, deterministic evidence, manifest/lock regeneration, and
   retained regression coverage proportional to the new bundle surface.
-- Permit one short, bounded role-handshake verification in an isolated
-  temporary home only after deterministic tests pass. It must not implement
-  repository code or serve as the M2-B one-hour gate.
+- Permit one additional short, bounded role-handshake verification after
+  deterministic tests pass. It must use the normal logged-in local Codex host,
+  a clean temporary Git repository, project-scoped custom-agent files, and an
+  ephemeral parent session. It must not implement repository code, modify the
+  production Codex configuration, or serve as the M2-B one-hour gate.
 
 ## Non-Goals
 
@@ -84,6 +95,9 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
 - Installing into or editing production `~/.codex`, deleting `.agents` Skill
   sources, changing the user's global AGENTS file, or replacing the live legacy
   CI reviewer role.
+- Copying credentials into a temporary home, inspecting authentication files,
+  persisting raw host JSONL, or treating normal runtime-owned operational state
+  as task evidence.
 - Modifying AIO, adding consumer-specific repository identity/check names, or
   treating AIO's `.trellis` workflow as canonical GKD mechanism.
 - Using candidate code, candidate role files, Agent self-report, conversation
@@ -129,12 +143,17 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
    approved hard rule without adding profiles, plugin/MCP pruning, or context
    budget changes.
 10. Two temporary installs have identical version, content digest, inventory,
-    modes, role digests, Skill digests, and migration output. Production
-    `~/.codex`, AIO, and unrelated repository state remain byte-unchanged.
+    modes, role digests, Skill digests, and migration output. Production Codex
+    configuration and installed agents/Skills, AIO, and unrelated repository
+    state remain byte-unchanged. The authorized live handshake may use existing
+    login state but may not inspect or publish it.
 11. All milestone 1 task-core contracts, foundation contracts, retained watcher
     core contracts, and watcher live-negative tests pass. No historical live
     watcher probe, dependency installation, large build, or paid API runs.
-12. A bounded isolated role handshake, if the host exposes sufficient trusted
-    facts, binds the expected custom role and returns a path-free terminal
-    result. If reliable evidence cannot be established, the task stops as
-    `blocked`; fixture self-report cannot upgrade the outcome.
+12. One additional bounded local-authenticated role handshake uses the normal
+    logged-in Codex host, a temporary project-scoped custom-agent definition,
+    and an ephemeral parent session. Success requires host facts binding the
+    exact role, effective model/effort/sandbox, bundle/role/config digests, and
+    child/parent terminal result. If reliable evidence cannot be established,
+    the task stops as `blocked`; fixture self-report, candidate output, model
+    fallback, or a second local-authenticated attempt cannot upgrade it.

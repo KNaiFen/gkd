@@ -1,4 +1,4 @@
-# GKD-M2-A Implementation Notes v1
+# GKD-M2-A Implementation Notes v2
 
 ## Internal Design
 
@@ -11,6 +11,11 @@
   task, offer, envelope, agent/thread identifier, custom role, role/config
   digests, bundle digest, route, timestamp, and consumption state. Claim must
   validate it under the existing task lock and journal protocol.
+- Keep every candidate-callable activation writer out of the installable
+  production path. A test-only host seam belongs under tests and cannot be
+  exported by the bundle. If the current host exposes no writer/attestation
+  boundary that the candidate cannot invoke or forge, installed activation
+  recording must remain fail-closed and delivery must report that limitation.
 - Model routing as a pure decision over explicit request plus fixed readiness
   facts. Keep `manual` as the default output. A failed automatic request returns
   one refusal and does not create a replacement offer or select built-in
@@ -47,9 +52,13 @@
 - Build L1 schema/unit/property and mutation contracts first, followed by L2
   temporary-home, real Git/worktree, concurrent activation/claim, installer,
   and recovery fixtures.
-- Run any short live role handshake only after hermetic contracts pass, with an
-  isolated temporary home/config and no repository implementation work. Record
-  only minimized structured facts and restore all temporary configuration.
+- After hermetic contracts pass, run the one additionally authorized live role
+  handshake through the normally logged-in local Codex runtime. Use a clean
+  temporary Git repo, render the exact candidate `gkd_executor` into its
+  project-scoped `.codex/agents`, and launch an ephemeral parent session. Do not
+  set an alternate Codex home, copy authentication, install production files,
+  or perform repository implementation work. Record only minimized structured
+  facts and delete raw event output and the temporary repo after normalization.
 - Generate evidence twice from disjoint clean system temporary roots. Confirm
   byte identity, temporary cleanup, production/AIO protection snapshots,
   manifest/lock consistency, and installed inventory/modes.

@@ -1,4 +1,4 @@
-# GKD-M2-A Plan v1
+# GKD-M2-A Plan v2
 
 ## Goal
 
@@ -21,6 +21,10 @@ until the separate M2-B live wait gate passes.
 - Canonicalize five existing GKD Skills, disable discovery of six approved
   duplicates without deleting them, and preserve all mapped AGENTS hard rules.
 - Do not install or modify production user configuration in this task.
+- Use the user's 2026-08-19 authorization for one additional live handshake
+  through the normally logged-in local Codex host. Mount the candidate role as
+  project-scoped temporary configuration; do not create an alternate Codex
+  home, copy auth state, or modify production configuration.
 
 ## Behavior And Defaults
 
@@ -57,8 +61,9 @@ until the separate M2-B live wait gate passes.
 - Minimal role-context manifests and five canonical GKD Skills.
 - Temporary installer migration for three roles, old CI reviewer replacement,
   six duplicate Skill discovery overrides, and AGENTS hard-rule mapping.
-- L1/L2 fixtures, short isolated role handshake when trustworthy, deterministic
-  machine evidence, canonical manifest/lock, and retained regressions.
+- L1/L2 fixtures, one short local-authenticated/project-scoped role handshake,
+  deterministic machine evidence, canonical manifest/lock, and retained
+  regressions.
 
 ## Non-Goals
 
@@ -114,6 +119,11 @@ until the separate M2-B live wait gate passes.
 - Keep plaintext claim capabilities and machine-local agent identifiers outside
   Git and published evidence. Evidence may contain only stable digests and
   synthetic fixture identifiers.
+- Use `codex login status` only as a boolean preflight. Do not read or copy auth
+  files, tokens, cookies, private session state, or unrelated user config. Raw
+  handshake JSONL may exist only in an explicit temporary directory while it is
+  minimized; delete it before delivery and commit only path-free structured
+  facts.
 - Reject unknown fields, path traversal, symlinks, credential-shaped echoed
   identifiers, cross-task reuse, stale bundle/role/config digests, and replay.
 - Role permissions follow least authority: executor cannot merge; acceptor does
@@ -155,7 +165,9 @@ until the separate M2-B live wait gate passes.
   its registered worktree. It does not use `gkd_executor` to implement itself.
 - The executor may not delegate investigation, design, implementation, review
   judgment, or repository writes. After deterministic contracts pass, it may
-  run one bounded short role-handshake fixture in an isolated temporary home.
+  run one additional bounded live handshake from a clean temporary Git repo.
+  The parent uses the normal logged-in Codex host with `--ephemeral`; the tested
+  role is discovered only from temporary project-scoped `.codex/agents` files.
 - The existing M1 CLI cannot provide trusted production claim evidence, so this
   task retains a documented bootstrap exception and does not create a fake
   `task.json`, offer, claim, activation, or receipt for itself.
@@ -165,7 +177,9 @@ until the separate M2-B live wait gate passes.
 
 - Allowed: changes in the M2-A worktree, temporary fixture homes/repos, the
   existing task branch and Draft PR, task-related push/PR updates, and one short
-  isolated role-handshake verification after local deterministic gates pass.
+  additional local-authenticated role-handshake verification after local
+  deterministic gates pass. That authorization includes one bounded ChatGPT
+  Codex parent/child handshake session but no API-key billed request.
 - Forbidden: production `~/.codex`, AIO writes, GitHub settings, Secrets,
   runners, billing, tags, Releases, sandbox repository initialization, and any
   live one-hour or 12-hour wait claim.
@@ -191,3 +205,8 @@ until the separate M2-B live wait gate passes.
   than reimplementing counters or gates in prose.
 - Validate current Codex role and Skill formats against official OpenAI
   documentation during execution because the host schema is version-sensitive.
+- Treat the temporary custom-agent file as the object under test, not the
+  authority that certifies its own activation. Only minimized host events can
+  establish F-004. A callable writer inside the installable bundle cannot
+  establish activation provenance and must remain fail-closed unless a
+  candidate-inaccessible host boundary is demonstrated.
