@@ -2,13 +2,12 @@
 
 ## 当前轮次
 
-- 结论：F-005 已整改；F-004 v5 进行中，v4 wait-before-spawn 重新分类为 probe orchestration miss
+- 结论：F-001 至 F-005 均已整改，等待独立验收
 - PR：https://github.com/KNaiFen/gkd/pull/6
-- 本轮 live 授权锚点：固定 head `26b8e9c185a0bdf365266efdb45f42260c8922b3`
+- 本轮整改起点：固定 head `ba9c7fe5c51a54cfb2ff6eb634f5e0374e122d0b`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
-- 已解决：F-001、F-003
-- 部分解决：F-002 的调用者自选 provider 和 freshness 问题已处理；真实 host attestation 仍由 F-004 阻塞
-- 未解决：F-004
+- 已解决：F-001、F-002、F-003、F-004、F-005
+- 未解决：无；M2-B 一小时门禁不属于本任务
 
 ## F-001：迁移回滚冻结会删除唯一原始 backup
 
@@ -26,21 +25,21 @@
 
 ## F-002：activation provider 没有可信根或新鲜度绑定
 
-- 状态：部分整改；可信写入者问题转 F-005
+- 状态：已整改，回归通过，等待独立验收
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC4；plan Behavior 35-37、Security 110-118
-- 证据：`canonical/payload/lib/gkd_role/cli.py:76-113` 接受调用者提供的任意候选外绝对 provider 与 digest；`canonical/payload/lib/gkd_task/cli.py:123-131,176-208` 在 claim/recovery 中同样接受调用者提供的 provider digest；现有 `tests/role_routing/test_activation.py:190-213` 明确把临时目录中的 fixture provider 作为成功 host activation。`record_activation` 也未将 activation 时间与 offer/envelope 的有效窗口绑定。
+- 历史证据（已修复）：旧 `gkd-role`/`gkd-task` CLI 接受调用者提供的 provider command/digest，旧测试以临时 fixture provider 作为成功 activation，且 activation 时间未绑定 offer window。
 - 当前行为与影响：字段、角色和 bundle digest 虽然严格校验，但“谁有资格写 host-runtime-event”没有被 trusted main、授权或固定 provider 身份锚定；同一用户/执行 session 可以自行选择 provider 并生成满足 schema 的激活事实，旧激活也没有 freshness 检查。这不能证明 exact custom-role activation，也不能满足 stale/candidate-created evidence 必须拒绝的合同。
 - 必须达到的结果：只有 trusted main/host-owned、与本 bundle/任务授权和确切 offer/envelope 绑定的 provider 才能写入 activation；provider 身份和 digest 不得由候选执行者自由选择；activation 必须在 offer 有效窗口内且不可重放；candidate-created provider、stale provider、cross-task/cross-role/digest drift 均在 claim 前失败。
 - 修改边界：仅 activation provider API、offer/authorization/runtime 绑定和对应 schema/tests；不得放宽 capability、CAS、lock、journal、claim receipt 或 delivery/acceptance 约束，不得写生产 `~/.codex`。
 - 测试与文档：新增任意临时 provider、provider digest 未锚定、activation 早于 offer/晚于 expiry、跨任务/重放的负向测试；记录 trusted provider 的实际来源与证据等级。
 - 复验方式：从全新临时 runtime/home 运行完整 activation -> claim；尝试替换 provider、伪造 digest、使用过期 activation，均应在 claim commit 前失败；成功路径只能消费由受信 host 生成的固定 activation。
-- 执行回应：canonical role source 固定声明 `codex-host-runtime` provider contract，provider digest 由 locked bundle catalog 派生；role/task CLI 不再接受调用者选择的 provider command、provider digest 或 bundle root。当前无可信宿主适配器时 `activation-record` 固定 fail-closed。Activation 同时绑定 offer 创建/过期时间，v2 claim 持久绑定 activation/envelope，recover、delivery 与 acceptance 重验 exact task/offer/envelope/role/config/bundle/window。新增任意临时 provider、伪造 catalog digest、过期 activation、跨任务/跨角色和 replay 负向合同；L2 正向路径仅使用测试内 host seam，不作为 F-004 可信证据。
+- 执行回应：canonical role source 固定声明 `codex-host-runtime` provider contract，provider digest 由 locked bundle catalog 派生；role/task CLI 不接受调用者选择 provider command、provider digest 或 bundle root。`TrustedMainActivationAuthority` 只接收已验证的 host facts 并绑定 exact task/offer/envelope/role/config/bundle/window；provider 在同一 task lock/journal/claim-receipt 流程中一次性消费。CLI 与无 provider 的默认 library 路径仍在写入前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。任意 provider、伪造 digest、过期、跨任务、跨角色、replay 与 recovery 回归均保留。
 
 ## F-003：等待状态机忽略 deadlineAt
 
-- 状态：已整改，待独立复验
+- 状态：已整改，回归通过，等待独立验收
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC6；plan Behavior 38-43；execution Required Contracts 152-154
@@ -58,7 +57,7 @@
 - 严重程度：已关闭
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
-- 证据：`evidence/m2-role-routing-core/role-handshake.json` schema v2 绑定 deterministic preflight、role/config/bundle/project/Skill/AGENTS digest 与 host facts；`m2-contracts.json` 绑定同一 handshake。用户在精确 fresh Git root 通过正常 Codex trust UI 后，parent rollout 记录包含唯一 `agents.spawn_agent`，`agent_type=gkd_executor`、`task_name=gkd_executor_handshake`、`fork_turns=none`；sub-agent activity 绑定 child thread；child 与 parent rollout 各有独立 `task_complete` terminal marker；Codex exit code 为 0。规范化 facts 为 `spawnCount=1`、`activatedRoles=[gkd_executor]`、无 unexpected/downgrade/fallback、child/parent terminal 均 true。v3 strict 失败、隔离模式 HTTP 400 与早期 stdout wait-only 均保留为历史诊断事实，不用于否定本次 rollout 证据。
+- 证据：`evidence/m2-role-routing-core/role-handshake.json` schema v2 绑定 deterministic preflight、role/config/bundle/project/Skill/AGENTS digest 与 host facts；`m2-contracts.json` 绑定同一 handshake。用户在精确 fresh Git root 通过正常 Codex trust UI 后，parent rollout 记录包含唯一 `agents.spawn_agent`，参数精确为 `agent_type=gkd_executor`、`task_name=gkd_executor_handshake`、`fork_turns=none`；对应 `sub_agent_activity` 提供实际 child thread identity，只有该 exact child rollout 中的 terminal marker 被接受。规范化 facts 计算 spawn 参数、child binding、alternate role/downgrade/fallback、child/parent terminal 和 Codex exit code，不再硬编码安全结论。v3 strict 失败、隔离模式 HTTP 400 与早期 stdout wait-only 只保留在明确 historical 字段。
 - 当前行为与影响：F-004 的 custom-role activation/child-parent terminal 合同已满足；M2-A 可交付 `role_routing_core_ready`，但 route 仍强制 `manual_only`，不能启动 M2-B 或 automatic route。
 - 必须达到的结果：确定性 preflight 负责生成物与 digest，host rollout 负责 parent turn、唯一 exact `gkd_executor` spawn、无 fallback 和 child/parent terminal；本轮两类证据均通过。
 - 修改边界：使用正常本机 Codex 登录态和受信项目路径下 fresh Git repo 内的项目级 `.codex/agents`/`.codex/skills`。不得设置 alternate `CODEX_HOME`、读取/复制认证材料、写生产配置、修改 AIO、启用 auto route 或运行真实一小时等待。
@@ -72,29 +71,27 @@
 - v5 静态诊断：nested fresh Git repo 即使位于当前 worktree 下，Codex 仍明确报告该新 Git 根未受信并禁用其 `.codex` 层；该次仅运行 app-server，`modelInvocations=0`、`liveAttemptsConsumed=0`。用户随后在该精确目录通过正常 Codex trust UI 选择继续并退出，用户配置保护面 digest 因该外部动作从 `db47d57e...` 变为 `f1b9cb27...`；execution session 未写入、读取或回滚配置。最终 static/live 命令不传 trust、sandbox、approval、agents-enabled 或 parent model/effort override，并以用户动作后的 digest 为调用期非漂移基线。
 - v5 live 诊断 1：首轮正常环境 parent exit 0 并 terminal，但结构化事件再次只有空 receiver/state 的 `wait`，没有 spawn 或 child。宿主事件将实际工具名记录为无 namespace 的 `wait`；该轮分类为 `PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN`，不作为 custom role 拒绝。下一轮 Prompt 使用同一实际命名层的 `spawn_agent`/`wait` 并固定 FIRST/SECOND 顺序。
 - v5 live 诊断 2-3：第二轮使用实际 `spawn_agent`/`wait` 名称与 FIRST/SECOND 顺序后仍仅产生空目标 `wait`；第三轮完全移除 wait 指令后，parent 直接输出 terminal marker 且没有任何 collab tool event。两轮均 exit 0、无 spawn/alternate role/fallback，分别分类为 `PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN` 和 `PROBE_ORCHESTRATION_MISS_PARENT_SHORTCUT`。最终合理 Prompt 修正把委派本身定义为不可由 parent 自行完成的成果，并要求 spawn 不可用时显式失败、禁止无目标 wait。
-- v5 live 结论修正：用户在精确 probe Git 根选择正常 Codex trust UI 的 `Yes, continue` 后退出交互提示。最新 trusted-path parent rollout 实际记录了 `agents.spawn_agent` function call，随后 child activity、child `task_complete` marker 和 parent `task_complete` marker；session 记录比 stdout JSONL 更完整，wait output 的“interrupted by new input”不影响两个独立 task-complete 事实。新增 `normalize_rollout_facts` 只保留 path-free event/role/terminal/exit facts，F-004 关闭。
+- v5 live 结论修正：用户在精确 probe Git 根选择正常 Codex trust UI 的 `Yes, continue` 后退出交互提示。最新 trusted-path parent rollout 实际记录了 `agents.spawn_agent` function call，随后 child activity、child `task_complete` marker 和 parent `task_complete` marker；session 记录比 stdout JSONL 更完整，wait output 的“interrupted by new input”不影响两个独立 task-complete 事实。`normalize_rollout_facts` 要求唯一 exact spawn 和 exact child identity，只保留 path-free event/role/terminal/exit facts；wrong task/fork、unrelated terminal、multiple spawn、wrong identity 与 fallback 均有负向合同，F-004 关闭。
 
-## F-005：安装态 activation writer 仍可由候选进程直接调用
+## F-005：activation → claim 缺少可信 main 正向桥接
 
-- 状态：已整改，安装态与库级路径均 fail-closed；可信宿主边界仍未提供
-- 严重程度：阻塞
+- 状态：已整改，回归通过，等待独立验收
+- 严重程度：已关闭
 - 返工责任：执行 session
-- 对应要求：requirements AC4；plan Behavior 35-37、Security And Data；execution Required Contracts
-- 证据：`canonical/payload/lib/gkd_role/activation.py:70-119` 的 `record_activation` 接受调用者构造的 expected/observation/nonce 并写入同权限 runtime；`canonical/payload/lib/gkd_role/activation.py:125-151` 的 `ActivationEvidenceProvider` 只校验记录字段和 catalog digest；`tests/role_routing/test_activation.py:63-75` 直接调用该安装态函数作为成功 host activation。独立临时 runtime 复现未调用 host adapter 或 `gkd-role activation-record`，仅使用候选选择的 `agentId` 调用函数，即得到 `activation_recorded`，随后 claim 返回 `implementing`。
-- 当前行为与影响：CLI 的 `ACTIVATION_PROVIDER_UNAVAILABLE` 只封住命令行入口；executor 等权限进程仍能 import bundle 中的 writer，自行构造满足 schema 的 `host-runtime-event`。固定 provider 名称/digest 只能约束字段，不能证明记录由 trusted main/host 写入。这违反 candidate-written evidence 必须在 claim commit 前失败的合同。
-- 必须达到的结果：canonical/installable payload 不得暴露候选可调用并能生成可信 activation 的 writer。测试 host seam 必须只存在于 tests，不能进入 manifest 或安装 inventory。真实成功路径必须由候选无法调用或伪造的 host/main 边界产生最小 receipt；若当前宿主没有这种边界，安装态 activation/claim 必须 fail-closed，不得以普通 Python API、CLI 包装或同权限文件冒充。
-- 修改边界：仅 activation authority/writer/receipt 边界及测试；不得放宽 task CAS、lock、journal、claim receipt、delivery/acceptance、F-004 host evidence 或 manual-only 路由。若无法在批准范围内建立候选不可访问的宿主边界，停止并提交具体 plan delta。
-- 测试与文档：新增 executor-equivalent 独立子进程测试，尝试 import/call canonical 或 installed payload 中全部 activation 写入路径，必须在写记录或 claim commit 前失败；断言测试 seam 不在 manifest、bundle 和 installed inventory。保留 freshness、replay、cross-task/role/digest 测试。
-- 复验方式：从 clean temporary runtime，以 executor 等权限进程尝试构造完整 observation、直接调用 writer、替换 receipt 和重放；均须失败。真实正向 claim 只能在已证明候选不可伪造的 host receipt 存在时通过。
-- 执行回应：canonical payload 已移除 `gkd_role.activation.record_activation`、`ActivationEvidenceProvider`、`RuntimeStore.write_activation`、`FixtureEvidenceProvider` 与 `make_fixture_evidence`；两类 fixture seam 分别位于 `tests/role_routing` 和 `tests/task_core`，不进入 source、manifest、bundle 或安装 inventory。正常公开 CLI/library v2 claim/recovery 在无真实 host attestation 时统一返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`，并新增 runtime/tracked bytes 不变断言。未增加 monkeypatch/subclass 防御、daemon、IPC 或签名协议；CAS、锁、journal、recovery、freshness、replay、cross-task/cross-role、digest drift 回归全部保留。plan delta 仍为 `candidate-inaccessible-host-attestation-required`。
+- 对应要求：requirements AC4；plan Behavior And Defaults、Security And Data；execution Required Contracts
+- 历史证据（已取代）：旧安装态 writer 可由候选公开导入并自行构造 `host-runtime-event`；后续移除所有 writer 虽使候选 fail-closed，却也使可信 main 无法完成正向 claim。
+- 当前行为与影响：canonical payload 提供 `TrustedMainActivationAuthority` 与一次性 provider。trusted main 根据已验证的 host facts 写最小 activation record，随后 exact offer/envelope claim 消费 activation receipt，并可完成 delivery。候选公开 `gkd-role activation-record`、`gkd-task claim --activation-id` 和普通无 provider `TaskService` 仍在任何 activation/runtime/claim/tracked 写入前 fail-closed。
+- 威胁模型：这是 trusted main 与 candidate 支持路径之间的工作流权限边界，不是同一 OS 用户进程间的安全隔离。恶意 monkeypatch、私有 API 调用或直接改 runtime 文件明确为非目标；未实现签名、daemon、IPC、密钥或额外安全基础设施。
+- 测试与文档：完整临时任务正向合同覆盖 main-owned activation receipt → exact offer/envelope claim → claim-indexed receipt → delivery。保留 missing/candidate-written、stale window、replay、cross-task、cross-role、digest drift、并发单赢家、receipt recovery 及候选 CLI/library fail-closed；`FixtureEvidenceProvider`、`make_fixture_evidence` 和 tests-only seam 不进入 canonical payload、manifest 或安装 inventory。
+- 复验方式：运行 role-routing activation/packaging 合同并检查候选失败前后的 Git head、revision 和 runtime bytes；成功路径只能显式传入 trusted-main provider。
 
 ## 本轮边界
 
-- 必须处理：仅继续 F-004；F-005 保持已整改，不再修改 activation/claim/recovery 设计。F-001/F-003 只需保留回归；F-002 的 provider/freshness 修复不得回退。
+- 必须处理：收紧 F-004 rollout 归一化，并按简化威胁模型补齐 F-005 trusted-main activation → claim → delivery 正向桥接；F-001/F-003 保留回归，F-002 的 provider/freshness 绑定不得回退。
 - 不要顺带处理：M2-B 真实一小时等待、production install、AIO adoption、GitHub settings、里程碑 3/4/5、旧 watcher 或大型依赖构建。
 - 可以自主决定：在不改变 requirements/plan 用户锁定行为的前提下选择 provider 锚定和 migration recovery 的最小实现方式。
 
-本轮只处理 F-004。当前 Prompt 已授权必要的短时本机 Codex 验证和有限诊断重试；只有正常 Codex 在正确工具名和合理诊断后仍返回可复现硬错误，或需要越过生产/AIO/M2-B 边界时才允许 blocked。
+本轮禁止新 Codex live probe 或模型 turn，只离线读取并归一化既有授权 test-session rollout。只有需要超出上述简化威胁模型、修改生产/AIO 或运行 M2-B 时才允许 blocked。
 
 ## CI 或环境问题
 

@@ -92,7 +92,7 @@ def _validate_handshake(value: dict[str, object]) -> None:
     elif outcome in {"role_handshake_ready", "blocked"}:
         require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "hostFacts", "historicalNegativeEvidence", "historicalCompatibilityEvidence"}, "INVALID_ROLE_HANDSHAKE")
         facts = value["hostFacts"]
-        require_keys(facts, {"parentTurnEntered", "spawnCount", "activatedRoles", "unexpectedRoles", "downgradeObserved", "fallbackObserved", "childTerminalObserved", "parentTerminalObserved", "codexExitCode", "eventTypes", "threadIdentityHashes", "hostError"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(facts, {"parentTurnEntered", "spawnCount", "spawnFacts", "activatedRoles", "unexpectedRoles", "downgradeObserved", "fallbackObserved", "childBindingValid", "childThreadIdentityHash", "childTerminalObserved", "parentTerminalObserved", "codexExitCode", "eventTypes", "threadIdentityHashes", "hostError"}, "INVALID_ROLE_HANDSHAKE")
         if value["schemaVersion"] != 2 or value["evidenceClass"] != "host-runtime-events-plus-deterministic-preflight" or value["attempts"] != 1 or value["modelInvocations"] != 1 or value["liveAttemptsConsumed"] != 1:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         if not isinstance(facts["eventTypes"], list) or not facts["eventTypes"] or any(not isinstance(item, str) or not item for item in facts["eventTypes"]):
@@ -101,15 +101,20 @@ def _validate_handshake(value: dict[str, object]) -> None:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         for identity in facts["threadIdentityHashes"]:
             require_sha256(identity, "INVALID_ROLE_HANDSHAKE")
+        if facts["childThreadIdentityHash"] is not None:
+            require_sha256(facts["childThreadIdentityHash"], "INVALID_ROLE_HANDSHAKE")
+        if not isinstance(facts["spawnFacts"], list):
+            raise TaskError("INVALID_ROLE_HANDSHAKE")
+        ready_facts = facts["parentTurnEntered"] is True and facts["spawnCount"] == 1 and facts["spawnFacts"] == [{"agentType": "gkd_executor", "taskName": "gkd_executor_handshake", "forkTurns": "none"}] and facts["activatedRoles"] == ["gkd_executor"] and facts["unexpectedRoles"] == [] and facts["downgradeObserved"] is False and facts["fallbackObserved"] is False and facts["childBindingValid"] is True and facts["childThreadIdentityHash"] in facts["threadIdentityHashes"] and facts["childTerminalObserved"] is True and facts["parentTerminalObserved"] is True and facts["codexExitCode"] == 0 and facts["hostError"] is None
         if outcome == "role_handshake_ready":
-            if value["error"] is not None or facts["parentTurnEntered"] is not True or facts["spawnCount"] != 1 or facts["activatedRoles"] != ["gkd_executor"] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not True or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
+            if value["error"] is not None or not ready_facts:
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
         else:
             if not isinstance(value["error"], str) or not value["error"] or facts["hostError"] is not None and not isinstance(facts["hostError"], dict):
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
-            if value["error"] not in {"CUSTOM_ROLE_ACTIVATION_MISSING", "PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN"}:
+            if value["error"] not in {"CUSTOM_ROLE_ACTIVATION_MISSING", "PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN", "CUSTOM_ROLE_HANDSHAKE_INCOMPLETE"} or ready_facts:
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
-            if facts["parentTurnEntered"] is not True or facts["spawnCount"] != 0 or facts["activatedRoles"] != [] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not False or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
+            if value["error"] != "CUSTOM_ROLE_HANDSHAKE_INCOMPLETE" and (facts["parentTurnEntered"] is not True or facts["spawnCount"] != 0 or facts["spawnFacts"] != [] or facts["activatedRoles"] != [] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childBindingValid"] is not False or facts["childThreadIdentityHash"] is not None or facts["childTerminalObserved"] is not False or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None):
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
     else:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
@@ -228,7 +233,17 @@ def main() -> int:
             "error": None if handshake["outcome"] == "role_handshake_ready" else handshake["error"],
             "bundleVersion": lock["bundleVersion"],
             "contentDigest": bundle_digest,
-            "activationProvider": {"name": catalog["activationProvider"]["name"], "digest": catalog["activationProviderDigest"], "trustedHostRequired": True, "cliFailClosed": True, "candidateWriterPresent": False, "testHostSeamInBundle": False, "trustedBoundaryAvailable": False, "candidateClaimFailClosed": True, "planDelta": "candidate-inaccessible-host-attestation-required"},
+            "activationProvider": {
+                "name": catalog["activationProvider"]["name"],
+                "digest": catalog["activationProviderDigest"],
+                "boundary": "trusted-main-workflow-authority",
+                "trustedMainBoundaryAvailable": True,
+                "candidatePublicReceiptWriterAvailable": False,
+                "candidatePublicClaimFailClosed": True,
+                "cliFailClosed": True,
+                "testHostSeamInBundle": False,
+                "sameUserTamperingIsNonGoal": True,
+            },
             "roleSourceDigest": catalog["roleSourceDigest"],
             "hardRulesDigest": catalog["hardRulesDigest"],
             "roles": {role["name"]: {"roleDigest": role["roleDigest"], "configDigest": role["configDigest"]} for role in catalog["roles"]},

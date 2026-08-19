@@ -46,7 +46,10 @@ until the separate M2-B live wait gate passes.
   creating a replacement offer.
 - Trusted main records a one-time activation fact after a specific custom role
   is spawned. Claim consumes evidence bound to the exact launch envelope and
-  role instance. Candidate output and child prose are untrusted inputs.
+  role instance. Candidate output and child prose are untrusted inputs. This is
+  a workflow authority boundary: the public candidate CLI and ordinary library
+  path cannot mint or consume trusted activation, while deliberate same-user
+  private-API or runtime-file tampering is outside the threat model.
 - Healthy one-hour wait expiry is not interpreted as health proof. It advances
   only the deterministic elapsed-interval state and instructs main to call the
   same native wait again immediately.
@@ -84,6 +87,9 @@ until the separate M2-B live wait gate passes.
   Release.
 - Profiles, plugin/MCP removal, context-window changes, cache cleanup, or
   deletion of duplicate source directories.
+- Signing, keys, daemon, IPC, or same-operating-system-user security isolation;
+  malicious monkeypatch, private-API use, and direct runtime-file edits are not
+  part of the supported workflow contract.
 
 ## Acceptance Criteria
 
@@ -122,10 +128,12 @@ until the separate M2-B live wait gate passes.
 
 ## Security And Data
 
-- Treat role activation as an authorization provenance problem, not Agent
-  identity prose. Bind only minimal path-free facts and never store transcript
-  content, prompts, private session databases, rollout logs, credentials, or
-  environment secrets.
+- Treat role activation as a workflow authorization provenance problem, not
+  Agent identity prose or an operating-system security boundary. Bind only
+  minimal path-free facts and never store transcript content, prompts, raw
+  rollout logs, credentials, or environment secrets. The exact user-authorized
+  F-004 test rollout may be read once for normalization; only hashed identities
+  and structured spawn/activity/terminal facts enter evidence.
 - Keep plaintext claim capabilities and machine-local agent identifiers outside
   Git and published evidence. Evidence may contain only stable digests and
   synthetic fixture identifiers.
@@ -221,9 +229,10 @@ until the separate M2-B live wait gate passes.
   documentation during execution because the host schema is version-sensitive.
 - Treat the temporary custom-agent file as the object under test, not the
   authority that certifies its own activation. Only minimized host events can
-  establish F-004. A callable writer inside the installable bundle cannot
-  establish activation provenance and must remain fail-closed unless a
-  candidate-inaccessible host boundary is demonstrated.
+  establish F-004. Trusted main may pass those verified facts through the
+  installable `TrustedMainActivationAuthority`; the candidate-facing CLI and
+  default `TaskService` path cannot mint or consume the receipt. Deliberate use
+  of private APIs or direct runtime mutation by the same OS user is a non-goal.
 - Preserve the v3 `USER_CONFIG_PARSE_FAILED` result as historical compatibility
   evidence. It records that `codex-cli 0.147.0 --strict-config` rejected the
   existing user field `disable_response_storage` before project discovery; it is

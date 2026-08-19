@@ -28,6 +28,7 @@ from tests.role_routing.handshake_preflight import (
     validate_generated_toml,
 )
 from tests.role_routing.helpers import BUNDLE_ROOT
+from tests.role_routing.run_contracts import _validate_handshake
 
 
 class HandshakePreflightContracts(unittest.TestCase):
@@ -257,10 +258,13 @@ class HandshakePreflightContracts(unittest.TestCase):
         facts = {
             "parentTurnEntered": True,
             "spawnCount": 0,
+            "spawnFacts": [],
             "activatedRoles": [],
             "unexpectedRoles": [],
             "downgradeObserved": False,
             "fallbackObserved": False,
+            "childBindingValid": False,
+            "childThreadIdentityHash": None,
             "childTerminalObserved": False,
             "parentTerminalObserved": True,
             "codexExitCode": 0,
@@ -289,6 +293,8 @@ class HandshakePreflightContracts(unittest.TestCase):
                     "type": "collab_tool_call",
                     "tool": "spawn_agent",
                     "agent_type": "gkd_executor",
+                    "task_name": "gkd_executor_handshake",
+                    "fork_turns": "none",
                     "receiver_thread_ids": [child],
                     "status": "completed",
                 },
@@ -306,9 +312,11 @@ class HandshakePreflightContracts(unittest.TestCase):
         ]
         facts = normalize_host_events(events, 0, "", Path("/temporary/probe"))
         self.assertEqual(1, facts["spawnCount"])
+        self.assertEqual([{"agentType": "gkd_executor", "taskName": "gkd_executor_handshake", "forkTurns": "none"}], facts["spawnFacts"])
         self.assertEqual(["gkd_executor"], facts["activatedRoles"])
         self.assertEqual([], facts["unexpectedRoles"])
         self.assertIs(facts["childTerminalObserved"], True)
+        self.assertIs(facts["childBindingValid"], True)
         self.assertIs(facts["parentTerminalObserved"], True)
         self.assertIsNone(facts["hostError"])
         self.assertEqual(2, len(facts["threadIdentityHashes"]))
@@ -318,21 +326,117 @@ class HandshakePreflightContracts(unittest.TestCase):
         self.assertEqual(1, missing["spawnCount"])
         self.assertEqual([], missing["activatedRoles"])
 
-    def test_normalize_rollout_facts_proves_spawn_and_independent_terminals(self) -> None:
+    @staticmethod
+    def _rollout_fixture(
+        *,
+        agent_type: str = "gkd_executor",
+        task_name: str = "gkd_executor_handshake",
+        fork_turns: str = "none",
+        activity_thread: str = "child-thread",
+        child_thread: str = "child-thread",
+        spawn_count: int = 1,
+    ) -> tuple[list[dict[str, object]], dict[str, list[dict[str, object]]]]:
         parent = [
             {"payload": {"type": "task_started"}},
-            {"payload": {"type": "function_call", "namespace": "agents", "name": "spawn_agent", "arguments": json.dumps({"agent_type": "gkd_executor", "task_name": "gkd_executor_handshake", "fork_turns": "none", "message": "redacted"})}},
-            {"payload": {"type": "sub_agent_activity", "kind": "started", "agent_path": "/root/gkd_executor_handshake", "agent_thread_id": "child-thread"}},
+            *[
+                {"payload": {"type": "function_call", "namespace": "agents", "name": "spawn_agent", "arguments": json.dumps({"agent_type": agent_type, "task_name": task_name, "fork_turns": fork_turns, "message": "redacted"})}}
+                for _ in range(spawn_count)
+            ],
+            {"payload": {"type": "sub_agent_activity", "kind": "started", "agent_path": f"/root/{task_name}", "agent_thread_id": activity_thread}},
             {"payload": {"type": "function_call", "namespace": "agents", "name": "wait_agent", "arguments": "{\"timeout_ms\": 180000}"}},
             {"payload": {"type": "task_complete", "last_agent_message": "GKD_PARENT_TERMINAL"}},
         ]
-        child = [{"payload": {"type": "task_complete", "last_agent_message": "GKD_EXECUTOR_CHILD_TERMINAL"}}]
-        facts = normalize_rollout_facts(parent, child, "parent-thread", 0)
+        child = [
+            {
+                "type": "session_meta",
+                "payload": {
+                    "id": child_thread,
+                    "session_id": "parent-thread",
+                    "thread_source": "subagent",
+                    "source": {"subagent": {"thread_spawn": {"parent_thread_id": "parent-thread", "agent_path": f"/root/{task_name}", "agent_role": agent_type}}},
+                },
+            },
+            {"payload": {"type": "task_complete", "last_agent_message": "GKD_EXECUTOR_CHILD_TERMINAL"}},
+        ]
+        return parent, {child_thread: child}
+
+    def test_normalize_rollout_facts_proves_spawn_and_exact_child_terminals(self) -> None:
+        parent, children = self._rollout_fixture()
+        facts = normalize_rollout_facts(parent, children, "parent-thread", 0)
         self.assertEqual(1, facts["spawnCount"])
+        self.assertEqual([{"agentType": "gkd_executor", "taskName": "gkd_executor_handshake", "forkTurns": "none"}], facts["spawnFacts"])
         self.assertEqual(["gkd_executor"], facts["activatedRoles"])
+        self.assertIs(facts["childBindingValid"], True)
+        self.assertEqual("e706190eeef92244d0cf590f8ba3125baa8e5062ee7034b086e21cba78dceb71", facts["childThreadIdentityHash"])
         self.assertIs(facts["childTerminalObserved"], True)
         self.assertIs(facts["parentTerminalObserved"], True)
         self.assertEqual(2, len(facts["threadIdentityHashes"]))
+
+    def test_rollout_rejects_wrong_task_name_and_fork_turns(self) -> None:
+        for field, value in (("task_name", "other_task"), ("fork_turns", "all")):
+            parent, children = self._rollout_fixture(**{field: value})
+            facts = normalize_rollout_facts(parent, children, "parent-thread", 0)
+            handshake = completed_handshake(self._handshake_preflight(), facts)
+            self.assertEqual("blocked", handshake["outcome"], field)
+            _validate_handshake(handshake)
+
+    def test_rollout_rejects_unrelated_child_terminal_and_wrong_child_identity(self) -> None:
+        parent, children = self._rollout_fixture(activity_thread="expected-child", child_thread="other-child")
+        facts = normalize_rollout_facts(parent, children, "parent-thread", 0)
+        self.assertIs(facts["childBindingValid"], False)
+        self.assertIs(facts["childTerminalObserved"], False)
+        handshake = completed_handshake(self._handshake_preflight(), facts)
+        self.assertEqual("blocked", handshake["outcome"])
+        _validate_handshake(handshake)
+
+    def test_rollout_rejects_multiple_spawn_and_computes_fallback(self) -> None:
+        parent, children = self._rollout_fixture(spawn_count=2)
+        facts = normalize_rollout_facts(parent, children, "parent-thread", 0)
+        self.assertEqual(2, facts["spawnCount"])
+        handshake = completed_handshake(self._handshake_preflight(), facts)
+        self.assertEqual("blocked", handshake["outcome"])
+        _validate_handshake(handshake)
+        parent, children = self._rollout_fixture(agent_type="worker")
+        facts = normalize_rollout_facts(parent, children, "parent-thread", 0)
+        self.assertIs(facts["downgradeObserved"], True)
+        self.assertIs(facts["fallbackObserved"], True)
+
+    def _handshake_preflight(self) -> dict[str, object]:
+        historical = {
+            "hostFailure": "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT",
+            "evidenceClass": "host-runtime-model-rejection",
+            "codexExitCode": 1,
+            "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical"},
+            "handshakeDigest": "8" * 64,
+            "preflightFailure": {"code": "USER_CONFIG_PARSE_FAILED", "message": "strict compatibility rejection"},
+            "preflightDigest": "9" * 64,
+            "modelInvocations": 0,
+            "liveAttemptsConsumed": 0,
+        }
+        return pending_handshake(
+            {
+                "requestedRole": {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
+                "bundleDigest": "1" * 64,
+                "roleDigest": "2" * 64,
+                "configDigest": "3" * 64,
+                "projectConfigDigest": "4" * 64,
+                "probeInstructionsDigest": "a" * 64,
+                "skillDigests": {"gkd-execute": "5" * 64},
+                "codexExecutableDigest": "6" * 64,
+                "generatedProjectConfigParsed": True,
+                "generatedRoleConfigParsed": True,
+                "normalEnvironmentReachedNoTransport": True,
+                "trustedProjectLayerLoaded": True,
+                "agentsEnabled": True,
+                "projectRoleDefinitionAccepted": True,
+                "liveCommandParsed": True,
+                "probeRepo": {"clean": True},
+                "probeRepoUnchanged": True,
+                "productionConfigUnchanged": True,
+                "preflightDigest": "7" * 64,
+            },
+            historical,
+        )
 
 
 if __name__ == "__main__":

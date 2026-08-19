@@ -20,8 +20,8 @@ enable automatic routing, or start milestone 3.
 - Task branch: `task/m2-role-routing-core`
 - Fixed base SHA: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Draft PR: `https://github.com/KNaiFen/gkd/pull/6`
-- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 unresolved;
-  F-005 remediated); this handoff does not authorize
+- Rework findings: `tasks/m2-role-routing-core/findings.md` (F-001 through F-005
+  resolved and awaiting independent acceptance); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
 - Requirements: `tasks/m2-role-routing-core/requirements.md`, version 5
 - Plan: `tasks/m2-role-routing-core/plan.md`, version 5
@@ -50,8 +50,10 @@ Before any command that changes files, read completely:
 7. the five existing production GKD Skills, legacy `ci-reviewer.toml`, and six
    duplicate Skill groups as read-only migration evidence.
 
-Do not read private session databases, rollout JSONL, conversation transcripts,
-credentials, or unrelated production configuration.
+Do not read private session databases, conversation transcripts, credentials,
+or unrelated production configuration. The user-authorized F-004 test-session
+parent/child rollout may be read only for exact offline normalization; do not
+copy raw records, prompts, paths, or plain thread identities into the repository.
 
 ## Bootstrap Exception
 
@@ -210,9 +212,12 @@ Implement every approved requirement and material plan field. In particular:
 - Positive/negative/mutation tests for every role authority boundary.
 - Missing/stale/replayed/cross-task/cross-role/candidate-written activation
   rejection before claim commit; concurrent activation/claim has one winner.
-- A subprocess with executor-equivalent file permissions cannot import or call
-  any installable activation writer to create evidence accepted by claim. Test
-  seams must not be present in the canonical payload or installed inventory.
+- A full temporary-task positive contract proves trusted-main activation receipt
+  to exact offer/envelope claim and delivery. Candidate-facing CLI and ordinary
+  library claim/recovery without a trusted-main provider fail before activation,
+  runtime, claim, or tracked writes. Test-only fixture seams must not be present
+  in the canonical payload or installed inventory. Same-user monkeypatch,
+  private-API calls, and direct runtime-file edits are explicit non-goals.
 - Manual default, explicit automatic request, incomplete gate refusal, bundle or
   role drift, zero fallback, and M2-B gate absence tests.
 - Fake-clock intervals 1 through 12, early child final/error, user interruption,

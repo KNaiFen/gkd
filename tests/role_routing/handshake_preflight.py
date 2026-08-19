@@ -21,6 +21,11 @@ ROLE_NAME = "gkd_executor"
 ROLE_MODEL = "gpt-5.6-sol"
 ROLE_REASONING_EFFORT = "xhigh"
 ROLE_SANDBOX = "workspace-write"
+SPAWN_TASK_NAME = "gkd_executor_handshake"
+SPAWN_FORK_TURNS = "none"
+CHILD_TERMINAL_MARKER = "GKD_EXECUTOR_CHILD_TERMINAL"
+PARENT_TERMINAL_MARKER = "GKD_PARENT_TERMINAL"
+FALLBACK_ROLES = {"default", "worker", "explorer"}
 PARSER_SENTINEL = "no transport configured; use --listen or enable remote control"
 LIVE_PROMPT = (
     "Delegation itself is the only task and cannot be completed by the parent. Do not solve the "
@@ -384,6 +389,16 @@ def _spawn_role(item: dict[str, object]) -> str | None:
     return None
 
 
+def _spawn_fact(item: dict[str, object]) -> dict[str, object]:
+    arguments = _structured_arguments(item)
+    value = arguments[-1] if arguments else {}
+    return {
+        "agentType": value.get("agent_type"),
+        "taskName": value.get("task_name"),
+        "forkTurns": value.get("fork_turns"),
+    }
+
+
 def _thread_ids(event: dict[str, object]) -> set[str]:
     identities: set[str] = set()
     thread_id = event.get("thread_id")
@@ -464,6 +479,7 @@ def normalize_host_events(
         for event in events
         if event.get("type") == "item.completed" and _collab_tool(_event_item(event)) == "spawn_agent"
     ]
+    spawn_facts = [_spawn_fact(item) for item in spawn_items]
     roles = [role for role in (_spawn_role(item) for item in spawn_items) if role is not None]
     child_ids: set[str] = set()
     for item in spawn_items:
@@ -476,15 +492,19 @@ def normalize_host_events(
         if value not in event_types:
             event_types.append(value)
     unexpected = sorted({role for role in roles if role != ROLE_NAME})
-    fallback = any(role in {"default", "worker", "explorer"} for role in unexpected)
+    fallback = any(role in FALLBACK_ROLES for role in unexpected)
+    child_identity_hash = sha256_bytes(next(iter(child_ids)).encode("utf-8")) if len(child_ids) == 1 else None
     host_error = _host_error(events, stderr, repo)
     return {
         "parentTurnEntered": any(event.get("type") == "turn.started" for event in events),
         "spawnCount": len(spawn_items),
+        "spawnFacts": spawn_facts,
         "activatedRoles": sorted(set(roles)),
         "unexpectedRoles": unexpected,
-        "downgradeObserved": False,
+        "downgradeObserved": any(role != ROLE_NAME for role in roles),
         "fallbackObserved": fallback,
+        "childBindingValid": len(child_ids) == 1,
+        "childThreadIdentityHash": child_identity_hash,
         "childTerminalObserved": any(_agent_completed(_event_item(event), child_ids) for event in events),
         "parentTerminalObserved": any(event.get("type") == "turn.completed" for event in events),
         "codexExitCode": codex_exit_code,
@@ -496,7 +516,7 @@ def normalize_host_events(
 
 def normalize_rollout_facts(
     parent_records: list[dict[str, object]],
-    child_records: list[dict[str, object]],
+    child_rollouts: dict[str, list[dict[str, object]]],
     parent_thread_id: str,
     codex_exit_code: int,
 ) -> dict[str, object]:
@@ -532,41 +552,91 @@ def normalize_rollout_facts(
                 arguments = {}
         if isinstance(arguments, dict):
             spawn_calls.append(arguments)
-    roles = sorted({value for call in spawn_calls for value in [call.get("agent_type")] if isinstance(value, str) and value})
-    child_terminal = any(
+    spawn_facts = [
+        {
+            "agentType": call.get("agent_type"),
+            "taskName": call.get("task_name"),
+            "forkTurns": call.get("fork_turns"),
+        }
+        for call in spawn_calls
+    ]
+    activities = [
+        payload
+        for record in parent_records
+        if isinstance((payload := record.get("payload")), dict)
+        and payload.get("type") == "sub_agent_activity"
+        and payload.get("kind") == "started"
+    ]
+    matching_activities = [
+        payload
+        for payload in activities
+        if payload.get("agent_path") == f"/root/{SPAWN_TASK_NAME}"
+        and isinstance(payload.get("agent_thread_id"), str)
+        and payload.get("agent_thread_id")
+    ]
+    child_thread_id = matching_activities[0]["agent_thread_id"] if len(matching_activities) == 1 else None
+    child_records = child_rollouts.get(child_thread_id, []) if isinstance(child_thread_id, str) else []
+    child_metas = [
+        record.get("payload")
+        for record in child_records
+        if record.get("type") == "session_meta" and isinstance(record.get("payload"), dict)
+    ]
+    child_meta = child_metas[0] if len(child_metas) == 1 else None
+    spawn_source = child_meta.get("source", {}).get("subagent", {}).get("thread_spawn", {}) if isinstance(child_meta, dict) else {}
+    child_binding_valid = (
+        isinstance(child_thread_id, str)
+        and isinstance(child_meta, dict)
+        and child_meta.get("id") == child_thread_id
+        and child_meta.get("session_id") == parent_thread_id
+        and child_meta.get("thread_source") == "subagent"
+        and spawn_source.get("parent_thread_id") == parent_thread_id
+        and spawn_source.get("agent_path") == f"/root/{SPAWN_TASK_NAME}"
+        and spawn_source.get("agent_role") == ROLE_NAME
+    )
+    child_terminal = child_binding_valid and any(
         isinstance(record.get("payload"), dict)
         and record["payload"].get("type") == "task_complete"
-        and record["payload"].get("last_agent_message") == "GKD_EXECUTOR_CHILD_TERMINAL"
+        and record["payload"].get("last_agent_message") == CHILD_TERMINAL_MARKER
         for record in child_records
     )
     parent_terminal = any(
         isinstance(record.get("payload"), dict)
         and record["payload"].get("type") == "task_complete"
-        and record["payload"].get("last_agent_message") == "GKD_PARENT_TERMINAL"
+        and record["payload"].get("last_agent_message") == PARENT_TERMINAL_MARKER
         for record in parent_records
     )
     child_thread_ids = {
-        payload.get("agent_thread_id")
-        for record in parent_records
-        if isinstance((payload := record.get("payload")), dict)
-        and payload.get("type") == "sub_agent_activity"
-        and isinstance(payload.get("agent_thread_id"), str)
+        payload["agent_thread_id"]
+        for payload in activities
+        if isinstance(payload.get("agent_thread_id"), str) and payload.get("agent_thread_id")
     }
     thread_identity_hashes = sorted(
         {sha256_bytes(identity.encode("utf-8")) for identity in {parent_thread_id, *child_thread_ids} if identity}
     )
+    structured_roles = {
+        role
+        for role in [
+            *(call.get("agent_type") for call in spawn_calls),
+            *(meta.get("source", {}).get("subagent", {}).get("thread_spawn", {}).get("agent_role") for meta in child_metas),
+        ]
+        if isinstance(role, str) and role
+    }
+    roles = sorted(structured_roles)
     unexpected = sorted(role for role in roles if role != ROLE_NAME)
-    fallback = any(role in {"default", "worker", "explorer"} for role in unexpected)
+    fallback = any(role in FALLBACK_ROLES for role in unexpected)
     return {
         "parentTurnEntered": any(
             isinstance(record.get("payload"), dict) and record["payload"].get("type") == "task_started"
             for record in parent_records
         ),
         "spawnCount": len(spawn_calls),
+        "spawnFacts": spawn_facts,
         "activatedRoles": roles,
         "unexpectedRoles": unexpected,
-        "downgradeObserved": False,
+        "downgradeObserved": any(role != ROLE_NAME for role in roles),
         "fallbackObserved": fallback,
+        "childBindingValid": child_binding_valid,
+        "childThreadIdentityHash": sha256_bytes(child_thread_id.encode("utf-8")) if isinstance(child_thread_id, str) else None,
         "childTerminalObserved": child_terminal,
         "parentTerminalObserved": parent_terminal,
         "codexExitCode": codex_exit_code,
@@ -706,10 +776,13 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
     expected_fact_keys = {
         "parentTurnEntered",
         "spawnCount",
+        "spawnFacts",
         "activatedRoles",
         "unexpectedRoles",
         "downgradeObserved",
         "fallbackObserved",
+        "childBindingValid",
+        "childThreadIdentityHash",
         "childTerminalObserved",
         "parentTerminalObserved",
         "codexExitCode",
@@ -725,13 +798,31 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
         raise PreflightError("INVALID_HOST_FACTS", "host thread identities are invalid")
     if not isinstance(host_facts["activatedRoles"], list) or not isinstance(host_facts["unexpectedRoles"], list):
         raise PreflightError("INVALID_HOST_FACTS", "host role facts are invalid")
+    if not isinstance(host_facts["spawnFacts"], list) or any(
+        not isinstance(item, dict)
+        or set(item) != {"agentType", "taskName", "forkTurns"}
+        for item in host_facts["spawnFacts"]
+    ):
+        raise PreflightError("INVALID_HOST_FACTS", "host spawn facts are invalid")
+    child_identity = host_facts["childThreadIdentityHash"]
+    if child_identity is not None and (not isinstance(child_identity, str) or len(child_identity) != 64):
+        raise PreflightError("INVALID_HOST_FACTS", "host child identity is invalid")
+    exact_spawn = {
+        "agentType": ROLE_NAME,
+        "taskName": SPAWN_TASK_NAME,
+        "forkTurns": SPAWN_FORK_TURNS,
+    }
     ready = (
         host_facts["parentTurnEntered"] is True
         and host_facts["spawnCount"] == 1
+        and host_facts["spawnFacts"] == [exact_spawn]
         and host_facts["activatedRoles"] == [ROLE_NAME]
         and host_facts["unexpectedRoles"] == []
         and host_facts["downgradeObserved"] is False
         and host_facts["fallbackObserved"] is False
+        and host_facts["childBindingValid"] is True
+        and isinstance(child_identity, str)
+        and child_identity in host_facts["threadIdentityHashes"]
         and host_facts["childTerminalObserved"] is True
         and host_facts["parentTerminalObserved"] is True
         and host_facts["codexExitCode"] == 0
@@ -740,10 +831,13 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
     activation_missing = (
         host_facts["parentTurnEntered"] is True
         and host_facts["spawnCount"] == 0
+        and host_facts["spawnFacts"] == []
         and host_facts["activatedRoles"] == []
         and host_facts["unexpectedRoles"] == []
         and host_facts["downgradeObserved"] is False
         and host_facts["fallbackObserved"] is False
+        and host_facts["childBindingValid"] is False
+        and host_facts["childThreadIdentityHash"] is None
         and host_facts["childTerminalObserved"] is False
         and host_facts["parentTerminalObserved"] is True
         and host_facts["codexExitCode"] == 0

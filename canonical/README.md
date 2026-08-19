@@ -46,9 +46,12 @@ provider; this development component does not enable automatic execution.
 
 The M2-A payload additionally defines three fixed custom-agent role TOMLs,
 minimal role context manifests, hard-rule subsets, five progressive-disclosure
-workflow Skills, route and wait schemas, and a host-only activation evidence
-provider. The default route is manual; automatic routing has six explicit gates
-and remains manual-only until the separate M2-B fresh-runtime wait gate proves
-the required one-hour tool behavior. A short isolated role handshake was
-attempted once for this task, but its host event stream did not prove custom
-role activation, so the M2-A delivery evidence is intentionally `blocked`.
+workflow Skills, route and wait schemas, and a trusted-main workflow activation
+provider. Candidate-facing CLI and default library claim/recovery remain
+fail-closed without that provider. This is not same-user process isolation and
+does not add signing, daemon, IPC, or key infrastructure. The default route is
+manual; automatic routing has six explicit gates and remains manual-only until
+the separate M2-B fresh-runtime wait gate proves the required one-hour tool
+behavior. The authorized production-environment handshake proved one exact
+`gkd_executor` child and both terminal events, so M2-A evidence is
+`role_routing_core_ready` while automatic routing remains disabled.

@@ -9,6 +9,7 @@ import sys
 import unittest
 from unittest import mock
 
+from gkd_role.activation import TrustedActivationEvidenceProvider, TrustedMainActivationAuthority
 from gkd_role.roles import role_catalog, role_record
 from gkd_task.canonical import FixedClock, canonical_bytes
 from gkd_task.acceptance import _validate_fixed_candidate
@@ -18,7 +19,6 @@ from gkd_task.service import TaskService
 from tests.task_core.helpers import FIXED_TIME, FUTURE_TIME, TaskRepo
 
 from tests.role_routing.helpers import BUNDLE_ROOT, bundle_digest
-from tests.role_routing.activation_support import TestActivationEvidenceProvider, TestActivationTaskService, record_test_activation
 
 
 class ActivationContracts(unittest.TestCase):
@@ -40,10 +40,10 @@ class ActivationContracts(unittest.TestCase):
             "route": "manual",
             "roleName": "gkd_executor",
             "roleDigest": self.role["roleDigest"],
-        "configDigest": self.role["configDigest"],
-        "bundleDigest": self.bundle,
-        "offerCreatedAt": self.offer["createdAt"],
-        "offerExpiresAt": self.offer["expiresAt"],
+            "configDigest": self.role["configDigest"],
+            "bundleDigest": self.bundle,
+            "offerCreatedAt": self.offer["createdAt"],
+            "offerExpiresAt": self.offer["expiresAt"],
         }
         self.observation = {
             "evidenceClass": "host-runtime-event",
@@ -56,26 +56,32 @@ class ActivationContracts(unittest.TestCase):
             "activatedAt": FIXED_TIME,
         }
         self.runtime = RuntimeStore(self.repo.runtime_root)
+        self.authority = TrustedMainActivationAuthority(self.runtime, self.catalog)
 
     def tearDown(self) -> None:
         self.repo.close()
 
     def record(self, expected=None, observation=None):
-        return record_test_activation(self.runtime, self.catalog, expected or self.expected, observation or self.observation, "activation-nonce")
+        return self.authority.record(expected or self.expected, observation or self.observation, "activation-nonce")
 
     def provider(self, activation_id, catalog=None):
-        return TestActivationEvidenceProvider(self.runtime, activation_id, catalog or self.catalog)
+        return TrustedActivationEvidenceProvider(self.runtime, activation_id, catalog or self.catalog)
 
     def claim(self, provider):
-        service = TestActivationTaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
+        service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
         return service.claim(*self.repo.cas(), self.handoff["envelopeId"])
 
-    def test_exact_host_activation_claims_once_and_writes_consumption_receipt(self) -> None:
+    def test_main_owned_activation_claims_exact_offer_and_delivers(self) -> None:
         activation = self.record()
-        claimed = self.claim(self.provider(activation["activationId"]))
+        provider = self.provider(activation["activationId"])
+        service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
+        claimed = service.claim(*self.repo.cas(), self.handoff["envelopeId"])
         receipt = self.runtime.read_activation_receipt(activation["activationId"])
         self.assertEqual(claimed["claimId"], receipt["claimId"])
         self.assertEqual(claimed["head"], receipt["claimCommit"])
+        delivered = service.deliver(*self.repo.cas(), claimed["claimId"])
+        self.assertEqual("delivered", delivered["status"])
+        self.assertEqual(claimed["claimId"], self.repo.state()["lifecycle"]["delivery"]["claimId"])
 
     def test_missing_or_candidate_written_activation_is_not_evidence(self) -> None:
         fake_id = "f" * 64
@@ -151,13 +157,13 @@ class ActivationContracts(unittest.TestCase):
     def test_activation_receipt_write_failure_recovers_from_committed_claim_receipt(self) -> None:
         activation = self.record()
         provider = self.provider(activation["activationId"])
-        service = TestActivationTaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
+        service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
         with mock.patch.object(self.runtime, "write_activation_receipt", side_effect=TaskError("ACTIVATION_RECEIPT_WRITE_FAILED")):
             with self.assertRaisesRegex(TaskError, "ACTIVATION_RECEIPT_WRITE_FAILED"):
                 service.claim(*self.repo.cas(), self.handoff["envelopeId"])
         state = self.repo.state()
         self.assertEqual("implementing", state["lifecycle"]["phase"])
-        recovery = TestActivationTaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=self.provider(activation["activationId"]))
+        recovery = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=self.provider(activation["activationId"]))
         result = recovery.recover_activation()
         self.assertEqual("activation_consumption_recovered", result["status"])
         self.assertEqual(state["lifecycle"]["claim"]["claimId"], self.runtime.read_activation_receipt(activation["activationId"])["claimId"])
@@ -190,7 +196,7 @@ class ActivationContracts(unittest.TestCase):
     def test_delivery_and_fixed_candidate_acceptance_require_claim_indexed_activation_receipt(self) -> None:
         activation = self.record()
         claimed = self.claim(self.provider(activation["activationId"]))
-        service = TestActivationTaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME))
+        service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME))
         delivered = service.deliver(*self.repo.cas(), claimed["claimId"])
         _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], self.runtime)
         self.runtime.delete_claim_activation_receipt(claimed["claimId"])
@@ -225,28 +231,12 @@ class ActivationContracts(unittest.TestCase):
         self.assertEqual(2, rejected.returncode)
         self.assertEqual("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE", json.loads(rejected.stderr)["error"])
 
-    def test_executor_equivalent_payload_cannot_import_or_call_activation_writer(self) -> None:
+    def test_candidate_public_cli_and_library_paths_remain_fail_closed(self) -> None:
         before_head = self.repo.head()
         before_revision = self.repo.state()["revision"]
-        script = """
-from gkd_role.activation import record_activation, ActivationEvidenceProvider
-from gkd_task.runtime import RuntimeStore
-RuntimeStore.write_activation(None, {})
-"""
         env = dict(os.environ)
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["PYTHONPATH"] = "canonical/payload/lib"
-        result = subprocess.run(
-            [sys.executable, "-c", script],
-            cwd=Path.cwd(),
-            env=env,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        self.assertNotEqual(0, result.returncode)
-        self.assertIn("ImportError", result.stderr)
         activation_dir = self.repo.runtime_root / "activations"
         self.assertFalse(activation_dir.exists() and any(activation_dir.iterdir()))
 

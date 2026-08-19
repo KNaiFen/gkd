@@ -25,7 +25,7 @@ class PackagingContracts(unittest.TestCase):
         payload_text = "\n".join(path.read_text(encoding="utf-8") for path in (BUNDLE_ROOT / "lib").rglob("*.py"))
         self.assertNotIn("FixtureEvidenceProvider", payload_text)
         self.assertNotIn("make_fixture_evidence", payload_text)
-        self.assertNotIn("record_activation", payload_text)
+        self.assertIn("TrustedMainActivationAuthority", payload_text)
 
     def test_role_and_task_schemas_are_versioned_and_strict(self) -> None:
         role_schemas = {path.name for path in (BUNDLE_ROOT / "schema" / "role").iterdir()}
@@ -54,7 +54,10 @@ class PackagingContracts(unittest.TestCase):
             inventory_text = json.dumps(inventory, sort_keys=True)
             self.assertNotIn("FixtureEvidenceProvider", inventory_text)
             self.assertNotIn("make_fixture_evidence", inventory_text)
-            self.assertNotIn("record_activation", inventory_text)
+            installed_text = "\n".join(path.read_text(encoding="utf-8") for path in (target / "gkd" / "lib").rglob("*.py"))
+            self.assertNotIn("FixtureEvidenceProvider", installed_text)
+            self.assertNotIn("make_fixture_evidence", installed_text)
+            self.assertIn("TrustedMainActivationAuthority", installed_text)
 
     def test_installed_role_files_follow_current_custom_agent_schema(self) -> None:
         for name, raw in role_files(BUNDLE_ROOT, bundle_digest()).items():

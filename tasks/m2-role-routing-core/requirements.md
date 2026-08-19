@@ -63,7 +63,9 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
 - Add a trusted role activation/evidence boundary that binds task, repository,
   task branch, offer, envelope, route, agent/thread identity, role/config
   digests, bundle content digest, activation time, and one-time claim use.
-  Agent prose or a candidate-created file is not sufficient evidence.
+  Trusted main records already verified host facts and supplies the resulting
+  provider to claim. Agent prose, a candidate-created file, the public CLI, or
+  the default candidate library path is not sufficient evidence.
 - Integrate the provider with milestone 1 claim without weakening capability,
   CAS, lock, receipt, journal, revoke, reclaim, delivery, or acceptance rules.
 - Add a deterministic router with `manual` default, explicit `automatic`
@@ -118,8 +120,14 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
 - Modifying AIO, adding consumer-specific repository identity/check names, or
   treating AIO's `.trellis` workflow as canonical GKD mechanism.
 - Using candidate code, candidate role files, Agent self-report, conversation
-  text, private session databases, or rollout logs as trusted proof that this
-  bootstrap task was correctly claimed or executed.
+  text, or unrelated private session state as trusted proof that this bootstrap
+  task was correctly claimed or executed. The one user-authorized F-004 test
+  rollout may be read only to normalize exact host spawn/activity/terminal facts
+  into path-free evidence; its raw records are not copied into the repository.
+- Treating the workflow authority boundary as security isolation between
+  processes running as the same operating-system user. Deliberate monkeypatch,
+  private-API calls, or direct runtime-file modification are non-goals; this task
+  does not add signing, keys, a daemon, IPC, or another security service.
 - Falling back to built-in `worker`, a shorter wait loop, an external watcher,
   repeated polling, or a second executor when a gate fails.
 
@@ -139,7 +147,9 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
 4. Claim succeeds only with trusted activation evidence bound to the exact
    offer/envelope/task/agent/role/config/bundle facts. Missing, stale, replayed,
    candidate-written, self-reported, cross-task, cross-role, or digest-drifted
-   evidence fails before a claim commit.
+   evidence fails before a claim commit. Trusted main has one supported positive
+   record-to-claim-to-delivery path; candidate-facing CLI and default library
+   claim/recovery remain fail-closed before runtime or tracked writes.
 5. Router contracts prove manual default, explicit automatic selection, exact
    gate evaluation, stable manual-only refusal, and zero generic-worker or
    alternate-command fallback. M2-A output cannot mark automatic routing ready.

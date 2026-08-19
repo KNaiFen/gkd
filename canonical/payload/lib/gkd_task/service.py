@@ -902,9 +902,16 @@ class TaskService:
         return result
 
     def _require_activation_authority(self) -> None:
-        """The installed candidate has no trusted host attestation boundary."""
+        """Accept only the provider object supplied by trusted main orchestration."""
 
-        raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
+        from gkd_role.roles import ACTIVATION_PROVIDER
+
+        if (
+            getattr(self.evidence_provider, "trusted_main_owned", False) is not True
+            or getattr(self.evidence_provider, "provider_name", None) != ACTIVATION_PROVIDER["name"]
+            or getattr(self.evidence_provider, "provider_digest", None) != digest_object(ACTIVATION_PROVIDER)
+        ):
+            raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
 
     def _retire(
         self,

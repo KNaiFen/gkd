@@ -11,11 +11,12 @@
   task, offer, envelope, agent/thread identifier, custom role, role/config
   digests, bundle digest, route, timestamp, and consumption state. Claim must
   validate it under the existing task lock and journal protocol.
-- Keep every candidate-callable activation writer out of the installable
-  production path. A test-only host seam belongs under tests and cannot be
-  exported by the bundle. If the current host exposes no writer/attestation
-  boundary that the candidate cannot invoke or forge, installed activation
-  recording must remain fail-closed and delivery must report that limitation.
+- Provide one explicit `TrustedMainActivationAuthority` in the installable
+  library. Trusted main supplies verified host facts and passes its provider to
+  `TaskService`; the candidate-facing CLI and default library claim/recovery path
+  remain fail-closed before any runtime or tracked write. This is a workflow
+  authority boundary, not same-user process isolation. Do not add signing,
+  daemon, IPC, keys, monkeypatch defenses, or direct-runtime tamper defenses.
 - Model routing as a pure decision over explicit request plus fixed readiness
   facts. Keep `manual` as the default output. A failed automatic request returns
   one refusal and does not create a replacement offer or select built-in
