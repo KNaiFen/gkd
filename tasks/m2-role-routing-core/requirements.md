@@ -1,4 +1,4 @@
-# GKD-M2-A Requirements v4
+# GKD-M2-A Requirements v5
 
 ## Goal
 
@@ -45,8 +45,11 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   supplies the exact `gkd_executor` role and required Skills. The parent command
   does not use `--ignore-user-config` or a parent `--model` override. The child
   remains fixed by `gkd_executor.toml` to GPT-5.6 Sol, `xhigh`, and
-  `workspace-write`. Each live launch requires a separate authorization bound to
-  its exact static fixed head and may run once with no fallback or downgrade.
+  `workspace-write`. This execution session may complete static checks and a
+  bounded sequence of short diagnostic live probes under the current task
+  authorization. Only the final delivery head is frozen for independent
+  acceptance; retries may correct orchestration misses but may not downgrade,
+  replace the role, or fall back to a built-in agent.
 - Generated project and custom-role TOML are parsed strictly with Python
   `tomllib` and compared to the canonical role source. Host startup uses the
   normal compatibility parser rather than `--strict-config`, because the current
@@ -82,18 +85,20 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
   Skills and instructions. Omitted context must be explicit and testable.
 - Add L1/L2 contracts, deterministic evidence, manifest/lock regeneration, and
   retained regression coverage proportional to the new bundle surface.
-- Prepare one short, bounded production-environment role handshake after
+- Prepare a short, bounded production-environment role handshake after
   deterministic tests pass. Static preflight must use the `codex` resolved by
   `command -v`, strictly parse the generated project and role TOML with
   `tomllib`, then run non-strict `codex app-server --listen off` with explicit
-  project trust and `agents.enabled=true`. Only the expected no-transport
+  project trust and role discovery. Only the expected no-transport
   boundary is accepted; trust disabled, malformed role/project configuration,
   or any other fatal startup error fails closed. The preflight verifies exact
   role/Skill/bundle digests and a clean temporary Git repository and consumes
-  zero model/live attempts. Push that static fixed head before requesting a
-  separate one-call live authorization. The later probe must not implement
-  repository code, modify production configuration, or serve as the M2-B
-  one-hour gate.
+  zero model/live attempts. The same execution session may then run the
+  simplified live command from a fresh repository beneath the task worktree.
+  Codex treats that fresh Git root as a distinct trust identity. The user must
+  establish trust through the normal Codex trust UI; the execution session must
+  not write user configuration or repeat trust on the command line. A probe must not implement repository code, modify
+  production configuration, or serve as the M2-B one-hour gate.
 
 ## Non-Goals
 
@@ -170,6 +175,8 @@ one-hour fresh-runtime gate and cannot enable the automatic route by itself.
     a parent turn, exactly one named `gkd_executor` activation with no other role
     or fallback, child terminal, parent terminal, exit code, and a redacted error
     if present. JSONL need not echo GKD digests. Success requires both evidence
-    classes and configuration/repo non-drift. A failed preflight or host probe
-    remains `blocked`; fixture self-report, candidate output, downgrade,
-    fallback, or a second call under the same authorization cannot upgrade it.
+    classes and configuration/repo non-drift. A parent orchestration miss such
+    as waiting before spawn is diagnostic, not a custom-role failure; the
+    execution session may correct the Prompt or actual tool name and retry a
+    bounded number of times. Fixture self-report, candidate output, downgrade,
+    alternate role, or fallback cannot upgrade the result.

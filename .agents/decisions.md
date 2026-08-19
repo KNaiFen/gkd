@@ -196,3 +196,7 @@
 - [2026-08-19] GKD-M2-A F-004 v4 正常环境 live probe 未产生 custom-role activation。
   - Why: 授权 head `26b8e9c185a0bdf365266efdb45f42260c8922b3` 的全部启动门通过后，唯一一次正常登录态 `codex exec` 成功进入并完成 parent turn，exit code 为 0；但结构化 host 事件只包含一个无 receiver thread/agent state 的 collaboration `wait`，没有 spawn、`gkd_executor` activation、child identity 或 child terminal。Agent message 正文不作为证据。
   - Impact: 规范化分类为 `CUSTOM_ROLE_ACTIVATION_MISSING`，`modelInvocations=1`、`liveAttemptsConsumed=1`；不得重试、降级或以 parent terminal 补足 child 事实。原始 JSONL/临时 repo 已删除，生产/AIO 保护面不变。F-004 与 M2-A 继续 `blocked`，PR #6 保持 Draft，M2-B 与 automatic route 不得启动。
+
+- [2026-08-20] GKD-M2-A F-004 通过 session rollout 记录完成 trusted custom-role handshake。
+  - Why: 用户在精确 fresh probe Git 根通过正常 Codex trust UI 选择继续后，授权本机 `codex exec --json` 的 parent rollout 记录包含唯一 `agents.spawn_agent`，参数绑定 `gkd_executor`/`gkd_executor_handshake`/`none`；宿主 activity 绑定 child thread，child rollout 与 parent rollout 分别有独立 `task_complete` terminal marker，Codex exit 0。stdout 的 wait-only 压缩不完整，不能覆盖 rollout 记录中的 spawn 事实。
+  - Impact: 只保留 path-free hashed thread、event types、exact role、terminal 和 exit facts；session 原文不进入仓库 evidence。F-004/M2-A outcome 为 `role_routing_core_ready`，route 仍 `manual_only`；M2-B、automatic route、生产安装、AIO 和里程碑 3 继续禁止。

@@ -13,7 +13,7 @@ enable automatic routing, or start milestone 3.
 
 ## Task Identity
 
-- Status: `delivered_blocked`
+- Status: `in_progress`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
@@ -23,9 +23,9 @@ enable automatic routing, or start milestone 3.
 - Rework findings: `tasks/m2-role-routing-core/findings.md` (F-004 unresolved;
   F-005 remediated); this handoff does not authorize
   acceptance, merge, M2-B, production installation, or AIO changes.
-- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 4
-- Plan: `tasks/m2-role-routing-core/plan.md`, version 4
-- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 4
+- Requirements: `tasks/m2-role-routing-core/requirements.md`, version 5
+- Plan: `tasks/m2-role-routing-core/plan.md`, version 5
+- Implementation notes: `tasks/m2-role-routing-core/implementation.md`, version 5
 - Route: manual top-level execution session
 - Action mode: `implement_and_merge_on_acceptance`
 
@@ -78,10 +78,10 @@ The existing `gkd_core_implementation` authorization permits this session to:
 3. inspect production GKD Skills/legacy role and AIO planning inputs read-only;
 4. commit and push the task branch, create/update its Draft PR, and perform
    task-related repair;
-5. after hermetic gates pass, run no-model static parsing against the normally
-   configured local Codex host and a temporary project-scoped custom-agent
-   configuration, then push a static fixed head. A live parent/child handshake
-   requires a later explicit one-call authorization for that exact head.
+5. after hermetic gates pass, run no-model static parsing and bounded short live
+   handshake diagnosis against the normally configured local Codex host and a
+   temporary project-scoped custom-agent configuration. Only the final complete
+   delivery head is frozen for independent acceptance.
 
 It must not:
 
@@ -91,8 +91,8 @@ It must not:
 3. change GitHub settings, Secrets, runners, billing, tags, Releases, or the
    sandbox repository;
 4. install dependencies, run Rust/Tauri/frontend builds, generate large caches,
-   invoke API-key billed APIs, run any live model request before a new explicit
-   fixed-head authorization, or run the historical live watcher probe;
+   invoke API-key billed APIs outside the normal authorized Codex login path, or
+   run the historical live watcher probe;
 5. perform the M2-B real one-hour wait or claim automatic routing is ready;
 6. delegate investigation, design, implementation, review judgment, or
    repository writes to a subagent;
@@ -128,13 +128,13 @@ manufacture approval.
 ## Production-Environment Handshake Preparation
 
 The earlier isolation-mode attempt and its HTTP 400 remain historical negative
-evidence. This round changes the probe contract but does not authorize a model
-turn. It must complete and push static preparation, then stop for a new
-authorization bound to that exact full head.
+evidence. This execution session owns static preparation, bounded short live
+diagnosis, evidence normalization, and final delivery without intermediate
+fixed-head authorization stops.
 
 1. Resolve the CLI only through `command -v codex`. Record a path-free executable
-   digest and version. Use `codex login status` only as a boolean when a later
-   live authorization is granted. Do not inspect auth files, tokens, cookies,
+   digest and version. Use `codex login status` only as a boolean before live
+   diagnosis. Do not inspect auth files, tokens, cookies,
    private sessions, or print user configuration.
 2. Create a clean explicit system-temporary Git repository. Render the exact
    candidate `gkd_executor` and required Skills into project `.codex/agents` and
@@ -142,18 +142,21 @@ authorization bound to that exact full head.
 3. Strictly parse the generated project config and `gkd_executor.toml` with
    Python `tomllib`, and compare every field to the canonical role source. With
    normal `CODEX_HOME` and user configuration, then run only
-   `codex app-server --listen off` plus trust and `agents.enabled=true`. This
+   `codex app-server --listen off` from the fresh Git root.
+   Static v5 diagnosis proved that a nested fresh repository does not inherit
+   the outer worktree trust identity. The user explicitly established trust for
+   the exact path through the normal Codex UI; the execution session must not
+   write or inspect that configuration. This
    non-strict host startup must reach the no-transport boundary without a project
    config, trust, role, or other fatal startup failure. Do not set an alternate
    home or use `--ignore-user-config`. A normal user unknown-field warning is not
    a project-config failure when the expected boundary is reached.
 4. Parse the frozen live command with `--help`, consuming no model turn. The
-   command is `codex exec --ephemeral --json --cd <repo>
-   --sandbox workspace-write -c 'approval_policy="never"' -c
-   'agents.enabled=true' -c <project-trust> <fixed-prompt>`. It contains no
-   `--strict-config`, parent `--model`, parent effort override,
-   `--ignore-user-config`, fallback, or alternate role. The child TOML remains
-   Sol/xhigh/workspace-write.
+   command is `codex exec --json <fixed-prompt>` with
+   `cwd=<probe-repo>`. It
+   contains no `--strict-config`, `--ignore-user-config`, parent model/effort,
+   sandbox, approval, agents-enabled, fallback, or alternate-role
+   override. The child TOML remains Sol/xhigh/workspace-write.
 5. Static evidence owns requested role configuration, all GKD digests, strict
    generated-TOML parsing, trust, accepted project-role definition, CLI
    resolution, command parsing, clean repo, and production configuration
@@ -161,13 +164,18 @@ authorization bound to that exact full head.
    any fact is missing, record one redacted
    machine-readable preflight failure, keep model/attempt counts at zero, and
    stop without requesting a live launch.
-6. After static gates pass and the fixed head is pushed, wait for a separate
-   explicit one-call authorization. The later host evidence owns only parent
-   turn entry, exactly one named `gkd_executor` activation, no other role or
-   fallback, child terminal, parent terminal, exit code, and redacted host
-   error. It need not echo GKD digests. Delete raw JSONL and the temporary repo;
-   no retry, downgrade, fallback, or second call is permitted.
-7. Compare approved production configuration surfaces before/after static and
+6. After static gates pass, run a bounded live diagnosis. The fixed Prompt must
+   require the exposed `spawn_agent` exactly once with `agent_type=gkd_executor`, then
+   call the actual wait tool only after spawn succeeds. A wait-before-spawn,
+   tool-name miss, or invalid argument is `probe_orchestration_miss`; inspect the
+   complete temporary JSONL/parent response, correct the Prompt or actual tool
+   name, and retry within a small explicit attempt cap. Never downgrade, replace
+   the role, or use a built-in fallback.
+7. Host evidence owns only parent turn entry, exactly one named `gkd_executor`
+   spawn, no other role/downgrade/fallback, child terminal, parent terminal,
+   exit code, and redacted host error. It need not echo GKD digests. Delete raw
+   JSONL and the temporary repo after final normalization.
+8. Compare approved production configuration surfaces before/after static and
    live invocation. Existing provider/routing/login configuration may be read by
    normal Codex startup but must not be printed, copied, or modified.
 
@@ -217,10 +225,10 @@ Implement every approved requirement and material plan field. In particular:
   loaded and no production/AIO paths leak into installed output or evidence.
 - Retained task-core/foundation/watcher short regressions and two byte-identical
   M2 evidence generations from disjoint clean temporary roots.
-- Tests prove the live command has no `--ignore-user-config`, parent `--model`,
-  parent effort override, `--strict-config`, alternate `CODEX_HOME`, built-in
-  role, or approval prompt, and that its exact argument vector parses without a
-  model invocation.
+- Tests prove the live command is exactly `codex exec --json <fixed-prompt>`,
+  has no `--ignore-user-config`, parent model/effort, `--strict-config`, sandbox,
+  approval, agents-enabled, alternate `CODEX_HOME`, or built-in role, and
+  that its argument vector parses without a model invocation.
 
 ## Packaging And Evidence
 
@@ -249,8 +257,8 @@ release readiness.
 Before handoff to main:
 
 1. Complete required deterministic tests, retained regressions, temporary
-   installs, evidence generation, protection checks, and the no-model static
-   handshake preparation. This round must not launch the live role probe.
+   installs, protection checks, static preparation, bounded live handshake, and
+   two byte-identical final evidence generations.
 2. Write `delivery.md` with fixed base, synchronized main, implementation and
    evidence commit, PR, exact validation, test matrix, bundle/role/Skill/context
    digests, migration facts, deviations, and residual risks.
@@ -260,6 +268,6 @@ Before handoff to main:
 4. Report outcome, fixed head, implementation/evidence commit, bundle/evidence
    digests, test totals, PR/check reality, protected-surface result, and every
    unmet condition.
-5. Stop and wait for an explicit one-call authorization against the delivered
-   static fixed head. Do not accept, merge, clean the worktree/branch, start
-   M2-B, enable automatic routing, or launch another session.
+5. Stop only after complete fixed-head delivery for independent acceptance. Do
+   not accept, merge, clean the worktree/branch, start M2-B, enable automatic
+   routing, or launch another task.

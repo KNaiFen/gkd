@@ -23,12 +23,25 @@ ROLE_REASONING_EFFORT = "xhigh"
 ROLE_SANDBOX = "workspace-write"
 PARSER_SENTINEL = "no transport configured; use --listen or enable remote control"
 LIVE_PROMPT = (
-    "Perform one no-side-effect custom-role handshake. Spawn exactly one agent with "
-    'agent_type="gkd_executor", task_name="gkd_executor_handshake", and fork_turns="none". '
-    "The child must not read or modify any repository file and must return exactly "
-    "GKD_EXECUTOR_CHILD_TERMINAL. After that child reaches terminal state, return exactly "
-    "GKD_PARENT_TERMINAL. Do not spawn another agent, retry, change role, or change model."
+    "Delegation itself is the only task and cannot be completed by the parent. Do not solve the "
+    "child task or emit a success marker yourself. Immediately call the tool named `spawn_agent` "
+    "exactly once with "
+    'agent_type="gkd_executor", task_name="gkd_executor_handshake", fork_turns="none", and '
+    'message="Return exactly GKD_EXECUTOR_CHILD_TERMINAL. Do not call tools or read or modify files." '
+    "If and only if that spawn succeeds, call the exposed multi-agent wait tool for the returned "
+    "child until it is terminal, then return exactly GKD_PARENT_TERMINAL. Never call a wait tool "
+    "before spawn. If spawn_agent is unavailable, return exactly GKD_SPAWN_TOOL_UNAVAILABLE and "
+    "do not call wait. Do not spawn another agent, change role or model, fall back to a built-in "
+    "role, or perform any other work."
 )
+PROBE_INSTRUCTIONS = (
+    "# GKD role handshake\n\n"
+    "When the user says that delegation itself is the only task, the parent MUST call "
+    "`spawn_agent` before any other tool or response, with exactly the agent type and task "
+    "given by the user. The parent MUST NOT replace delegation with its own marker, call a "
+    "wait tool before spawn succeeds, choose another role, or fall back. A spawned child whose "
+    "task only requests a fixed terminal marker MUST return that marker without tools or file access.\n"
+).encode("ascii")
 
 
 class PreflightError(RuntimeError):
@@ -105,11 +118,6 @@ def _repo_snapshot(repo: Path) -> dict[str, object]:
         "commitIdentitySha256": sha256_bytes(commit.stdout.strip().encode("ascii")),
         "treeIdentitySha256": sha256_bytes(tree.stdout.strip().encode("ascii")),
     }
-
-
-def trust_override(repo: Path) -> str:
-    canonical_repo = repo.resolve()
-    return f"projects={{{json.dumps(canonical_repo.as_posix())}={{trust_level=\"trusted\"}}}}"
 
 
 def _project_config(description: str) -> bytes:
@@ -201,6 +209,7 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
         shutil.copytree(bundle_root / "skills" / name, skills / name)
     project_config = _project_config(definition["description"])
     (repo / ".codex" / "config.toml").write_bytes(project_config)
+    (repo / "AGENTS.md").write_bytes(PROBE_INSTRUCTIONS)
     generated_toml = validate_generated_toml(project_config, role_bytes, definition, source["skills"])
 
     actual_skills = {name: _skill_tree_digest(skills / name) for name in role["skills"]}
@@ -209,7 +218,7 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
         raise PreflightError("PROBE_DIGEST_MISMATCH", "generated role or Skill bytes do not match the fixed bundle")
 
     add_result = subprocess.run(
-        ["git", "add", "--", ".codex"],
+        ["git", "add", "--", ".codex", "AGENTS.md"],
         cwd=repo,
         text=True,
         stdout=subprocess.PIPE,
@@ -253,6 +262,7 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
         "roleDigest": role["roleDigest"],
         "configDigest": role["configDigest"],
         "projectConfigDigest": sha256_bytes(project_config),
+        "probeInstructionsDigest": sha256_bytes(PROBE_INSTRUCTIONS),
         "skillDigests": actual_skills,
         "repoIdentitySha256": _path_hash(repo),
         "requestedRole": {
@@ -267,16 +277,8 @@ def prepare_probe_repo(bundle_root: Path, repo: Path) -> dict[str, object]:
 
 
 def static_parser_command(codex: str, repo: Path) -> list[str]:
-    return [
-        codex,
-        "app-server",
-        "--listen",
-        "off",
-        "-c",
-        trust_override(repo),
-        "-c",
-        "agents.enabled=true",
-    ]
+    del repo
+    return [codex, "app-server", "--listen", "off"]
 
 
 def _redact(message: str, paths: tuple[Path, ...]) -> str:
@@ -335,28 +337,243 @@ def run_static_parser(codex: Path, repo: Path) -> dict[str, object]:
 
 
 def live_command(codex: str | Path, repo: Path) -> list[str]:
-    repo = repo.resolve()
-    return [
-        codex,
-        "exec",
-        "--ephemeral",
-        "--json",
-        "--cd",
-        repo.as_posix(),
-        "--sandbox",
-        ROLE_SANDBOX,
-        "-c",
-        'approval_policy="never"',
-        "-c",
-        "agents.enabled=true",
-        "-c",
-        trust_override(repo),
-        LIVE_PROMPT,
-    ]
+    del repo
+    return [codex, "exec", "--json", LIVE_PROMPT]
 
 
 def live_argument_parser_command(codex: str | Path, repo: Path) -> list[str]:
     return [*live_command(codex, repo)[:-1], "--help"]
+
+
+def _event_item(event: dict[str, object]) -> dict[str, object]:
+    item = event.get("item")
+    return item if isinstance(item, dict) else {}
+
+
+def _collab_tool(item: dict[str, object]) -> str | None:
+    if item.get("type") != "collab_tool_call":
+        return None
+    tool = item.get("tool")
+    if not isinstance(tool, str) or not tool:
+        return None
+    return tool.removeprefix("agents.")
+
+
+def _structured_arguments(item: dict[str, object]) -> list[dict[str, object]]:
+    values = [item]
+    for key in ("arguments", "params", "input"):
+        candidate = item.get(key)
+        if isinstance(candidate, dict):
+            values.append(candidate)
+        elif isinstance(candidate, str):
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                values.append(parsed)
+    return values
+
+
+def _spawn_role(item: dict[str, object]) -> str | None:
+    for value in _structured_arguments(item):
+        for key in ("agent_type", "agentType"):
+            role = value.get(key)
+            if isinstance(role, str) and role:
+                return role
+    return None
+
+
+def _thread_ids(event: dict[str, object]) -> set[str]:
+    identities: set[str] = set()
+    thread_id = event.get("thread_id")
+    if isinstance(thread_id, str) and thread_id:
+        identities.add(thread_id)
+    item = _event_item(event)
+    for key in ("sender_thread_id", "receiver_thread_id"):
+        identity = item.get(key)
+        if isinstance(identity, str) and identity:
+            identities.add(identity)
+    receivers = item.get("receiver_thread_ids")
+    if isinstance(receivers, list):
+        identities.update(value for value in receivers if isinstance(value, str) and value)
+    states = item.get("agents_states")
+    if isinstance(states, dict):
+        identities.update(value for value in states if isinstance(value, str) and value)
+    return identities
+
+
+def _agent_completed(item: dict[str, object], child_ids: set[str]) -> bool:
+    states = item.get("agents_states")
+    if not isinstance(states, dict):
+        return False
+    for identity, state in states.items():
+        if identity not in child_ids:
+            continue
+        if isinstance(state, str) and state == "completed":
+            return True
+        if isinstance(state, dict) and state.get("status") == "completed":
+            return True
+    return False
+
+
+def _event_type(event: dict[str, object]) -> str:
+    event_type = event.get("type")
+    if not isinstance(event_type, str) or not event_type:
+        return "unknown"
+    item = _event_item(event)
+    tool = _collab_tool(item)
+    if tool is not None:
+        return f"{event_type}:collab_tool_call:{tool}"
+    item_type = item.get("type")
+    if isinstance(item_type, str) and item_type:
+        return f"{event_type}:{item_type}"
+    return event_type
+
+
+def _host_error(events: list[dict[str, object]], stderr: str, repo: Path) -> dict[str, str] | None:
+    for event in events:
+        event_type = event.get("type")
+        if event_type not in {"error", "turn.failed"}:
+            continue
+        error = event.get("error")
+        if isinstance(error, dict):
+            code = error.get("code")
+            message = error.get("message")
+        else:
+            code = event_type
+            message = event.get("message") or error
+        return {
+            "code": code if isinstance(code, str) and code else str(event_type).upper().replace(".", "_"),
+            "message": _redact(message if isinstance(message, str) else "Codex host reported a failure", (repo,)),
+        }
+    if stderr.strip():
+        return {"code": "CODEX_STDERR", "message": _redact(stderr, (repo,))}
+    return None
+
+
+def normalize_host_events(
+    events: list[dict[str, object]],
+    codex_exit_code: int,
+    stderr: str,
+    repo: Path,
+) -> dict[str, object]:
+    """Reduce one live JSONL stream to path-free host-owned facts."""
+    spawn_items = [
+        _event_item(event)
+        for event in events
+        if event.get("type") == "item.completed" and _collab_tool(_event_item(event)) == "spawn_agent"
+    ]
+    roles = [role for role in (_spawn_role(item) for item in spawn_items) if role is not None]
+    child_ids: set[str] = set()
+    for item in spawn_items:
+        receivers = item.get("receiver_thread_ids")
+        if isinstance(receivers, list):
+            child_ids.update(value for value in receivers if isinstance(value, str) and value)
+    event_types = []
+    for event in events:
+        value = _event_type(event)
+        if value not in event_types:
+            event_types.append(value)
+    unexpected = sorted({role for role in roles if role != ROLE_NAME})
+    fallback = any(role in {"default", "worker", "explorer"} for role in unexpected)
+    host_error = _host_error(events, stderr, repo)
+    return {
+        "parentTurnEntered": any(event.get("type") == "turn.started" for event in events),
+        "spawnCount": len(spawn_items),
+        "activatedRoles": sorted(set(roles)),
+        "unexpectedRoles": unexpected,
+        "downgradeObserved": False,
+        "fallbackObserved": fallback,
+        "childTerminalObserved": any(_agent_completed(_event_item(event), child_ids) for event in events),
+        "parentTerminalObserved": any(event.get("type") == "turn.completed" for event in events),
+        "codexExitCode": codex_exit_code,
+        "eventTypes": event_types,
+        "threadIdentityHashes": sorted({sha256_bytes(value.encode("utf-8")) for event in events for value in _thread_ids(event)}),
+        "hostError": host_error,
+    }
+
+
+def normalize_rollout_facts(
+    parent_records: list[dict[str, object]],
+    child_records: list[dict[str, object]],
+    parent_thread_id: str,
+    codex_exit_code: int,
+) -> dict[str, object]:
+    """Normalize authorized Codex rollout facts without retaining prompt text."""
+    event_types: list[str] = []
+    for record in parent_records:
+        payload = record.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        payload_type = payload.get("type")
+        if not isinstance(payload_type, str):
+            continue
+        value = payload_type
+        if payload_type == "function_call":
+            value = f"function_call:{payload.get('namespace', '')}.{payload.get('name', '')}"
+        elif payload_type == "function_call_output":
+            value = "function_call_output"
+        if value not in event_types:
+            event_types.append(value)
+
+    spawn_calls: list[dict[str, object]] = []
+    for record in parent_records:
+        payload = record.get("payload")
+        if not isinstance(payload, dict) or payload.get("type") != "function_call":
+            continue
+        if payload.get("namespace") != "agents" or payload.get("name") != "spawn_agent":
+            continue
+        arguments = payload.get("arguments")
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        if isinstance(arguments, dict):
+            spawn_calls.append(arguments)
+    roles = sorted({value for call in spawn_calls for value in [call.get("agent_type")] if isinstance(value, str) and value})
+    child_terminal = any(
+        isinstance(record.get("payload"), dict)
+        and record["payload"].get("type") == "task_complete"
+        and record["payload"].get("last_agent_message") == "GKD_EXECUTOR_CHILD_TERMINAL"
+        for record in child_records
+    )
+    parent_terminal = any(
+        isinstance(record.get("payload"), dict)
+        and record["payload"].get("type") == "task_complete"
+        and record["payload"].get("last_agent_message") == "GKD_PARENT_TERMINAL"
+        for record in parent_records
+    )
+    child_thread_ids = {
+        payload.get("agent_thread_id")
+        for record in parent_records
+        if isinstance((payload := record.get("payload")), dict)
+        and payload.get("type") == "sub_agent_activity"
+        and isinstance(payload.get("agent_thread_id"), str)
+    }
+    thread_identity_hashes = sorted(
+        {sha256_bytes(identity.encode("utf-8")) for identity in {parent_thread_id, *child_thread_ids} if identity}
+    )
+    unexpected = sorted(role for role in roles if role != ROLE_NAME)
+    fallback = any(role in {"default", "worker", "explorer"} for role in unexpected)
+    return {
+        "parentTurnEntered": any(
+            isinstance(record.get("payload"), dict) and record["payload"].get("type") == "task_started"
+            for record in parent_records
+        ),
+        "spawnCount": len(spawn_calls),
+        "activatedRoles": roles,
+        "unexpectedRoles": unexpected,
+        "downgradeObserved": False,
+        "fallbackObserved": fallback,
+        "childTerminalObserved": child_terminal,
+        "parentTerminalObserved": parent_terminal,
+        "codexExitCode": codex_exit_code,
+        "eventTypes": event_types,
+        "threadIdentityHashes": thread_identity_hashes,
+        "hostError": None,
+    }
 
 
 def run_live_argument_parser(codex: Path, repo: Path) -> dict[str, object]:
@@ -438,8 +655,8 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
         raise PreflightError("PROBE_ROLE_CONFIG_DRIFT", "requested role configuration does not match the fixed handshake")
     value = {
         "schemaVersion": 2,
-        "outcome": "awaiting_authorized_live_probe",
-        "error": "AUTHORIZED_LIVE_PROBE_REQUIRED",
+        "outcome": "ready_for_live_diagnosis",
+        "error": "LIVE_DIAGNOSIS_PENDING",
         "evidenceClass": "deterministic-production-environment-preflight",
         "attempts": 0,
         "modelInvocations": 0,
@@ -456,6 +673,7 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
             "roleDigest": preflight["roleDigest"],
             "configDigest": preflight["configDigest"],
             "projectConfigDigest": preflight["projectConfigDigest"],
+            "probeInstructionsDigest": preflight["probeInstructionsDigest"],
             "skillDigests": preflight["skillDigests"],
         },
         "setupFacts": {
@@ -487,6 +705,7 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
         raise PreflightError("PROBE_ROLE_CONFIG_DRIFT", "requested role configuration does not match the fixed handshake")
     expected_fact_keys = {
         "parentTurnEntered",
+        "spawnCount",
         "activatedRoles",
         "unexpectedRoles",
         "downgradeObserved",
@@ -508,6 +727,7 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
         raise PreflightError("INVALID_HOST_FACTS", "host role facts are invalid")
     ready = (
         host_facts["parentTurnEntered"] is True
+        and host_facts["spawnCount"] == 1
         and host_facts["activatedRoles"] == [ROLE_NAME]
         and host_facts["unexpectedRoles"] == []
         and host_facts["downgradeObserved"] is False
@@ -519,6 +739,7 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
     )
     activation_missing = (
         host_facts["parentTurnEntered"] is True
+        and host_facts["spawnCount"] == 0
         and host_facts["activatedRoles"] == []
         and host_facts["unexpectedRoles"] == []
         and host_facts["downgradeObserved"] is False
@@ -528,8 +749,9 @@ def completed_handshake(preflight: dict[str, object], host_facts: dict[str, obje
         and host_facts["codexExitCode"] == 0
         and host_facts["hostError"] is None
     )
+    orchestration_miss = activation_missing and any("collab_tool_call:wait" in event_type for event_type in host_facts["eventTypes"])
     outcome = "role_handshake_ready" if ready else "blocked"
-    error = None if ready else "CUSTOM_ROLE_ACTIVATION_MISSING" if activation_missing else "CUSTOM_ROLE_HANDSHAKE_INCOMPLETE"
+    error = None if ready else "PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN" if orchestration_miss else "CUSTOM_ROLE_ACTIVATION_MISSING" if activation_missing else "CUSTOM_ROLE_HANDSHAKE_INCOMPLETE"
     setup = dict(preflight["setupFacts"])
     setup["customRoleActivationProven"] = ready
     value = {
@@ -576,6 +798,7 @@ def blocked_preflight_handshake(
                 "roleDigest": setup["roleDigest"],
                 "configDigest": setup["configDigest"],
                 "projectConfigDigest": setup["projectConfigDigest"],
+                "probeInstructionsDigest": setup["probeInstructionsDigest"],
                 "skillDigests": setup["skillDigests"],
             },
             "codexExecutableDigest": codex_digest,
@@ -604,6 +827,7 @@ def blocked_preflight_handshake(
             "roleDigest": setup["roleDigest"],
             "configDigest": setup["configDigest"],
             "projectConfigDigest": setup["projectConfigDigest"],
+            "probeInstructionsDigest": setup["probeInstructionsDigest"],
             "skillDigests": setup["skillDigests"],
         },
         "setupFacts": {
@@ -656,7 +880,7 @@ def main() -> int:
         ).stdout.strip()
         result: dict[str, object] = {
             "schemaVersion": 1,
-            "outcome": "ready_for_authorized_live_probe",
+            "outcome": "ready_for_live_diagnosis",
             "codexVersion": version,
             "modelInvocations": 0,
             "liveAttemptsConsumed": 0,

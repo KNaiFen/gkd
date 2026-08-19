@@ -66,9 +66,9 @@ def _snapshot_tree(root_value: Path) -> dict[str, object]:
 def _validate_handshake(value: dict[str, object]) -> None:
     common = {"schemaVersion", "outcome", "evidenceClass", "attempts", "pathFree", "realOneHourWaitRun", "requestedRole", "parentConfigurationSource", "parentModelOverride", "parentReasoningEffortOverride", "parentStrictConfig", "boundDigests", "setupFacts", "preflightDigest", "handshakeDigest"}
     outcome = value.get("outcome")
-    if outcome == "awaiting_authorized_live_probe":
+    if outcome == "ready_for_live_diagnosis":
         require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "historicalNegativeEvidence", "historicalCompatibilityEvidence"}, "INVALID_ROLE_HANDSHAKE")
-        if value["schemaVersion"] != 2 or value["error"] != "AUTHORIZED_LIVE_PROBE_REQUIRED" or value["evidenceClass"] != "deterministic-production-environment-preflight" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
+        if value["schemaVersion"] != 2 or value["error"] != "LIVE_DIAGNOSIS_PENDING" or value["evidenceClass"] != "deterministic-production-environment-preflight" or value["attempts"] != 0 or value["modelInvocations"] != 0 or value["liveAttemptsConsumed"] != 0:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         history = value["historicalNegativeEvidence"]
         require_keys(history, {"hostFailure", "evidenceClass", "codexExitCode", "hostError", "handshakeDigest"}, "INVALID_ROLE_HANDSHAKE")
@@ -92,7 +92,7 @@ def _validate_handshake(value: dict[str, object]) -> None:
     elif outcome in {"role_handshake_ready", "blocked"}:
         require_keys(value, common | {"error", "modelInvocations", "liveAttemptsConsumed", "hostFacts", "historicalNegativeEvidence", "historicalCompatibilityEvidence"}, "INVALID_ROLE_HANDSHAKE")
         facts = value["hostFacts"]
-        require_keys(facts, {"parentTurnEntered", "activatedRoles", "unexpectedRoles", "downgradeObserved", "fallbackObserved", "childTerminalObserved", "parentTerminalObserved", "codexExitCode", "eventTypes", "threadIdentityHashes", "hostError"}, "INVALID_ROLE_HANDSHAKE")
+        require_keys(facts, {"parentTurnEntered", "spawnCount", "activatedRoles", "unexpectedRoles", "downgradeObserved", "fallbackObserved", "childTerminalObserved", "parentTerminalObserved", "codexExitCode", "eventTypes", "threadIdentityHashes", "hostError"}, "INVALID_ROLE_HANDSHAKE")
         if value["schemaVersion"] != 2 or value["evidenceClass"] != "host-runtime-events-plus-deterministic-preflight" or value["attempts"] != 1 or value["modelInvocations"] != 1 or value["liveAttemptsConsumed"] != 1:
             raise TaskError("INVALID_ROLE_HANDSHAKE")
         if not isinstance(facts["eventTypes"], list) or not facts["eventTypes"] or any(not isinstance(item, str) or not item for item in facts["eventTypes"]):
@@ -102,12 +102,14 @@ def _validate_handshake(value: dict[str, object]) -> None:
         for identity in facts["threadIdentityHashes"]:
             require_sha256(identity, "INVALID_ROLE_HANDSHAKE")
         if outcome == "role_handshake_ready":
-            if value["error"] is not None or facts["parentTurnEntered"] is not True or facts["activatedRoles"] != ["gkd_executor"] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not True or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
+            if value["error"] is not None or facts["parentTurnEntered"] is not True or facts["spawnCount"] != 1 or facts["activatedRoles"] != ["gkd_executor"] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not True or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
         else:
             if not isinstance(value["error"], str) or not value["error"] or facts["hostError"] is not None and not isinstance(facts["hostError"], dict):
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
-            if value["error"] == "CUSTOM_ROLE_ACTIVATION_MISSING" and (facts["parentTurnEntered"] is not True or facts["activatedRoles"] != [] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not False or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None):
+            if value["error"] not in {"CUSTOM_ROLE_ACTIVATION_MISSING", "PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN"}:
+                raise TaskError("INVALID_ROLE_HANDSHAKE")
+            if facts["parentTurnEntered"] is not True or facts["spawnCount"] != 0 or facts["activatedRoles"] != [] or facts["unexpectedRoles"] != [] or facts["downgradeObserved"] is not False or facts["fallbackObserved"] is not False or facts["childTerminalObserved"] is not False or facts["parentTerminalObserved"] is not True or facts["codexExitCode"] != 0 or facts["hostError"] is not None:
                 raise TaskError("INVALID_ROLE_HANDSHAKE")
     else:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
@@ -122,8 +124,8 @@ def _validate_handshake(value: dict[str, object]) -> None:
     require_keys(value["requestedRole"], {"name", "model", "reasoningEffort", "sandbox"}, "INVALID_ROLE_HANDSHAKE")
     if value["requestedRole"] != {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"}:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
-    require_keys(value["boundDigests"], {"bundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "skillDigests"}, "INVALID_ROLE_HANDSHAKE")
-    for field in ("bundleDigest", "roleDigest", "configDigest", "projectConfigDigest"):
+    require_keys(value["boundDigests"], {"bundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "probeInstructionsDigest", "skillDigests"}, "INVALID_ROLE_HANDSHAKE")
+    for field in ("bundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "probeInstructionsDigest"):
         require_sha256(value["boundDigests"][field], "INVALID_ROLE_HANDSHAKE")
     if not isinstance(value["boundDigests"]["skillDigests"], dict) or not value["boundDigests"]["skillDigests"]:
         raise TaskError("INVALID_ROLE_HANDSHAKE")

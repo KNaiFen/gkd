@@ -1,4 +1,4 @@
-# GKD-M2-A Implementation Notes v4
+# GKD-M2-A Implementation Notes v5
 
 ## Internal Design
 
@@ -57,20 +57,27 @@
   Resolve the normal CLI with `command -v codex`; strictly parse the generated
   project config and `gkd_executor.toml` using Python `tomllib` and exact source
   comparison. Then run non-strict `codex app-server --listen off` with explicit
-  project trust and `agents.enabled=true`, accepting only its no-transport
+  trusted project environment, accepting only its no-transport
   boundary, and use the exact live command with `--help` for argument parsing.
   Prove zero model invocations/attempts, exact digests, trust, accepted project
   role definition, clean repo, and unchanged production configuration. Do not
-  interpret no-transport as real custom-role activation. Push this static fixed
-  head and stop for a new live authorization.
-- Under that later authorization, launch one ephemeral parent with normal user
-  provider/auth/model routing and no parent `--model` or effort override. The
+  interpret no-transport as real custom-role activation.
+- Launch the parent from the fresh probe repository with `codex exec --json
+  <fixed-prompt>`, normal user provider/auth/model routing, and no parent
+  `--model` or effort override. The Prompt explicitly requires the actual
+  `spawn_agent` tool with exact `gkd_executor` before any wait call. The
   project role fixes the child to `gpt-5.6-sol`/`xhigh`/`workspace-write`.
   Normalize only host turn, named activation/no-fallback, child/parent terminal,
   exit and redacted error facts; deterministic preflight owns digest binding.
-  Delete raw events and the temporary repo. Do not set alternate `CODEX_HOME`,
-  copy authentication, install production files, retry, downgrade, or perform
-  repository implementation work.
+  Keep raw events through diagnosis and evidence normalization, then delete them
+  and the temporary repo. A wait-before-spawn, tool-name miss, or rejected
+  argument may be corrected with a bounded retry. Do not set alternate
+  `CODEX_HOME`, copy authentication, install production files, downgrade,
+  replace the role, fall back, or perform repository implementation work.
+- Static v5 diagnosis proved that a nested fresh Git root does not inherit the
+  outer worktree trust identity. The user explicitly trusted the exact path in
+  the normal Codex UI and exited; static/live startup then use no trust override.
+  The execution session does not write or inspect user configuration.
 - The live command omits `--strict-config`. The v3 strict parser rejection is
   retained as historical environment-compatibility evidence with zero model
   invocations and zero consumed live attempts.

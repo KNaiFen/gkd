@@ -12,6 +12,7 @@ from gkd_role.roles import locked_bundle_digest, role_catalog, role_files, role_
 from tests.role_routing.handshake_preflight import (
     LIVE_PROMPT,
     PARSER_SENTINEL,
+    PROBE_INSTRUCTIONS,
     PreflightError,
     blocked_preflight_handshake,
     classify_parser_result,
@@ -19,10 +20,11 @@ from tests.role_routing.handshake_preflight import (
     discover_codex,
     live_argument_parser_command,
     live_command,
+    normalize_host_events,
+    normalize_rollout_facts,
     pending_handshake,
     prepare_probe_repo,
     static_parser_command,
-    trust_override,
     validate_generated_toml,
 )
 from tests.role_routing.helpers import BUNDLE_ROOT
@@ -48,6 +50,7 @@ class HandshakePreflightContracts(unittest.TestCase):
             self.assertEqual(catalog["bundleDigest"], facts["bundleDigest"])
             self.assertIs(facts["generatedProjectConfigParsed"], True)
             self.assertIs(facts["generatedRoleConfigParsed"], True)
+            self.assertEqual(PROBE_INSTRUCTIONS, (repo / "AGENTS.md").read_bytes())
             self.assertEqual(
                 {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
                 facts["requestedRole"],
@@ -62,14 +65,12 @@ class HandshakePreflightContracts(unittest.TestCase):
             )
             self.assertEqual("", status.stdout)
 
-    def test_trust_override_is_one_inline_table_keyed_by_canonical_repo(self) -> None:
+    def test_static_parser_uses_only_normal_trusted_environment(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gkd-handshake-trust-test-") as root_name:
             repo = Path(root_name).resolve()
-            parsed = tomllib.loads(trust_override(repo))
-            self.assertEqual({repo.as_posix(): {"trust_level": "trusted"}}, parsed["projects"])
             command = static_parser_command("codex", repo)
-            self.assertNotIn("--strict-config", command)
-            self.assertIn("agents.enabled=true", command)
+            self.assertEqual(["codex", "app-server", "--listen", "off"], command)
+            self.assertNotIn("agents.enabled", " ".join(command))
 
     def test_generated_toml_parser_rejects_malformed_project_and_role(self) -> None:
         definition = {
@@ -122,16 +123,16 @@ class HandshakePreflightContracts(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="gkd-handshake-command-test-") as root_name:
             repo = Path(root_name).resolve()
             command = live_command("codex", repo)
-            self.assertEqual("exec", command[1])
-            for value in ("--ephemeral", "--json", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
-                self.assertIn(value, command)
-            for forbidden in ("--strict-config", "--ignore-user-config", "--model", "gpt-5.6-sol", "--ask-for-approval", 'model_reasoning_effort="xhigh"'):
+            self.assertEqual(["codex", "exec", "--json", LIVE_PROMPT], command)
+            for forbidden in ("--ephemeral", "--strict-config", "--ignore-user-config", "--model", "gpt-5.6-sol", "--sandbox", "workspace-write", "--ask-for-approval", "approval_policy", "agents.enabled", "trust_level", "-c"):
                 self.assertNotIn(forbidden, command)
-            self.assertIn(trust_override(repo), command)
-            self.assertNotIn("CODEX_HOME", json.dumps(command))
+            self.assertIn("tool named `spawn_agent`", LIVE_PROMPT)
+            self.assertIn('agent_type="gkd_executor"', LIVE_PROMPT)
+            self.assertLess(LIVE_PROMPT.index("tool named `spawn_agent`"), LIVE_PROMPT.index("wait tool"))
+            self.assertIn("cannot be completed by the parent", LIVE_PROMPT)
+            self.assertNotIn("CODEX_HOME", " ".join(command))
             parser_command = live_argument_parser_command("codex", repo)
-            self.assertEqual("--help", parser_command[-1])
-            self.assertNotIn(LIVE_PROMPT, parser_command)
+            self.assertEqual(["codex", "exec", "--json", "--help"], parser_command)
 
     def test_pending_handshake_keeps_static_and_historical_evidence_separate(self) -> None:
         preflight = {
@@ -140,6 +141,7 @@ class HandshakePreflightContracts(unittest.TestCase):
             "roleDigest": "2" * 64,
             "configDigest": "3" * 64,
             "projectConfigDigest": "4" * 64,
+            "probeInstructionsDigest": "a" * 64,
             "skillDigests": {"gkd-execute": "5" * 64},
             "codexExecutableDigest": "6" * 64,
             "generatedProjectConfigParsed": True,
@@ -168,7 +170,8 @@ class HandshakePreflightContracts(unittest.TestCase):
         first = pending_handshake(preflight, historical)
         second = pending_handshake(preflight, historical)
         self.assertEqual(first, second)
-        self.assertEqual("awaiting_authorized_live_probe", first["outcome"])
+        self.assertEqual("ready_for_live_diagnosis", first["outcome"])
+        self.assertEqual("LIVE_DIAGNOSIS_PENDING", first["error"])
         self.assertEqual(0, first["liveAttemptsConsumed"])
         self.assertEqual("normal-user-config", first["parentConfigurationSource"])
         self.assertIs(first["parentModelOverride"], False)
@@ -184,6 +187,7 @@ class HandshakePreflightContracts(unittest.TestCase):
             "roleDigest": "2" * 64,
             "configDigest": "3" * 64,
             "projectConfigDigest": "4" * 64,
+            "probeInstructionsDigest": "a" * 64,
             "skillDigests": {"gkd-execute": "5" * 64},
             "generatedProjectConfigParsed": True,
             "generatedRoleConfigParsed": True,
@@ -223,6 +227,7 @@ class HandshakePreflightContracts(unittest.TestCase):
                 "roleDigest": "2" * 64,
                 "configDigest": "3" * 64,
                 "projectConfigDigest": "4" * 64,
+                "probeInstructionsDigest": "a" * 64,
                 "skillDigests": {"gkd-execute": "5" * 64},
                 "codexExecutableDigest": "6" * 64,
                 "generatedProjectConfigParsed": True,
@@ -251,6 +256,7 @@ class HandshakePreflightContracts(unittest.TestCase):
         )
         facts = {
             "parentTurnEntered": True,
+            "spawnCount": 0,
             "activatedRoles": [],
             "unexpectedRoles": [],
             "downgradeObserved": False,
@@ -264,13 +270,69 @@ class HandshakePreflightContracts(unittest.TestCase):
         }
         value = completed_handshake(preflight, facts)
         self.assertEqual("blocked", value["outcome"])
-        self.assertEqual("CUSTOM_ROLE_ACTIVATION_MISSING", value["error"])
+        self.assertEqual("PROBE_ORCHESTRATION_MISS_WAIT_BEFORE_SPAWN", value["error"])
         self.assertEqual(1, value["modelInvocations"])
         self.assertEqual(1, value["liveAttemptsConsumed"])
         self.assertIs(value["setupFacts"]["customRoleActivationProven"], False)
         with self.assertRaises(PreflightError) as raised:
             completed_handshake(preflight, {**facts, "agentMessage": "GKD_EXECUTOR_CHILD_TERMINAL"})
         self.assertEqual("INVALID_HOST_FACTS", raised.exception.code)
+
+    def test_normalize_host_events_requires_structured_role_and_terminals(self) -> None:
+        child = "child-thread"
+        events = [
+            {"type": "thread.started", "thread_id": "parent-thread"},
+            {"type": "turn.started"},
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "collab_tool_call",
+                    "tool": "spawn_agent",
+                    "agent_type": "gkd_executor",
+                    "receiver_thread_ids": [child],
+                    "status": "completed",
+                },
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "collab_tool_call",
+                    "tool": "wait",
+                    "agents_states": {child: {"status": "completed"}},
+                    "status": "completed",
+                },
+            },
+            {"type": "turn.completed"},
+        ]
+        facts = normalize_host_events(events, 0, "", Path("/temporary/probe"))
+        self.assertEqual(1, facts["spawnCount"])
+        self.assertEqual(["gkd_executor"], facts["activatedRoles"])
+        self.assertEqual([], facts["unexpectedRoles"])
+        self.assertIs(facts["childTerminalObserved"], True)
+        self.assertIs(facts["parentTerminalObserved"], True)
+        self.assertIsNone(facts["hostError"])
+        self.assertEqual(2, len(facts["threadIdentityHashes"]))
+
+        without_role = [{**events[2], "item": {key: value for key, value in events[2]["item"].items() if key != "agent_type"}}, *events[3:]]
+        missing = normalize_host_events([events[0], events[1], *without_role], 0, "", Path("/temporary/probe"))
+        self.assertEqual(1, missing["spawnCount"])
+        self.assertEqual([], missing["activatedRoles"])
+
+    def test_normalize_rollout_facts_proves_spawn_and_independent_terminals(self) -> None:
+        parent = [
+            {"payload": {"type": "task_started"}},
+            {"payload": {"type": "function_call", "namespace": "agents", "name": "spawn_agent", "arguments": json.dumps({"agent_type": "gkd_executor", "task_name": "gkd_executor_handshake", "fork_turns": "none", "message": "redacted"})}},
+            {"payload": {"type": "sub_agent_activity", "kind": "started", "agent_path": "/root/gkd_executor_handshake", "agent_thread_id": "child-thread"}},
+            {"payload": {"type": "function_call", "namespace": "agents", "name": "wait_agent", "arguments": "{\"timeout_ms\": 180000}"}},
+            {"payload": {"type": "task_complete", "last_agent_message": "GKD_PARENT_TERMINAL"}},
+        ]
+        child = [{"payload": {"type": "task_complete", "last_agent_message": "GKD_EXECUTOR_CHILD_TERMINAL"}}]
+        facts = normalize_rollout_facts(parent, child, "parent-thread", 0)
+        self.assertEqual(1, facts["spawnCount"])
+        self.assertEqual(["gkd_executor"], facts["activatedRoles"])
+        self.assertIs(facts["childTerminalObserved"], True)
+        self.assertIs(facts["parentTerminalObserved"], True)
+        self.assertEqual(2, len(facts["threadIdentityHashes"]))
 
 
 if __name__ == "__main__":

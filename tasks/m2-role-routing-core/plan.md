@@ -1,4 +1,4 @@
-# GKD-M2-A Plan v4
+# GKD-M2-A Plan v5
 
 ## Goal
 
@@ -25,8 +25,10 @@ until the separate M2-B live wait gate passes.
   loads existing user provider/auth/model routing and receives no explicit model
   override; a trusted temporary project supplies the candidate custom role.
   Never create an alternate Codex home, copy auth state, or modify production
-  configuration. Finish and push static preflight first; each later live launch
-  requires one new fixed-head authorization.
+  configuration. The execution session owns static preflight, short live
+  diagnosis, bounded retries, evidence normalization, and final delivery under
+  this task authorization. Only the final delivered head is frozen for
+  independent acceptance.
 - Strictness is scoped to generated project and role TOML through Python
   `tomllib` plus exact canonical comparison. The host compatibility check is
   non-strict and must reach only the expected app-server no-transport boundary;
@@ -67,10 +69,10 @@ until the separate M2-B live wait gate passes.
 - Minimal role-context manifests and five canonical GKD Skills.
 - Temporary installer migration for three roles, old CI reviewer replacement,
   six duplicate Skill discovery overrides, and AGENTS hard-rule mapping.
-- L1/L2 fixtures, static preparation for one short local-authenticated and
+- L1/L2 fixtures, static preparation for a short local-authenticated and
   project-scoped role handshake, deterministic machine evidence, canonical
-  manifest/lock, and retained regressions. The live launch follows only under a
-  separate authorization for the resulting fixed head.
+  manifest/lock, and retained regressions. Live probes remain bounded to F-004
+  orchestration diagnosis and cannot perform repository work.
 
 ## Non-Goals
 
@@ -174,11 +176,12 @@ until the separate M2-B live wait gate passes.
 - This task uses a manually opened independent top-level execution session in
   its registered worktree. It does not use `gkd_executor` to implement itself.
 - The executor may not delegate investigation, design, implementation, review
-  judgment, or repository writes. After deterministic contracts pass, it must
-  push a static fixed head and stop. A subsequent explicit authorization may run
-  one bounded live handshake from a clean temporary Git repo. The parent uses
-  normal user provider/auth/model routing with `--ephemeral`; the tested child
-  role is discovered only from temporary project-scoped `.codex/agents` files.
+  judgment, or repository writes. After deterministic contracts pass, it may
+  complete bounded live handshake diagnosis from fresh Git repositories beneath
+  an already trusted project path. The parent uses normal user
+  provider/auth/model routing; the tested child role is discovered only from
+  temporary project-scoped `.codex/agents` files. The final complete delivery
+  head is the only head frozen for independent acceptance.
 - The existing M1 CLI cannot provide trusted production claim evidence, so this
   task retains a documented bootstrap exception and does not create a fake
   `task.json`, offer, claim, activation, or receipt for itself.
@@ -188,9 +191,9 @@ until the separate M2-B live wait gate passes.
 
 - Allowed now: changes in the M2-A worktree, temporary fixture homes/repos, the
   existing task branch and Draft PR, task-related push/PR updates, and no-model
-  static parsing of normal user/project configuration. A later short
-  local-authenticated parent/child handshake is allowed only after the user
-  explicitly authorizes one call against the new static fixed head.
+  static parsing of normal user/project configuration. Short local-authenticated
+  parent/child probes and bounded orchestration-miss retries are authorized in
+  this execution session until F-004 reaches a trustworthy terminal result.
 - Forbidden: production `~/.codex`, AIO writes, GitHub settings, Secrets,
   runners, billing, tags, Releases, sandbox repository initialization, and any
   live one-hour or 12-hour wait claim.
@@ -225,3 +228,11 @@ until the separate M2-B live wait gate passes.
   evidence. It records that `codex-cli 0.147.0 --strict-config` rejected the
   existing user field `disable_response_storage` before project discovery; it is
   neither a live attempt nor a reason to edit production configuration.
+- Use the minimal live command `codex exec --json <fixed-prompt>` from the fresh
+  probe repository. Static diagnosis proved that Codex treats a nested fresh Git
+  root as a separate untrusted project; the user established trust for the exact
+  path through the normal Codex trust UI, after which the execution session must
+  neither write trust nor repeat it as a CLI override. The fixed Prompt must
+  require the exposed `spawn_agent` tool with exact
+  `gkd_executor` before any wait call, then wait for that returned child and
+  terminate the parent. Do not repeat sandbox, approval, or agents-enabled.
