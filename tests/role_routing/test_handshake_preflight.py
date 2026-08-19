@@ -15,6 +15,7 @@ from tests.role_routing.handshake_preflight import (
     PreflightError,
     blocked_preflight_handshake,
     classify_parser_result,
+    completed_handshake,
     discover_codex,
     live_argument_parser_command,
     live_command,
@@ -213,6 +214,63 @@ class HandshakePreflightContracts(unittest.TestCase):
         self.assertIs(value["setupFacts"]["projectRoleDefinitionAccepted"], False)
         self.assertIs(value["setupFacts"]["customRoleActivationProven"], False)
         self.assertIs(value["setupFacts"]["liveCommandParsed"], True)
+
+    def test_completed_handshake_uses_only_minimal_host_facts(self) -> None:
+        preflight = pending_handshake(
+            {
+                "requestedRole": {"name": "gkd_executor", "model": "gpt-5.6-sol", "reasoningEffort": "xhigh", "sandbox": "workspace-write"},
+                "bundleDigest": "1" * 64,
+                "roleDigest": "2" * 64,
+                "configDigest": "3" * 64,
+                "projectConfigDigest": "4" * 64,
+                "skillDigests": {"gkd-execute": "5" * 64},
+                "codexExecutableDigest": "6" * 64,
+                "generatedProjectConfigParsed": True,
+                "generatedRoleConfigParsed": True,
+                "normalEnvironmentReachedNoTransport": True,
+                "trustedProjectLayerLoaded": True,
+                "agentsEnabled": True,
+                "projectRoleDefinitionAccepted": True,
+                "liveCommandParsed": True,
+                "probeRepo": {"clean": True},
+                "probeRepoUnchanged": True,
+                "productionConfigUnchanged": True,
+                "preflightDigest": "7" * 64,
+            },
+            {
+                "hostFailure": "HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT",
+                "evidenceClass": "host-runtime-model-rejection",
+                "codexExitCode": 1,
+                "hostError": {"code": "invalid_request_error", "httpStatus": 400, "message": "historical isolation-mode rejection"},
+                "handshakeDigest": "8" * 64,
+                "preflightFailure": {"code": "USER_CONFIG_PARSE_FAILED", "message": "strict compatibility rejection"},
+                "preflightDigest": "9" * 64,
+                "modelInvocations": 0,
+                "liveAttemptsConsumed": 0,
+            },
+        )
+        facts = {
+            "parentTurnEntered": True,
+            "activatedRoles": [],
+            "unexpectedRoles": [],
+            "downgradeObserved": False,
+            "fallbackObserved": False,
+            "childTerminalObserved": False,
+            "parentTerminalObserved": True,
+            "codexExitCode": 0,
+            "eventTypes": ["thread.started", "turn.started", "item.started:collab_tool_call:wait", "turn.completed"],
+            "threadIdentityHashes": ["a" * 64],
+            "hostError": None,
+        }
+        value = completed_handshake(preflight, facts)
+        self.assertEqual("blocked", value["outcome"])
+        self.assertEqual("CUSTOM_ROLE_ACTIVATION_MISSING", value["error"])
+        self.assertEqual(1, value["modelInvocations"])
+        self.assertEqual(1, value["liveAttemptsConsumed"])
+        self.assertIs(value["setupFacts"]["customRoleActivationProven"], False)
+        with self.assertRaises(PreflightError) as raised:
+            completed_handshake(preflight, {**facts, "agentMessage": "GKD_EXECUTOR_CHILD_TERMINAL"})
+        self.assertEqual("INVALID_HOST_FACTS", raised.exception.code)
 
 
 if __name__ == "__main__":

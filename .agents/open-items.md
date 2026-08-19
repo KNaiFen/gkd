@@ -21,7 +21,7 @@
 - [x] 独立 GPT-5.6 Sol / xhigh 人工顶层 execution session 已交付 M2-A 初始 fixed head `cd8c89899039070c29b2c5209e7c5afaefba0616`；独立验收确认 M2-A 仍为 `blocked`，未合并。
 - [x] 同一隔离 worktree 已处理 F-001 至 F-003 并生成两份一致 evidence；implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`。
 - [x] F-004 历史：隔离模式本机握手只启动一次，并在 parent turn 前被宿主以 HTTP 400 拒绝 ChatGPT account 使用 `gpt-5.6-sol`；该结果只作为旧 `--ignore-user-config`/parent-model-override 路径的负向证据。
-- [ ] F-004 v4：生成 project/role TOML 已 strict 校验，正常用户 provider/auth/model routing 的非 strict app-server 已到达预期 no-transport；live 参数解析、digest、trust、项目角色定义接受、临时 repo 与生产配置非漂移均通过，模型调用/已消耗尝试为 0。待新静态 fixed head 推送后，由用户单独授权一次 live probe；no-transport 不等于 activation。
+- [ ] F-004 v4：授权 head 的 strict 生成 TOML、正常环境非 strict preflight、digest/trust/非漂移门均通过；唯一 live probe 已消耗并 exit 0，但 host 只观察到 parent turn/terminal 和无目标 collab `wait`，未启动 `gkd_executor` 或产生 child terminal，分类 `CUSTOM_ROLE_ACTIVATION_MISSING`。禁止重试；需独立决定后续计划，当前继续 blocked/manual-only。
 - [x] F-005：canonical/installable payload 已移除 activation writer、`FixtureEvidenceProvider` 和 `make_fixture_evidence`；test seam 不在 bundle/manifest/inventory。无 host attestation 时正常 CLI/library claim/recovery fail-closed 且 runtime/tracked bytes 不变。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。

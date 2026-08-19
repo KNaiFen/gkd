@@ -192,3 +192,7 @@
 - [2026-08-19] GKD-M2-A F-004 v4 将生成配置严格性与宿主兼容启动分离。
   - Why: `codex-cli 0.147.0 --strict-config` 会因正常用户字段 `disable_response_storage` 在项目发现前失败，不能验证日常生产使用环境；用户明确要求保留正常配置且不修改生产 `~/.codex`。项目生成物仍可由标准库 `tomllib` 和 canonical source 精确比较实现严格校验。
   - Impact: 生成 project config 与 `gkd_executor.toml` 继续 strict/fail-closed；宿主预检改为非 strict `codex app-server --listen off` 加显式 trust/`agents.enabled=true`，只接受 no-transport 边界并拒绝 trust disabled、malformed project/role 或其他 fatal startup。live command 删除 `--strict-config`，继续使用正常 provider/auth/model routing。no-transport 不作为 activation；v3 `USER_CONFIG_PARSE_FAILED` 作为零模型/零尝试历史兼容性事实保留。静态门通过后仍须对新 fixed head 单独授权一次 live probe，F-004 成功前总体保持 `blocked`。
+
+- [2026-08-19] GKD-M2-A F-004 v4 正常环境 live probe 未产生 custom-role activation。
+  - Why: 授权 head `26b8e9c185a0bdf365266efdb45f42260c8922b3` 的全部启动门通过后，唯一一次正常登录态 `codex exec` 成功进入并完成 parent turn，exit code 为 0；但结构化 host 事件只包含一个无 receiver thread/agent state 的 collaboration `wait`，没有 spawn、`gkd_executor` activation、child identity 或 child terminal。Agent message 正文不作为证据。
+  - Impact: 规范化分类为 `CUSTOM_ROLE_ACTIVATION_MISSING`，`modelInvocations=1`、`liveAttemptsConsumed=1`；不得重试、降级或以 parent terminal 补足 child 事实。原始 JSONL/临时 repo 已删除，生产/AIO 保护面不变。F-004 与 M2-A 继续 `blocked`，PR #6 保持 Draft，M2-B 与 automatic route 不得启动。

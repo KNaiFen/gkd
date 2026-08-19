@@ -481,6 +481,83 @@ def pending_handshake(preflight: dict[str, object], historical: dict[str, object
     return value
 
 
+def completed_handshake(preflight: dict[str, object], host_facts: dict[str, object]) -> dict[str, object]:
+    requested = preflight["requestedRole"]
+    if requested != {"name": ROLE_NAME, "model": ROLE_MODEL, "reasoningEffort": ROLE_REASONING_EFFORT, "sandbox": ROLE_SANDBOX}:
+        raise PreflightError("PROBE_ROLE_CONFIG_DRIFT", "requested role configuration does not match the fixed handshake")
+    expected_fact_keys = {
+        "parentTurnEntered",
+        "activatedRoles",
+        "unexpectedRoles",
+        "downgradeObserved",
+        "fallbackObserved",
+        "childTerminalObserved",
+        "parentTerminalObserved",
+        "codexExitCode",
+        "eventTypes",
+        "threadIdentityHashes",
+        "hostError",
+    }
+    if set(host_facts) != expected_fact_keys:
+        raise PreflightError("INVALID_HOST_FACTS", "host facts do not match the minimal handshake schema")
+    if not isinstance(host_facts["eventTypes"], list) or not host_facts["eventTypes"] or any(not isinstance(item, str) or not item for item in host_facts["eventTypes"]):
+        raise PreflightError("INVALID_HOST_FACTS", "host event types are invalid")
+    if not isinstance(host_facts["threadIdentityHashes"], list) or any(not isinstance(item, str) or len(item) != 64 for item in host_facts["threadIdentityHashes"]):
+        raise PreflightError("INVALID_HOST_FACTS", "host thread identities are invalid")
+    if not isinstance(host_facts["activatedRoles"], list) or not isinstance(host_facts["unexpectedRoles"], list):
+        raise PreflightError("INVALID_HOST_FACTS", "host role facts are invalid")
+    ready = (
+        host_facts["parentTurnEntered"] is True
+        and host_facts["activatedRoles"] == [ROLE_NAME]
+        and host_facts["unexpectedRoles"] == []
+        and host_facts["downgradeObserved"] is False
+        and host_facts["fallbackObserved"] is False
+        and host_facts["childTerminalObserved"] is True
+        and host_facts["parentTerminalObserved"] is True
+        and host_facts["codexExitCode"] == 0
+        and host_facts["hostError"] is None
+    )
+    activation_missing = (
+        host_facts["parentTurnEntered"] is True
+        and host_facts["activatedRoles"] == []
+        and host_facts["unexpectedRoles"] == []
+        and host_facts["downgradeObserved"] is False
+        and host_facts["fallbackObserved"] is False
+        and host_facts["childTerminalObserved"] is False
+        and host_facts["parentTerminalObserved"] is True
+        and host_facts["codexExitCode"] == 0
+        and host_facts["hostError"] is None
+    )
+    outcome = "role_handshake_ready" if ready else "blocked"
+    error = None if ready else "CUSTOM_ROLE_ACTIVATION_MISSING" if activation_missing else "CUSTOM_ROLE_HANDSHAKE_INCOMPLETE"
+    setup = dict(preflight["setupFacts"])
+    setup["customRoleActivationProven"] = ready
+    value = {
+        "schemaVersion": 2,
+        "outcome": outcome,
+        "error": error,
+        "evidenceClass": "host-runtime-events-plus-deterministic-preflight",
+        "attempts": 1,
+        "modelInvocations": 1,
+        "liveAttemptsConsumed": 1,
+        "pathFree": True,
+        "realOneHourWaitRun": False,
+        "requestedRole": requested,
+        "parentConfigurationSource": preflight["parentConfigurationSource"],
+        "parentModelOverride": preflight["parentModelOverride"],
+        "parentReasoningEffortOverride": preflight["parentReasoningEffortOverride"],
+        "parentStrictConfig": preflight["parentStrictConfig"],
+        "boundDigests": preflight["boundDigests"],
+        "setupFacts": setup,
+        "preflightDigest": preflight["preflightDigest"],
+        "hostFacts": host_facts,
+        "historicalNegativeEvidence": _historical_negative(preflight),
+        "historicalCompatibilityEvidence": _historical_compatibility(preflight),
+    }
+    value["handshakeDigest"] = digest_object(value)
+    return value
+
+
 def blocked_preflight_handshake(
     setup: dict[str, object],
     codex_digest: str,
