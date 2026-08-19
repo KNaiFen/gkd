@@ -22,6 +22,7 @@ from gkd_task.errors import TaskError
 ROLE_NAMES = ("gkd_acceptor", "gkd_ci_reviewer", "gkd_executor")
 SKILL_NAMES = ("gkd-accept", "gkd-ci-monitor", "gkd-execute", "gkd-local-verify", "gkd-main")
 SANDBOX_MODES = {"read-only", "workspace-write"}
+ACTIVATION_PROVIDER = {"contractVersion": 1, "name": "codex-host-runtime"}
 ROLE_CONTRACT = {
     "gkd_executor": ("gpt-5.6-sol", "xhigh", "workspace-write", 43200),
     "gkd_acceptor": ("gpt-5.6-sol", "xhigh", "read-only", 43200),
@@ -36,12 +37,14 @@ def _toml_string(value: str) -> str:
 def validate_role_source(value: dict[str, Any]) -> None:
     require_keys(
         value,
-        {"schemaVersion", "roleConfigVersion", "roles", "skills", "duplicateSkills", "roleActions"},
+        {"schemaVersion", "roleConfigVersion", "roles", "skills", "duplicateSkills", "roleActions", "activationProvider"},
         "INVALID_ROLE_SOURCE",
     )
     if value["schemaVersion"] != 1 or value["roleConfigVersion"] != 1:
         raise TaskError("INVALID_ROLE_SOURCE")
     if value["skills"] != list(SKILL_NAMES):
+        raise TaskError("INVALID_ROLE_SOURCE")
+    if value["activationProvider"] != ACTIVATION_PROVIDER:
         raise TaskError("INVALID_ROLE_SOURCE")
     actions = value["roleActions"]
     if not isinstance(actions, dict) or tuple(sorted(actions)) != ROLE_NAMES:
@@ -114,6 +117,18 @@ def load_role_source(bundle_root: Path) -> tuple[dict[str, Any], dict[str, Any]]
     return source, rules
 
 
+def locked_bundle_digest(bundle_root: Path) -> str:
+    root = bundle_root.resolve()
+    candidates = [root / ".bundle" / "manifest.lock.json", root.parent / "manifest.lock.json"]
+    matches = [path for path in candidates if path.is_file() and not path.is_symlink()]
+    if len(matches) != 1:
+        raise TaskError("INVALID_BUNDLE_ROOT")
+    lock = read_canonical_json(matches[0], "INVALID_BUNDLE_ROOT")
+    require_keys(lock, {"bundleVersion", "contentDigest", "digestInputs", "installFiles", "manifestSha256", "releaseStatus", "schemaSha256", "schemaVersion"}, "INVALID_BUNDLE_ROOT")
+    require_sha256(lock["contentDigest"], "INVALID_BUNDLE_ROOT")
+    return lock["contentDigest"]
+
+
 def render_role(role: dict[str, Any], all_skills: list[str]) -> bytes:
     lines = [
         f"name = {_toml_string(role['name'])}",
@@ -160,6 +175,8 @@ def _skill_inventory(bundle_root: Path, names: list[str]) -> dict[str, str]:
 
 def role_catalog(bundle_root: Path, bundle_digest: str) -> dict[str, Any]:
     require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
+    if locked_bundle_digest(bundle_root) != bundle_digest:
+        raise TaskError("BUNDLE_DIGEST_MISMATCH")
     source, rules = load_role_source(bundle_root)
     skill_digests = _skill_inventory(bundle_root.resolve(), source["skills"])
     rule_ids = {rule["id"] for rule in rules["rules"]}
@@ -188,11 +205,21 @@ def role_catalog(bundle_root: Path, bundle_digest: str) -> dict[str, Any]:
     return {
         "schemaVersion": 1,
         "bundleDigest": bundle_digest,
+        "activationProvider": deepcopy(source["activationProvider"]),
+        "activationProviderDigest": digest_object(source["activationProvider"]),
         "roleSourceDigest": digest_object(source),
         "hardRulesDigest": digest_object(rules),
         "skillDigests": skill_digests,
         "roles": roles,
     }
+
+
+def activation_provider(catalog: dict[str, Any]) -> dict[str, str | int]:
+    require_keys(catalog, {"schemaVersion", "bundleDigest", "activationProvider", "activationProviderDigest", "roleSourceDigest", "hardRulesDigest", "skillDigests", "roles"}, "INVALID_ROLE_CATALOG")
+    if catalog["schemaVersion"] != 1 or catalog["activationProvider"] != ACTIVATION_PROVIDER or catalog["activationProviderDigest"] != digest_object(ACTIVATION_PROVIDER):
+        raise TaskError("INVALID_ROLE_CATALOG")
+    require_sha256(catalog["activationProviderDigest"], "INVALID_ROLE_CATALOG")
+    return deepcopy(catalog["activationProvider"])
 
 
 def role_record(catalog: dict[str, Any], name: str) -> dict[str, Any]:

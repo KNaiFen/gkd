@@ -270,6 +270,8 @@ def _validate_fixed_candidate(
             or activation_receipt["claimCommit"] != claim_receipt["claimCommit"]
             or activation_receipt["claimReceiptDigest"] != claim_receipt["receiptDigest"]
             or activation_receipt["activationDigest"] != activation["activationDigest"]
+            or activation["activationId"] != claim.get("activationId")
+            or activation["envelopeId"] != claim.get("envelopeId")
             or activation["offerId"] != anchored_offer["offerId"]
             or activation["taskId"] != state["taskId"]
             or activation["repository"] != state["repository"]["identity"]
@@ -281,6 +283,8 @@ def _validate_fixed_candidate(
             or activation["configDigest"] != anchored_offer["configDigest"]
             or activation["bundleDigest"] != anchored_offer["bundleDigest"]
             or activation["route"] != anchored_offer["route"]
+            or activation["offerCreatedAt"] != anchored_offer["createdAt"]
+            or activation["offerExpiresAt"] != anchored_offer["expiresAt"]
         ):
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
     return state, authorization

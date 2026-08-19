@@ -872,6 +872,8 @@ class TaskService:
                         "envelopeId": envelope["envelopeId"],
                         "roleName": offer["roleName"],
                         "bundleDigest": offer["bundleDigest"],
+                        "offerCreatedAt": offer["createdAt"],
+                        "offerExpiresAt": offer["expiresAt"],
                     }
                 )
             evidence = self.evidence_provider.observe("claim", evidence_expectation)
@@ -895,6 +897,12 @@ class TaskService:
                 "claimedAt": self.clock.now(),
                 "claimBaseHead": expected_head,
             }
+            if offer["schemaVersion"] == 2:
+                activation_id = getattr(self.evidence_provider, "activation_id", None)
+                if not isinstance(activation_id, str):
+                    raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+                claim["activationId"] = activation_id
+                claim["envelopeId"] = envelope["envelopeId"]
             updated_offer = deepcopy(offer)
             updated_offer["status"] = "consumed"
             updated_offer["consumedByDigest"] = digest_object(claim)
@@ -1003,7 +1011,7 @@ class TaskService:
         if state["lifecycle"]["phase"] != "implementing" or claim is None:
             raise TaskError("INVALID_TRANSITION")
         receipt = self._ensure_claim_receipt(claim["claimId"])
-        return recover(state, claim, receipt, self.clock.now())
+        return recover(state, self._offer(), claim, receipt, self.clock.now())
 
     def _require_activation_receipt(self, claim: dict[str, Any], claim_receipt: dict[str, Any]) -> None:
         offer = self._offer()
@@ -1020,6 +1028,8 @@ class TaskService:
             or receipt["claimCommit"] != claim_receipt["claimCommit"]
             or receipt["claimReceiptDigest"] != claim_receipt["receiptDigest"]
             or receipt["activationDigest"] != activation["activationDigest"]
+            or activation["activationId"] != claim.get("activationId")
+            or activation["envelopeId"] != claim.get("envelopeId")
             or activation["offerId"] != claim["offerId"]
             or activation["agentId"] != claim["writerId"]
             or activation["threadDigest"] != claim["sessionDigest"]
@@ -1028,6 +1038,8 @@ class TaskService:
             or activation["configDigest"] != offer["configDigest"]
             or activation["bundleDigest"] != offer["bundleDigest"]
             or activation["route"] != offer["route"]
+            or activation["offerCreatedAt"] != offer["createdAt"]
+            or activation["offerExpiresAt"] != offer["expiresAt"]
         ):
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
 

@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from gkd_role.activation import ActivationEvidenceProvider
+from gkd_role.roles import locked_bundle_digest, role_catalog
 from gkd_task.errors import TaskError
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
@@ -17,14 +18,14 @@ parser.add_argument("--task-path", required=True)
 parser.add_argument("--runtime", type=Path, required=True)
 parser.add_argument("--activation", required=True)
 parser.add_argument("--expected", type=Path, required=True)
-parser.add_argument("--provider-digest", required=True)
+parser.add_argument("--bundle-root", type=Path, required=True)
 parser.add_argument("--envelope", required=True)
 args = parser.parse_args()
 
 try:
     expected = json.loads(args.expected.read_text(encoding="utf-8"))
     runtime = RuntimeStore(args.runtime)
-    provider = ActivationEvidenceProvider(runtime, args.activation, expected, args.provider_digest)
+    provider = ActivationEvidenceProvider(runtime, args.activation, role_catalog(args.bundle_root, locked_bundle_digest(args.bundle_root)))
     service = TaskService(args.candidate, args.task_path, runtime=runtime, evidence_provider=provider)
     state = service._state()
     result = service.claim(service.status()["head"], state["revision"], args.envelope)

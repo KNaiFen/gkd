@@ -121,14 +121,10 @@ def _parser() -> MachineParser:
     _add_cas(claim)
     claim.add_argument("--envelope-id", required=True)
     claim.add_argument("--activation-id")
-    claim.add_argument("--bundle-root", type=Path)
-    claim.add_argument("--provider-digest")
 
     activation_recover = commands.add_parser("activation-recover")
     _add_candidate(activation_recover, runtime_required=True)
     activation_recover.add_argument("--activation-id", required=True)
-    activation_recover.add_argument("--bundle-root", type=Path, required=True)
-    activation_recover.add_argument("--provider-digest", required=True)
 
     for name in ("revoke", "reclaim"):
         command = commands.add_parser(name)
@@ -170,42 +166,23 @@ def _service(args: Any) -> TaskService:
     runtime = _runtime(args.candidate_root, getattr(args, "runtime_root", None))
     activation_values = (
         getattr(args, "activation_id", None),
-        getattr(args, "bundle_root", None),
-        getattr(args, "provider_digest", None),
     )
     if any(value is not None for value in activation_values):
-        if any(value is None for value in activation_values) or runtime is None:
+        if runtime is None:
             raise TaskError("INVALID_ARGUMENTS")
         from gkd_role.activation import ActivationEvidenceProvider
-        from gkd_role.roles import role_catalog, role_record
+        from gkd_role.roles import locked_bundle_digest, role_catalog, role_record
 
-        bundle_root = args.bundle_root
-        candidate = args.candidate_root.resolve()
-        resolved_bundle = bundle_root.resolve()
-        try:
-            resolved_bundle.relative_to(candidate)
-        except ValueError:
-            pass
-        else:
-            raise TaskError("UNTRUSTED_ROLE_SOURCE")
+        bundle_root = Path(__file__).resolve().parents[2]
         activation = runtime.read_activation(args.activation_id)
-        catalog = role_catalog(bundle_root, activation["bundleDigest"])
+        bundle_digest = locked_bundle_digest(bundle_root)
+        if activation["bundleDigest"] != bundle_digest:
+            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+        catalog = role_catalog(bundle_root, bundle_digest)
         role = role_record(catalog, activation["roleName"])
         if role["roleDigest"] != activation["roleDigest"] or role["configDigest"] != activation["configDigest"]:
             raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-        expected = {
-            "taskId": activation["taskId"],
-            "repository": activation["repository"],
-            "taskBranch": activation["taskBranch"],
-            "offerId": activation["offerId"],
-            "envelopeId": activation["envelopeId"],
-            "route": activation["route"],
-            "roleName": activation["roleName"],
-            "roleDigest": activation["roleDigest"],
-            "configDigest": activation["configDigest"],
-            "bundleDigest": activation["bundleDigest"],
-        }
-        provider = ActivationEvidenceProvider(runtime, args.activation_id, expected, args.provider_digest)
+        provider = ActivationEvidenceProvider(runtime, args.activation_id, catalog)
     else:
         provider = None
     return TaskService(args.candidate_root, args.task_path, runtime=runtime, evidence_provider=provider)

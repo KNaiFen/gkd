@@ -222,6 +222,7 @@ def apply_migration(
     hook = failure_hook or (lambda phase: None)
     moved_old = False
     moved_new = False
+    frozen = False
     try:
         shutil.copytree(home, stage, symlinks=True)
         _apply_to_stage(bundle_root, stage, home, bundle_digest, plan)
@@ -243,14 +244,26 @@ def apply_migration(
                 os.replace(backup, home)
                 moved_old = False
         except OSError:
-            freeze = {"schemaVersion": 1, "status": "migration_frozen", "planDigest": plan["planDigest"]}
+            frozen = True
+            # Keep both recovery images when an atomic rename cannot be completed.
+            if not stage.exists() and home.exists():
+                shutil.copytree(home, stage, symlinks=True)
+            freeze = {
+                "schemaVersion": 1,
+                "status": "migration_frozen",
+                "planDigest": plan["planDigest"],
+                "beforeDigest": before,
+                "backupDigest": _surface_digest(backup) if backup.exists() else None,
+                "stageDigest": _surface_digest(stage) if stage.exists() else None,
+            }
             atomic_write(parent / ".gkd-migration-freeze.json", canonical_bytes(freeze), mode=0o600)
             raise TaskError("MIGRATION_FROZEN") from None
         raise
     finally:
-        for path in (stage, backup):
-            if path.exists() and path != home:
-                shutil.rmtree(path)
+        if not frozen:
+            for path in (stage, backup):
+                if path.exists() and path != home:
+                    shutil.rmtree(path)
     verified = verify_migration(bundle_root, home, bundle_digest, expected_plan=plan)
     return {"status": "migration_applied", "planDigest": plan["planDigest"], "beforeDigest": before, "afterDigest": verified["surfaceDigest"], "inventoryDigest": verified["inventoryDigest"]}
 

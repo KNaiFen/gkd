@@ -84,6 +84,19 @@ class WaitingContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "WAIT_ALREADY_TERMINAL"):
             transition(result["state"], self.observation("healthy_timeout", 13))
 
+    def test_first_or_delayed_observation_at_deadline_can_only_timeout(self) -> None:
+        first = transition(self.state, self.observation("healthy_timeout", 13))
+        self.assertEqual("deadline_timeout", first["outcome"])
+        self.assertEqual(12, first["state"]["completedIntervals"])
+        self.assertTrue(first["state"]["interruptIssued"])
+        with self.assertRaisesRegex(TaskError, "WAIT_ALREADY_TERMINAL"):
+            transition(first["state"], self.observation("healthy_timeout", 13))
+
+        state = transition(self.state, self.observation("healthy_timeout", 1))["state"]
+        delayed = transition(state, self.observation("healthy_timeout", 13))
+        self.assertEqual("deadline_timeout", delayed["outcome"])
+        self.assertEqual({"agentId": "agent-one", "once": True}, delayed["interrupt"])
+
     def test_child_terminal_error_and_user_intervention_return_immediately(self) -> None:
         for kind, outcome in (("executor_terminal", "executor_terminal"), ("executor_error", "executor_error"), ("user_intervention", "executor_terminal")):
             with self.subTest(kind=kind):
@@ -102,6 +115,9 @@ class WaitingContracts(unittest.TestCase):
             transition(self.state, self.observation("healthy_timeout", 1, timeout=360_000))
         with self.assertRaisesRegex(TaskError, "WAIT_INTERVAL_NOT_ELAPSED"):
             transition(self.state, {**self.observation("healthy_timeout", 1), "observedAt": "2026-01-01T00:59:59Z"})
+        state = transition(self.state, self.observation("healthy_timeout", 1))["state"]
+        with self.assertRaisesRegex(TaskError, "WAIT_INTERVAL_NOT_ELAPSED"):
+            transition(state, self.observation("healthy_timeout", 1))
 
     def test_wait_state_unknown_fields_and_digest_tampering_fail_closed(self) -> None:
         mutated = deepcopy(self.state); mutated["unknown"] = True

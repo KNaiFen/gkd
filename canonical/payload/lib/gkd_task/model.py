@@ -229,11 +229,13 @@ def _lifecycle_record(value: Any) -> None:
 
 
 def _claim_record(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"},
-        "INVALID_TASK_STATE",
-    )
+    legacy_keys = {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"}
+    if "activationId" in value or "envelopeId" in value:
+        require_keys(value, legacy_keys | {"activationId", "envelopeId"}, "INVALID_TASK_STATE")
+        require_sha256(value["activationId"], "INVALID_TASK_STATE")
+        require_sha256(value["envelopeId"], "INVALID_TASK_STATE")
+    else:
+        require_keys(value, legacy_keys, "INVALID_TASK_STATE")
     for field in ("claimId", "offerId", "sessionDigest", "roleDigest", "configDigest"):
         require_sha256(value[field], "INVALID_TASK_STATE")
     if not isinstance(value["epoch"], int) or value["epoch"] < 0:

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 import tomllib
 import unittest
+from unittest import mock
 
 from gkd_role.migration import apply_migration, migration_plan, verify_migration
 from gkd_task.errors import TaskError
@@ -80,6 +82,48 @@ class MigrationContracts(unittest.TestCase):
                     apply_migration(BUNDLE_ROOT, self.home, self.bundle, fail)
                 self.assertEqual(before, duplicate_bytes(self.home))
                 self.assertEqual(config_before, (self.home / ".codex" / "config.toml").read_bytes())
+
+    def test_new_home_failure_restores_exact_preimage(self) -> None:
+        before = duplicate_bytes(self.home)
+
+        def fail(phase):
+            if phase == "new_moved":
+                raise RuntimeError("injected-new_moved")
+
+        with self.assertRaisesRegex(RuntimeError, "injected-new_moved"):
+            apply_migration(BUNDLE_ROOT, self.home, self.bundle, fail)
+        self.assertEqual(before, duplicate_bytes(self.home))
+        self.assertFalse((self.home.parent / ".gkd-migration-freeze.json").exists())
+
+    def test_rollback_failure_freezes_and_retains_recovery_images(self) -> None:
+        before = duplicate_bytes(self.home)
+        before_digest = migration_plan(BUNDLE_ROOT, self.home, self.bundle)["planDigest"]
+        original_replace = os.replace
+
+        def fail_rollback(source, target):
+            if Path(target).name.startswith(".gkd-migration-stage-"):
+                raise OSError("injected-rollback-failure")
+            return original_replace(source, target)
+
+        def fail_after_new_home(phase):
+            if phase == "new_moved":
+                raise RuntimeError("injected-new-moved")
+
+        with mock.patch("gkd_role.migration.os.replace", side_effect=fail_rollback):
+            with self.assertRaisesRegex(TaskError, "MIGRATION_FROZEN"):
+                apply_migration(BUNDLE_ROOT, self.home, self.bundle, fail_after_new_home)
+
+        parent = self.home.parent
+        backup = next(parent.glob(".gkd-migration-backup-*"))
+        stage = next(parent.glob(".gkd-migration-stage-*"))
+        freeze = json.loads((parent / ".gkd-migration-freeze.json").read_text(encoding="utf-8"))
+        self.assertEqual("migration_frozen", freeze["status"])
+        self.assertEqual(before_digest, freeze["planDigest"])
+        self.assertEqual(migration_plan(BUNDLE_ROOT, self.home, self.bundle)["planDigest"], freeze["planDigest"])
+        self.assertEqual(before, duplicate_bytes(backup))
+        self.assertEqual(freeze["beforeDigest"], freeze["backupDigest"])
+        self.assertIsNotNone(freeze["stageDigest"])
+        self.assertTrue(stage.is_dir())
 
     def test_production_home_symlink_invalid_config_and_legacy_ambiguity_fail_closed(self) -> None:
         with self.assertRaisesRegex(TaskError, "MIGRATION_PRODUCTION_FORBIDDEN"):

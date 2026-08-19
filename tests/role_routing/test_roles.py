@@ -25,6 +25,8 @@ class RoleContracts(unittest.TestCase):
         self.catalog = role_catalog(BUNDLE_ROOT, self.digest)
 
     def test_fixed_role_matrix_is_exact_and_explicit(self) -> None:
+        self.assertEqual({"contractVersion": 1, "name": "codex-host-runtime"}, self.catalog["activationProvider"])
+        self.assertEqual("033c387ce08a71dcaa4f455a0e43e5f28f4e4cb09ee87a36c4509f59bdfc4c94", self.catalog["activationProviderDigest"])
         actual = {
             item["name"]: (item["model"], item["modelReasoningEffort"], item["sandboxMode"], item["runtimeSeconds"])
             for item in self.catalog["roles"]

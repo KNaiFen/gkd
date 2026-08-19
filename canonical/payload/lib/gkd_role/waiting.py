@@ -16,7 +16,10 @@ MAX_INTERVALS = 12
 
 def _time(value: str) -> datetime:
     require_utc(value, "INVALID_WAIT_STATE")
-    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise TaskError("INVALID_WAIT_STATE") from None
 
 
 def validate_wait_state(value: dict[str, Any]) -> None:
@@ -73,16 +76,18 @@ def transition(state: dict[str, Any], observation: dict[str, Any]) -> dict[str, 
     elif observation["kind"] == "healthy_timeout":
         if observation["timeoutMs"] != WAIT_TIMEOUT_MS:
             raise TaskError("WAIT_TIMEOUT_PARAMETER_MISMATCH")
-        minimum = _time(state["startedAt"]) + timedelta(hours=state["completedIntervals"] + 1)
-        if observed < minimum:
-            raise TaskError("WAIT_INTERVAL_NOT_ELAPSED")
-        updated["completedIntervals"] += 1
-        if updated["completedIntervals"] < MAX_INTERVALS:
-            outcome = "wait_again"
-        else:
+        deadline = _time(state["deadlineAt"])
+        if observed >= deadline:
+            updated["completedIntervals"] = MAX_INTERVALS
             outcome = "deadline_timeout"
             updated["interruptIssued"] = True
             updated["terminal"] = {"outcome": outcome, "observedAt": observation["observedAt"]}
+        else:
+            minimum = _time(state["startedAt"]) + timedelta(hours=state["completedIntervals"] + 1)
+            if observed < minimum:
+                raise TaskError("WAIT_INTERVAL_NOT_ELAPSED")
+            updated["completedIntervals"] += 1
+            outcome = "wait_again"
     else:
         if observation["timeoutMs"] is not None:
             raise TaskError("INVALID_WAIT_OBSERVATION")

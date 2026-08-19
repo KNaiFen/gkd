@@ -2,15 +2,16 @@
 
 ## 当前轮次
 
-- 结论：需要整改
+- 结论：实现整改完成，宿主握手仍阻塞
 - PR：https://github.com/KNaiFen/gkd/pull/6
 - 审查锚点：固定 head `cd8c89899039070c29b2c5209e7c5afaefba0616`
 - 审查范围：M2-A 完整任务、固定 head 实现、回归测试与交付证据
-- 未解决：F-001、F-002、F-003、F-004
+- 已解决：F-001、F-002、F-003
+- 未解决：F-004
 
 ## F-001：迁移回滚冻结会删除唯一原始 backup
 
-- 状态：待整改
+- 状态：已整改，待独立复验
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC7；plan Migration 135-136；execution Required Contracts 155-157
@@ -20,10 +21,11 @@
 - 修改边界：仅迁移事务、恢复清理和对应测试；保持临时目标限制、同事务 legacy role 替换、重复迁移幂等和生产边界不变。
 - 测试与文档：新增注入 rollback `os.replace` 失败的回归，断言 home/backup/freeze 的可恢复状态；更新 delivery 的实际验证。
 - 复验方式：在独立临时 home 运行 staged、old_moved、new_moved 及 rollback-failure 场景；检查原始文件 digest、backup 保留和 freeze JSON。
+- 执行回应：`apply_migration` 现在只在未冻结路径清理 stage/backup。rollback rename 失败时保留原始 backup 与 stage，并在 freeze 记录中绑定 plan、before、backup 和 stage digest。新增 staged、old_moved、new_moved 及 rollback-failure 注入合同；rollback-failure 断言 backup 字节等于原始 preimage、stage 存在且 freeze digest 一致。
 
 ## F-002：activation provider 没有可信根或新鲜度绑定
 
-- 状态：待整改
+- 状态：已整改，待独立复验
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC4；plan Behavior 35-37、Security 110-118
@@ -33,10 +35,11 @@
 - 修改边界：仅 activation provider API、offer/authorization/runtime 绑定和对应 schema/tests；不得放宽 capability、CAS、lock、journal、claim receipt 或 delivery/acceptance 约束，不得写生产 `~/.codex`。
 - 测试与文档：新增任意临时 provider、provider digest 未锚定、activation 早于 offer/晚于 expiry、跨任务/重放的负向测试；记录 trusted provider 的实际来源与证据等级。
 - 复验方式：从全新临时 runtime/home 运行完整 activation -> claim；尝试替换 provider、伪造 digest、使用过期 activation，均应在 claim commit 前失败；成功路径只能消费由受信 host 生成的固定 activation。
+- 执行回应：canonical role source 固定声明 `codex-host-runtime` provider contract，provider digest 由 locked bundle catalog 派生；role/task CLI 不再接受调用者选择的 provider command、provider digest 或 bundle root。当前无可信宿主适配器时 `activation-record` 固定 fail-closed。Activation 同时绑定 offer 创建/过期时间，v2 claim 持久绑定 activation/envelope，recover、delivery 与 acceptance 重验 exact task/offer/envelope/role/config/bundle/window。新增任意临时 provider、伪造 catalog digest、过期 activation、跨任务/跨角色和 replay 负向合同；L2 正向路径仅使用测试内 host seam，不作为 F-004 可信证据。
 
 ## F-003：等待状态机忽略 deadlineAt
 
-- 状态：待整改
+- 状态：已整改，待独立复验
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC6；plan Behavior 38-43；execution Required Contracts 152-154
@@ -46,10 +49,11 @@
 - 修改边界：仅 wait state transition、schema/状态事实和 fake-clock tests；保持原生 `timeout_ms=3600000`、同一 agent、healthy timeout 静默和最多 12 个 interval。
 - 测试与文档：新增首个 observation 已过 deadline、同一 timestamp 重放、超过 deadline 的 child/error/user intervention 场景；更新 M2 evidence/contract 结果。
 - 复验方式：fake clock 覆盖 00:00 至 12:00+；检查每条决定的 outcome、interrupt once、terminal/state digest 及禁止继续 wait。
+- 执行回应：`healthy_timeout` 现在先比较绝对 `deadlineAt`；任一在或超过 deadline 的 observation 直接固定 `completedIntervals=12`、写入唯一 terminal 并返回一次 bound interrupt。deadline 前仍要求下一个完整小时，重复 timestamp 失败。新增首个 observation 为第 13 小时、延迟 observation、重复 timestamp 与 terminal 后重放合同；原生 `timeoutMs=3600000`、同 agent、1-11 次静默 re-wait 和 child/error/user intervention 语义保持不变。
 
 ## F-004：fresh trusted custom-role handshake 尚未建立
 
-- 状态：待整改
+- 状态：仍阻塞
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
@@ -59,6 +63,7 @@
 - 修改边界：不得修改生产配置、AIO、auto route 或运行真实一小时等待；只允许一次短时隔离握手与其最小化机器证据。
 - 测试与文档：保留当前 blocked 证据；成功或再次 blocked 都要写入新的 delivery 与 evidence，明确宿主事实。
 - 复验方式：独立 fresh runtime 审查完整事件与绑定 digest；任何缺失 child/parent terminal 或 custom-role activation 证据都保持阻塞。
+- 执行回应：在 F-001 至 F-003 和全部 deterministic/L2 合同通过后执行了唯一一次隔离 fresh-runtime 尝试。宿主产生 5 个事件和 1 个 thread identity，但以 400 `invalid_request_error` 拒绝 ChatGPT-account runtime 中的 `gpt-5.6-sol`，退出码 1；未发生 custom-role activation，也没有 child/parent terminal。最小 path-free 证据记录 `CUSTOM_ROLE_MODEL_UNSUPPORTED`，不保留 prompt/response 文本，不使用 self-report、fixture 或候选文件升级结论。因此 M2-A outcome 继续为 `blocked`，PR 必须保持 Draft。
 
 ## 本轮边界
 

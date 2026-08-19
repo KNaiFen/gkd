@@ -4,8 +4,6 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import os
-import hashlib
-import shutil
 import subprocess
 import sys
 import unittest
@@ -42,10 +40,11 @@ class ActivationContracts(unittest.TestCase):
             "route": "manual",
             "roleName": "gkd_executor",
             "roleDigest": self.role["roleDigest"],
-            "configDigest": self.role["configDigest"],
-            "bundleDigest": self.bundle,
+        "configDigest": self.role["configDigest"],
+        "bundleDigest": self.bundle,
+        "offerCreatedAt": self.offer["createdAt"],
+        "offerExpiresAt": self.offer["expiresAt"],
         }
-        self.provider_digest = "d" * 64
         self.observation = {
             "evidenceClass": "host-runtime-event",
             "agentId": "agent-one",
@@ -55,7 +54,6 @@ class ActivationContracts(unittest.TestCase):
             "sandbox": self.role["sandboxMode"],
             "runtimeSeconds": self.role["runtimeSeconds"],
             "activatedAt": FIXED_TIME,
-            "providerDigest": self.provider_digest,
         }
         self.runtime = RuntimeStore(self.repo.runtime_root)
 
@@ -65,8 +63,8 @@ class ActivationContracts(unittest.TestCase):
     def record(self, expected=None, observation=None):
         return record_activation(self.runtime, self.catalog, expected or self.expected, observation or self.observation, "activation-nonce")
 
-    def provider(self, activation_id, expected=None, provider_digest=None):
-        return ActivationEvidenceProvider(self.runtime, activation_id, expected or self.expected, provider_digest or self.provider_digest)
+    def provider(self, activation_id, catalog=None):
+        return ActivationEvidenceProvider(self.runtime, activation_id, catalog or self.catalog)
 
     def claim(self, provider):
         service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME), evidence_provider=provider)
@@ -91,7 +89,7 @@ class ActivationContracts(unittest.TestCase):
             activation = self.record(expected=expected)
             commits = self.repo.commits()
             with self.subTest(field=field), self.assertRaisesRegex(TaskError, "RUNTIME_EVIDENCE_MISMATCH"):
-                self.claim(self.provider(activation["activationId"], expected=expected))
+                self.claim(self.provider(activation["activationId"]))
             self.assertEqual(commits, self.repo.commits())
         expected = dict(self.expected); expected["bundleDigest"] = "b" * 64
         with self.assertRaisesRegex(TaskError, "ACTIVATION_OBSERVATION_MISMATCH"):
@@ -112,6 +110,16 @@ class ActivationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "ACTIVATION_OBSERVATION_MISMATCH"):
             self.record(expected=expected)
 
+    def test_expired_and_cross_role_activation_bindings_are_rejected(self) -> None:
+        observed = dict(self.observation)
+        observed["activatedAt"] = "2028-01-02T03:04:05Z"
+        with self.assertRaisesRegex(TaskError, "ACTIVATION_OUTSIDE_OFFER_WINDOW"):
+            self.record(observation=observed)
+        expected = dict(self.expected)
+        expected["roleName"] = "gkd_acceptor"
+        with self.assertRaisesRegex(TaskError, "ACTIVATION_OBSERVATION_MISMATCH"):
+            self.record(expected=expected)
+
     def test_self_report_evidence_class_and_unknown_observation_fields_are_rejected(self) -> None:
         observed = dict(self.observation); observed["evidenceClass"] = "agent-self-report"
         with self.assertRaisesRegex(TaskError, "ACTIVATION_OBSERVATION_MISMATCH"):
@@ -120,10 +128,12 @@ class ActivationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "INVALID_ACTIVATION_OBSERVATION"):
             self.record(observation=observed)
 
-    def test_provider_digest_drift_and_replay_are_rejected(self) -> None:
+    def test_provider_catalog_drift_and_replay_are_rejected(self) -> None:
         activation = self.record()
-        with self.assertRaisesRegex(TaskError, "RUNTIME_EVIDENCE_MISMATCH"):
-            self.claim(self.provider(activation["activationId"], provider_digest="f" * 64))
+        forged = deepcopy(self.catalog)
+        forged["activationProviderDigest"] = "f" * 64
+        with self.assertRaisesRegex(TaskError, "INVALID_ROLE_CATALOG"):
+            self.claim(self.provider(activation["activationId"], forged))
         claimed = self.claim(self.provider(activation["activationId"]))
         replay = self.provider(activation["activationId"])
         with self.assertRaisesRegex(TaskError, "ACTIVATION_REPLAYED"):
@@ -166,7 +176,7 @@ class ActivationContracts(unittest.TestCase):
             "--runtime", str(self.repo.runtime_root),
             "--activation", activation["activationId"],
             "--expected", str(expected_path),
-            "--provider-digest", self.provider_digest,
+            "--bundle-root", str(BUNDLE_ROOT),
             "--envelope", self.handoff["envelopeId"],
         ]
         env = dict(os.environ); env["PYTHONDONTWRITEBYTECODE"] = "1"; env["PYTHONPATH"] = "canonical/payload/lib:."
@@ -187,30 +197,33 @@ class ActivationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "ACTIVATION_RECEIPT_UNAVAILABLE"):
             _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], self.runtime)
 
-    def test_activation_cli_executes_only_digest_fixed_provider_outside_candidate(self) -> None:
-        provider = self.repo.root / "trusted-provider"
-        shutil.copyfile(Path("tests/role_routing/fake_activation_provider.py"), provider)
+    def test_activation_cli_rejects_caller_selected_provider_and_fails_closed(self) -> None:
+        provider = self.repo.root / "arbitrary-provider"
+        provider.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         provider.chmod(0o755)
         expected_path = self.repo.root / "activation-request.json"
         expected_path.write_bytes(canonical_bytes(self.expected))
-        provider_digest = hashlib.sha256(provider.read_bytes()).hexdigest()
         command = [
             str(Path("canonical/payload/bin/gkd-role").resolve()), "activation-record",
-            "--bundle-root", str(BUNDLE_ROOT.resolve()), "--bundle-digest", self.bundle,
-            "--runtime-root", str(self.repo.runtime_root), "--candidate-root", str(self.repo.candidate),
-            "--expected", str(expected_path), "--provider-command", str(provider),
-            "--provider-digest", provider_digest, "--nonce", "provider-nonce",
+            "--runtime-root", str(self.repo.runtime_root), "--expected", str(expected_path), "--nonce", "provider-nonce",
         ]
         env = dict(os.environ); env["PYTHONDONTWRITEBYTECODE"] = "1"
         result = subprocess.run(command, cwd=Path.cwd(), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual("activation_recorded", json.loads(result.stdout)["status"])
-        candidate_provider = self.repo.candidate / "candidate-provider"
-        shutil.copyfile(provider, candidate_provider); candidate_provider.chmod(0o755)
-        command[command.index(str(provider))] = str(candidate_provider)
-        rejected = subprocess.run(command, cwd=Path.cwd(), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        self.assertEqual(2, result.returncode, result.stderr)
+        self.assertEqual("ACTIVATION_PROVIDER_UNAVAILABLE", json.loads(result.stderr)["error"])
+        rejected = subprocess.run(command + ["--provider-command", str(provider)], cwd=Path.cwd(), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         self.assertEqual(2, rejected.returncode)
-        self.assertEqual("UNTRUSTED_ACTIVATION_PROVIDER", json.loads(rejected.stderr)["error"])
+        self.assertEqual("INVALID_ARGUMENTS", json.loads(rejected.stderr)["error"])
+        task_command = [
+            str(Path("canonical/payload/bin/gkd-task").resolve()), "claim",
+            "--candidate-root", str(self.repo.candidate), "--task-path", self.repo.task_path,
+            "--runtime-root", str(self.repo.runtime_root), "--expected-head", self.repo.head(),
+            "--expected-revision", str(self.repo.state()["revision"]), "--envelope-id", self.handoff["envelopeId"],
+            "--activation-id", "f" * 64, "--bundle-root", str(BUNDLE_ROOT), "--provider-digest", "d" * 64,
+        ]
+        rejected = subprocess.run(task_command, cwd=Path.cwd(), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        self.assertEqual(2, rejected.returncode)
+        self.assertEqual("INVALID_ARGUMENTS", json.loads(rejected.stderr)["error"])
 
 
 if __name__ == "__main__":
