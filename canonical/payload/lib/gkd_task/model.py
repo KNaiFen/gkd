@@ -229,11 +229,13 @@ def _lifecycle_record(value: Any) -> None:
 
 
 def _claim_record(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"},
-        "INVALID_TASK_STATE",
-    )
+    legacy_keys = {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"}
+    if "activationId" in value or "envelopeId" in value:
+        require_keys(value, legacy_keys | {"activationId", "envelopeId"}, "INVALID_TASK_STATE")
+        require_sha256(value["activationId"], "INVALID_TASK_STATE")
+        require_sha256(value["envelopeId"], "INVALID_TASK_STATE")
+    else:
+        require_keys(value, legacy_keys, "INVALID_TASK_STATE")
     for field in ("claimId", "offerId", "sessionDigest", "roleDigest", "configDigest"):
         require_sha256(value[field], "INVALID_TASK_STATE")
     if not isinstance(value["epoch"], int) or value["epoch"] < 0:
@@ -576,9 +578,7 @@ def validate_authorization(value: dict[str, Any]) -> None:
 
 
 def validate_offer(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {
+    legacy_keys = {
             "schemaVersion",
             "offerId",
             "status",
@@ -599,10 +599,14 @@ def validate_offer(value: dict[str, Any]) -> None:
             "createdAt",
             "expiresAt",
             "consumedByDigest",
-        },
-        "INVALID_OFFER",
-    )
-    if value["schemaVersion"] != TASK_SCHEMA_VERSION or value["status"] not in {"active", "consumed", "revoked"}:
+        }
+    if value.get("schemaVersion") == 2:
+        require_keys(value, legacy_keys | {"roleName", "bundleDigest"}, "INVALID_OFFER")
+        require_string(value["roleName"], "INVALID_OFFER")
+        require_sha256(value["bundleDigest"], "INVALID_OFFER")
+    else:
+        require_keys(value, legacy_keys, "INVALID_OFFER")
+    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, 2} or value["status"] not in {"active", "consumed", "revoked"}:
         raise TaskError("INVALID_OFFER")
     for field in ("offerId", "planMaterialDigest", "authorizationDigest", "roleDigest", "configDigest", "capabilityDigest"):
         require_sha256(value[field], "INVALID_OFFER")

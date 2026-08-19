@@ -16,7 +16,8 @@ from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes, digest_
 from gkd_task.documents import PLAN_MATERIAL_SECTIONS
 from gkd_task.model import read_state
 from gkd_task.runtime import RuntimeStore
-from gkd_task.service import FixtureEvidenceProvider, TaskService, bootstrap_task, make_fixture_evidence
+from gkd_task.service import TaskService, bootstrap_task
+from tests.task_core.evidence_support import FixtureEvidenceProvider, make_fixture_evidence
 
 
 FIXED_TIME = "2026-01-02T03:04:05Z"

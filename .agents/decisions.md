@@ -149,6 +149,58 @@
   - Why: 已验收 M1 CLI 的安装态 claim provider 故意 fail-closed，无法可信地让 M2-A 使用尚未实现的角色证据自管本任务；因此继续采用受审 Markdown、Git worktree 和独立人工顶层 session 的窄 bootstrap exception，不创建或伪造 task JSON/offer/claim/activation。
   - Impact: 固定 base 为 `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`，branch 为 `task/m2-role-routing-core`，planning head 为 `51fee63a8b600df4f94aa042ea42ef09e3b73986`，Draft PR 为 `KNaiFen/gkd#6`。execution session 只实现 M2-A，停在 fixed-head delivery；不得验收/合并、启动 M2-B、启用 auto route或修改生产/AIO。
 
+- [2026-08-19] `GKD-M2-A` 固定角色与路由核心已实现，但交付结论固定为 `blocked`。
+  - Why: 51 项 hermetic/L2 合同、M1 task-core 104、foundation 53、watcher core 47 和 live-negative 15 均通过，两次隔离安装/迁移 evidence 逐字节一致；但唯一一次获准的短时 fresh host handshake 只证明 custom role reference，未证明可信 custom role activation 或 parent/child terminal 归属。
+  - Impact: bundle digest 固定为 `943301005912c05bb137d6c44a597e4569e05e9f0e738adaec4a8b675f654649`，M2 evidence digest 固定为 `efe08577c4eabfb91938d2d93473ed142ded4bbe4f651c591a8d830624fbec8c`；不得用 Agent 自述、fixture 或候选文件补足证据。PR #6 只交付 fixed head/Ready，不能验收、合并、启动 M2-B、执行真实一小时等待或启用 auto route。
+
 - [2026-08-19] `GKD-M2-A` 首轮固定头验收拒绝并转人工返工。
   - Why: 对 PR #6 implementation head `cd8c89899039070c29b2c5209e7c5afaefba0616` 的独立复验发现三项实现级阻塞：迁移 rollback failure 会在 `MIGRATION_FROZEN` 后删除唯一 backup；activation provider/digest 由调用者自由选择且 activation 时间未绑定 offer 有效窗口；wait transition 忽略 `deadlineAt`，13 小时 observation 仍返回 `wait_again`。现有 M2 51、task-core 104、foundation 53、watcher core 47、live-negative 15 测试和 evidence 再生均通过/逐字节一致，但未覆盖这些反例。
   - Impact: main 在候选任务文档记录 F-001 至 F-004 的 `findings.md`，提交 `c4a737f` 并推送到 PR #6；任务保持未合并，execution session 只处理 findings 后重新交付。fresh trusted custom-role handshake 仍未建立（F-004），因此不得启动 M2-B、启用 auto route、安装生产 `~/.codex` 或接入 AIO。
+
+- [2026-08-19] `GKD-M2-A` 实现级返工完成，但可信角色握手继续 fail-closed。
+  - Why: migration rollback failure 现在保留 backup/stage/freeze；activation provider 固定由 locked bundle catalog 派生且绑定 offer window/activation/envelope；wait transition 在 absolute deadline 终止。全部短合同与两次隔离 evidence 通过，但唯一 fresh handshake 被宿主以 `gpt-5.6-sol` 不支持当前 ChatGPT-account runtime 拒绝，未产生 custom-role activation 或 child/parent terminal。
+  - Impact: implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`，bundle digest 为 `6e9cc8a73fa9e80e3a3061114f53c3daf152439a2886e40000e07d19b9c37a6b`，evidence digest 为 `5092c31dd1aaab13623e1131da84e248eb4af0018ce0c37f1a63ba85161b00b6`。F-001 至 F-003 转待独立复验，F-004 与总体 outcome 保持 `blocked`；PR #6 保持 Draft，不得验收、合并、启动 M2-B 或自动路线。
+
+- [2026-08-19] 用户授权 M2-A 使用本机登录态执行一次额外 custom-role 握手。
+  - Why: 本机 `codex-cli 0.147.0` 只读 preflight 确认为 ChatGPT 登录；旧 temporary-home probe 的模型拒绝不能证明正常本机登录态不支持固定 Sol role。项目级 custom-agent 配置可以在不安装生产 bundle 的情况下让真实本机 Codex 加载候选角色。
+  - Impact: M2-A requirements/plan/implementation 升为 v2。执行 session 可从干净临时 Git repo 使用项目级 `.codex/agents`/`.codex/skills` 和 `codex exec --ephemeral --ignore-user-config --json` 发起一次真实握手；只保留脱敏结构化事件。不得设置 alternate `CODEX_HOME`、直接读取/复制/编辑认证材料、修改生产配置、模型降级、重试或运行一小时门。宿主自行产生的 operational metadata 不作为配置或证据，也不得检查正文或清理既有状态。
+
+- [2026-08-19] M2-A 续交验收新增 F-005 activation writer 阻塞。
+  - Why: PR #6 head `0c200bc9cfbdf6da62e53ed6eb7ff579b964f3da` 的安装态 `gkd_role.activation.record_activation` 仍接受调用者构造的 observation 并写入同权限 runtime；独立临时复现可绕过 fail-closed CLI 后令 claim 进入 `implementing`。固定 provider 字段不能证明写入者是 host/main。
+  - Impact: canonical/installable payload 必须移除候选可调用的可信 activation writer，test seam 只能存在于 tests；若宿主没有候选不可伪造的 receipt 边界，安装态 activation/claim 保持 fail-closed。F-005 与 F-004 均闭环前 PR #6 不得合并，auto route 保持禁用。
+
+- [2026-08-19] GKD-M2-A F-005 已整改但可信宿主边界仍缺失。
+  - Why: canonical payload 删除 `record_activation`、`ActivationEvidenceProvider` 与 `RuntimeStore.write_activation`；测试 host seam 移入 tests，安装态 CLI 与库级 v2 claim/recovery 在无 host attestation 时固定返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。56 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过。
+  - Impact: 当前唯一允许结论仍为 `blocked`。本机登录态握手只执行一次并在临时 role/Skill 准备阶段以 `HANDSHAKE_SETUP_FAILED` 结束，未建立 custom-role activation 或 child/parent terminal；plan delta 固定为 `candidate-inaccessible-host-attestation-required`。PR #6 保持 Draft，禁止验收、合并、M2-B、automatic route 与生产/AIO 修改。
+
+- [2026-08-19] GKD-M2-A 完成最小安装面整改与本机握手复验。
+  - Why: canonical/installable payload 进一步移除 M1 的 `FixtureEvidenceProvider` 与 `make_fixture_evidence`，所有 activation/fixture writer seam 只留在 tests；正常 CLI/library v2 claim/recovery 无 host attestation 时在任何 runtime/tracked 写前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。唯一 live probe 已从校验过 digest 的项目级 `gkd_executor`/Skills 启动，但宿主只给出失败事件，未证明角色、effective config 或双 terminal。
+  - Impact: F-005 最小整改闭环，F-004 分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，总体仍为 `blocked`。不引入 daemon、IPC、签名协议或恶意 subclass 防御；PR #6 保持 Draft，auto route 与 M2-B 继续禁用。
+
+- [2026-08-19] GKD-M2-A 新增授权本机握手在宿主模型准入阶段终止。
+  - Why: 授权锚点、分支/远程/PR head、干净 worktree 和静态 parser preflight 均通过；preflight 证明临时项目 trust、`agents.enabled=true`、精确 `gkd_executor` discovery 与 role/config/bundle digest，且此时模型调用/已消耗尝试均为 0。本轮唯一 live 启动后，Codex 在 parent turn 前以 HTTP 400 `invalid_request_error` 明确拒绝 ChatGPT account 使用 `gpt-5.6-sol`。
+  - Impact: 失败分类收窄为 `HOST_MODEL_UNSUPPORTED_FOR_CHATGPT_ACCOUNT`；未产生 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal，F-004 和总体 outcome 保持 `blocked`。未重试、降级、fallback 或替换角色；PR #6 必须保持 Draft，不得启动 M2-B 或 automatic route。
+
+- [2026-08-19] GKD-M2-A F-004 改为正常生产使用环境握手合同。
+  - Why: 隔离模式的 parent `--model gpt-5.6-sol` 与 `--ignore-user-config` 绕过了日常 provider/model routing，其 HTTP 400 不能判定正常环境中 project-scoped child role 的可用性。官方 Codex 合同规定 project role 位于 `.codex/agents`，agent TOML 中的 model/effort 优先；user config 承载 machine-local provider/auth，受信项目才加载 project `.codex` 层。
+  - Impact: v3 live parent 使用正常用户 provider/auth/model routing，不传 `--ignore-user-config`、parent `--model` 或 effort override；临时 `gkd_executor.toml` 继续固定 child Sol/xhigh/workspace-write。确定性 preflight 负责 digest/trust/discovery/non-drift，host 只负责 parent turn、按名唯一 activation、无 fallback 和双 terminal。先推送静态 fixed head，再由用户单独授权一次 live。
+
+- [2026-08-19] GKD-M2-A v3 正常环境静态预检因用户配置严格解析失败。
+  - Why: `command -v codex` 解析的 `codex-cli 0.147.0` 在 `app-server --strict-config --listen off` 启动时拒绝正常用户 `config.toml` 的未知字段 `disable_response_storage`；失败发生在 project trust/custom-role discovery 之前。冻结 live 参数向量通过 `--help` 解析，临时 repo/digest 正确且生产配置前后一致。
+  - Impact: 当前机器分类为 `USER_CONFIG_PARSE_FAILED`，`modelInvocations=0`、`liveAttemptsConsumed=0`；不修改生产配置，不放宽 strict-config，不启动 live。M2 63 项双 evidence 与 219 项保留回归通过，总体保持 `blocked`，PR #6 保持 Draft。
+
+- [2026-08-19] GKD-M2-A F-004 v4 将生成配置严格性与宿主兼容启动分离。
+  - Why: `codex-cli 0.147.0 --strict-config` 会因正常用户字段 `disable_response_storage` 在项目发现前失败，不能验证日常生产使用环境；用户明确要求保留正常配置且不修改生产 `~/.codex`。项目生成物仍可由标准库 `tomllib` 和 canonical source 精确比较实现严格校验。
+  - Impact: 生成 project config 与 `gkd_executor.toml` 继续 strict/fail-closed；宿主预检改为非 strict `codex app-server --listen off` 加显式 trust/`agents.enabled=true`，只接受 no-transport 边界并拒绝 trust disabled、malformed project/role 或其他 fatal startup。live command 删除 `--strict-config`，继续使用正常 provider/auth/model routing。no-transport 不作为 activation；v3 `USER_CONFIG_PARSE_FAILED` 作为零模型/零尝试历史兼容性事实保留。静态门通过后仍须对新 fixed head 单独授权一次 live probe，F-004 成功前总体保持 `blocked`。
+
+- [2026-08-19] GKD-M2-A F-004 v4 正常环境 live probe 未产生 custom-role activation。
+  - Why: 授权 head `26b8e9c185a0bdf365266efdb45f42260c8922b3` 的全部启动门通过后，唯一一次正常登录态 `codex exec` 成功进入并完成 parent turn，exit code 为 0；但结构化 host 事件只包含一个无 receiver thread/agent state 的 collaboration `wait`，没有 spawn、`gkd_executor` activation、child identity 或 child terminal。Agent message 正文不作为证据。
+  - Impact: 规范化分类为 `CUSTOM_ROLE_ACTIVATION_MISSING`，`modelInvocations=1`、`liveAttemptsConsumed=1`；不得重试、降级或以 parent terminal 补足 child 事实。原始 JSONL/临时 repo 已删除，生产/AIO 保护面不变。F-004 与 M2-A 继续 `blocked`，PR #6 保持 Draft，M2-B 与 automatic route 不得启动。
+
+- [2026-08-20] GKD-M2-A F-004 通过 session rollout 记录完成 trusted custom-role handshake。
+  - Why: 用户在精确 fresh probe Git 根通过正常 Codex trust UI 选择继续后，授权本机 `codex exec --json` 的 parent rollout 记录包含唯一 `agents.spawn_agent`，参数绑定 `gkd_executor`/`gkd_executor_handshake`/`none`；宿主 activity 绑定 child thread，child rollout 与 parent rollout 分别有独立 `task_complete` terminal marker，Codex exit 0。stdout 的 wait-only 压缩不完整，不能覆盖 rollout 记录中的 spawn 事实。
+  - Impact: 只保留 path-free hashed thread、event types、exact role、terminal 和 exit facts；session 原文不进入仓库 evidence。F-004/M2-A outcome 为 `role_routing_core_ready`，route 仍 `manual_only`；M2-B、automatic route、生产安装、AIO 和里程碑 3 继续禁止。
+
+- [2026-08-20] GKD-M2-A 采用 trusted-main 工作流 activation 边界并收紧 rollout 归一化。
+  - Why: 用户明确将同一 OS 用户的 monkeypatch、私有 API 和直接 runtime 修改排除出威胁模型，并要求 trusted main 从已验证 host facts 生成最小 activation receipt。原 rollout 证据同时需要绑定唯一 exact spawn 参数、对应 activity child identity 与 exact child terminal，不能接受任意 child record 或硬编码 downgrade/fallback。
+  - Impact: canonical payload 增加 `TrustedMainActivationAuthority` 和一次性 provider，candidate-facing CLI/default library 无 provider 时仍在写入前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`；不引入签名、daemon、IPC 或密钥。F-004 负向合同覆盖 wrong task/fork、unrelated terminal、multiple spawn、wrong identity 和 fallback。implementation/evidence commit 为 `f86a092a9ba42fd8965209dfe18f3a70debe0ef6` / `0108c1c50dc3c4437cadf0cbea1ebd480768e83c`；bundle/evidence digest 为 `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880` / `2f292830f2e9674a4ea95db1e4026ccf9abd3b6a3ef2241deec799329b590068`。M2-A 为 `role_routing_core_ready` 且 `manual_only`，等待独立验收。

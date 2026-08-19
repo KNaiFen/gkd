@@ -9,7 +9,8 @@ import sys
 from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes
 from gkd_task.errors import TaskError
 from gkd_task.runtime import RuntimeStore
-from gkd_task.service import FixtureEvidenceProvider, TaskService, make_fixture_evidence
+from gkd_task.service import TaskService
+from tests.task_core.evidence_support import FixtureEvidenceProvider, make_fixture_evidence
 from tests.task_core.helpers import CONFIG_DIGEST, FIXED_TIME, ROLE_DIGEST, SESSION_DIGEST
 
 

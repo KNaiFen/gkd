@@ -19,7 +19,11 @@
 - [x] `GKD-M1-A` worktree、本地任务分支和远端任务分支已删除并回填实际清理结果。
 - [x] `GKD-M2-A` v1 requirements/plan/implementation/execution 已在base `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea` 建立；branch `task/m2-role-routing-core`，planning head `51fee63a8b600df4f94aa042ea42ef09e3b73986`，PR #6。
 - [x] 独立 GPT-5.6 Sol / xhigh 人工顶层 execution session 已交付 M2-A 初始 fixed head `cd8c89899039070c29b2c5209e7c5afaefba0616`；独立验收确认 M2-A 仍为 `blocked`，未合并。
-- [ ] 按 `tasks/m2-role-routing-core/findings.md` 在同一隔离 worktree 处理 F-001 至 F-003，并重新尝试 F-004 trusted custom-role handshake；不得由main或未来候选角色直接实现、验收或合并。
+- [x] 同一隔离 worktree 已处理 F-001 至 F-003 并生成两份一致 evidence；implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`。
+- [x] F-004 历史：隔离模式本机握手只启动一次，并在 parent turn 前被宿主以 HTTP 400 拒绝 ChatGPT account 使用 `gpt-5.6-sol`；该结果只作为旧 `--ignore-user-config`/parent-model-override 路径的负向证据。
+- [x] F-004：用户在精确 fresh probe Git 根通过正常 Codex trust UI 后，parent rollout session record 证明唯一 `agents.spawn_agent` 的 exact `gkd_executor` call；child/parent 各自 `task_complete` terminal marker，Codex exit 0。只保留 path-free normalized facts，session 原文不进入仓库 evidence；M2-A 仍 manual-only，M2-B/automatic route 未启用。
+- [x] F-005：canonical/installable payload 提供 trusted-main activation authority 正向桥接 exact claim/delivery；`FixtureEvidenceProvider`、`make_fixture_evidence` 和 test seam 不在 bundle/manifest/inventory。候选公开 CLI 与默认 library claim/recovery fail-closed 且 runtime/tracked bytes 不变；同 OS 用户主动篡改为非目标。
+- [x] `GKD-M2-A` 本轮 implementation/evidence commit 为 `f86a092a9ba42fd8965209dfe18f3a70debe0ef6` / `0108c1c50dc3c4437cadf0cbea1ebd480768e83c`；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致，等待 PR #6 新 fixed head 独立验收。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

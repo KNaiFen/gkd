@@ -222,43 +222,6 @@ class UnavailableEvidenceProvider:
         raise TaskError("RUNTIME_EVIDENCE_UNAVAILABLE")
 
 
-class FixtureEvidenceProvider:
-    """Internal provider for deterministic L1/L2 fixtures."""
-
-    def __init__(self, evidence: dict[str, Any]) -> None:
-        validate_runtime_evidence(evidence)
-        self.evidence = evidence
-
-    def observe(self, purpose: str, expected: dict[str, Any]) -> dict[str, Any]:
-        del purpose, expected
-        return deepcopy(self.evidence)
-
-
-def make_fixture_evidence(
-    writer_id: str,
-    session_digest: str,
-    role_digest: str,
-    config_digest: str,
-    route: str,
-    status: str,
-    observed_at: str,
-) -> dict[str, Any]:
-    value = {
-        "schemaVersion": TASK_SCHEMA_VERSION,
-        "provider": "fixture",
-        "writerId": writer_id,
-        "sessionDigest": session_digest,
-        "roleDigest": role_digest,
-        "configDigest": config_digest,
-        "route": route,
-        "status": status,
-        "observedAt": observed_at,
-    }
-    value["evidenceDigest"] = digest_object(value)
-    validate_runtime_evidence(value)
-    return value
-
-
 class TaskService:
     def __init__(
         self,
@@ -685,11 +648,18 @@ class TaskService:
         role_digest: str,
         config_digest: str,
         expires_at: str,
+        role_name: str | None = None,
+        bundle_digest: str | None = None,
     ) -> dict[str, Any]:
         require_string(route, "INVALID_ROUTE")
         require_sha256(role_digest, "INVALID_ROLE_DIGEST")
         require_sha256(config_digest, "INVALID_CONFIG_DIGEST")
         require_utc(expires_at, "INVALID_OFFER_EXPIRY")
+        if (role_name is None) != (bundle_digest is None):
+            raise TaskError("INVALID_OFFER")
+        if role_name is not None:
+            require_string(role_name, "INVALID_ROLE_NAME")
+            require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
         capability = self.nonce.token(48)
         capability_digest = sha256_bytes(capability.encode("utf-8"))
         state_before = self._state()
@@ -721,7 +691,7 @@ class TaskService:
             if expires_at <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
             value = {
-                "schemaVersion": TASK_SCHEMA_VERSION,
+                "schemaVersion": 2 if role_name is not None else TASK_SCHEMA_VERSION,
                 "offerId": offer_id,
                 "status": "active",
                 "epoch": state["lifecycle"]["epoch"],
@@ -742,6 +712,9 @@ class TaskService:
                 "expiresAt": expires_at,
                 "consumedByDigest": None,
             }
+            if role_name is not None:
+                value["roleName"] = role_name
+                value["bundleDigest"] = bundle_digest
             validate_offer(value)
             updated = deepcopy(state)
             updated["lifecycle"]["phase"] = "awaiting_claim"
@@ -809,6 +782,9 @@ class TaskService:
             "configDigest": offer["configDigest"],
             "createdAt": self.clock.now(),
         }
+        if offer["schemaVersion"] == 2:
+            envelope["roleName"] = offer["roleName"]
+            envelope["bundleDigest"] = offer["bundleDigest"]
         envelope["envelopeDigest"] = digest_object(envelope)
         self.runtime.write_envelope(envelope_id, envelope)
         if head(self.candidate_root) != before or not is_clean(self.candidate_root):
@@ -837,12 +813,35 @@ class TaskService:
                 or offer["authorizationDigest"] != state["actionAuthorizationDigest"]
             ):
                 raise TaskError("CAPABILITY_MISMATCH")
+            if offer["schemaVersion"] == 2 and (
+                envelope.get("roleName") != offer["roleName"]
+                or envelope.get("bundleDigest") != offer["bundleDigest"]
+            ):
+                raise TaskError("CAPABILITY_MISMATCH")
             if offer["expiresAt"] <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
-            evidence = self.evidence_provider.observe(
-                "claim",
-                {"route": offer["route"], "roleDigest": offer["roleDigest"], "configDigest": offer["configDigest"]},
-            )
+            if offer["schemaVersion"] == 2:
+                self._require_activation_authority()
+            evidence_expectation = {
+                "route": offer["route"],
+                "roleDigest": offer["roleDigest"],
+                "configDigest": offer["configDigest"],
+            }
+            if offer["schemaVersion"] == 2:
+                evidence_expectation.update(
+                    {
+                        "taskId": state["taskId"],
+                        "repository": state["repository"]["identity"],
+                        "taskBranch": state["repository"]["taskBranch"],
+                        "offerId": offer["offerId"],
+                        "envelopeId": envelope["envelopeId"],
+                        "roleName": offer["roleName"],
+                        "bundleDigest": offer["bundleDigest"],
+                        "offerCreatedAt": offer["createdAt"],
+                        "offerExpiresAt": offer["expiresAt"],
+                    }
+                )
+            evidence = self.evidence_provider.observe("claim", evidence_expectation)
             validate_runtime_evidence(evidence)
             if (
                 evidence["status"] != "active"
@@ -863,6 +862,12 @@ class TaskService:
                 "claimedAt": self.clock.now(),
                 "claimBaseHead": expected_head,
             }
+            if offer["schemaVersion"] == 2:
+                activation_id = getattr(self.evidence_provider, "activation_id", None)
+                if not isinstance(activation_id, str):
+                    raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+                claim["activationId"] = activation_id
+                claim["envelopeId"] = envelope["envelopeId"]
             updated_offer = deepcopy(offer)
             updated_offer["status"] = "consumed"
             updated_offer["consumedByDigest"] = digest_object(claim)
@@ -891,7 +896,22 @@ class TaskService:
         self.runtime.write_claim_receipt(claim["claimId"], receipt)
         self.runtime.delete_capability(claim["offerId"])
         self.runtime.delete_envelopes_for_offer(claim["offerId"])
+        consume = getattr(self.evidence_provider, "consume", None)
+        if consume is not None:
+            consume(claim["claimId"], result["head"], receipt["receiptDigest"], self.clock.now())
         return result
+
+    def _require_activation_authority(self) -> None:
+        """Accept only the provider object supplied by trusted main orchestration."""
+
+        from gkd_role.roles import ACTIVATION_PROVIDER
+
+        if (
+            getattr(self.evidence_provider, "trusted_main_owned", False) is not True
+            or getattr(self.evidence_provider, "provider_name", None) != ACTIVATION_PROVIDER["name"]
+            or getattr(self.evidence_provider, "provider_digest", None) != digest_object(ACTIVATION_PROVIDER)
+        ):
+            raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
 
     def _retire(
         self,
@@ -959,6 +979,48 @@ class TaskService:
         self.runtime.delete_envelopes_for_offer(offer_id)
         return result
 
+    def recover_activation(self) -> dict[str, Any]:
+        self._require_activation_authority()
+        recover = getattr(self.evidence_provider, "recover_consumption", None)
+        if recover is None:
+            raise TaskError("RUNTIME_EVIDENCE_UNAVAILABLE")
+        state = self._state()
+        claim = state["lifecycle"]["claim"]
+        if state["lifecycle"]["phase"] != "implementing" or claim is None:
+            raise TaskError("INVALID_TRANSITION")
+        receipt = self._ensure_claim_receipt(claim["claimId"])
+        return recover(state, self._offer(), claim, receipt, self.clock.now())
+
+    def _require_activation_receipt(self, claim: dict[str, Any], claim_receipt: dict[str, Any]) -> None:
+        offer = self._offer()
+        if offer["schemaVersion"] == TASK_SCHEMA_VERSION:
+            return
+        from gkd_role.activation import validate_activation, validate_activation_receipt
+
+        receipt = self.runtime.read_claim_activation_receipt(claim["claimId"])
+        validate_activation_receipt(receipt)
+        activation = self.runtime.read_activation(receipt["activationId"])
+        validate_activation(activation)
+        if (
+            receipt["claimId"] != claim["claimId"]
+            or receipt["claimCommit"] != claim_receipt["claimCommit"]
+            or receipt["claimReceiptDigest"] != claim_receipt["receiptDigest"]
+            or receipt["activationDigest"] != activation["activationDigest"]
+            or activation["activationId"] != claim.get("activationId")
+            or activation["envelopeId"] != claim.get("envelopeId")
+            or activation["offerId"] != claim["offerId"]
+            or activation["agentId"] != claim["writerId"]
+            or activation["threadDigest"] != claim["sessionDigest"]
+            or activation["roleName"] != offer["roleName"]
+            or activation["roleDigest"] != offer["roleDigest"]
+            or activation["configDigest"] != offer["configDigest"]
+            or activation["bundleDigest"] != offer["bundleDigest"]
+            or activation["route"] != offer["route"]
+            or activation["offerCreatedAt"] != offer["createdAt"]
+            or activation["offerExpiresAt"] != offer["expiresAt"]
+        ):
+            raise TaskError("INVALID_ACTIVATION_RECEIPT")
+
     def revoke(self, expected_head: str, expected_revision: int, reason: str) -> dict[str, Any]:
         return self._retire(expected_head, expected_revision, "revoked", reason, False)
 
@@ -1005,7 +1067,8 @@ class TaskService:
         current_claim = self._state()["lifecycle"]["claim"]
         if current_claim is None or current_claim["claimId"] != claim_id:
             raise TaskError("CLAIM_MISMATCH")
-        self._ensure_claim_receipt(claim_id)
+        claim_receipt = self._ensure_claim_receipt(claim_id)
+        self._require_activation_receipt(current_claim, claim_receipt)
 
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)

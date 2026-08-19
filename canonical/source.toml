@@ -51,3 +51,58 @@ files = [
   { source = "payload/schema/task/runtime.schema.json", target = "gkd/schema/task/runtime.schema.json", mode = "0644" },
   { source = "payload/schema/task/task-state.schema.json", target = "gkd/schema/task/task-state.schema.json", mode = "0644" },
 ]
+
+[[components]]
+name = "role-routing-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-role", target = "gkd/bin/gkd-role", mode = "0755" },
+]
+
+[[components]]
+name = "role-routing-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_role/__init__.py", target = "gkd/lib/gkd_role/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/activation.py", target = "gkd/lib/gkd_role/activation.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/cli.py", target = "gkd/lib/gkd_role/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/migration.py", target = "gkd/lib/gkd_role/migration.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/roles.py", target = "gkd/lib/gkd_role/roles.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/routing.py", target = "gkd/lib/gkd_role/routing.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/waiting.py", target = "gkd/lib/gkd_role/waiting.py", mode = "0644" },
+]
+
+[[components]]
+name = "role-routing-source"
+kind = "library"
+files = [
+  { source = "payload/config/hard-rules.json", target = "gkd/config/hard-rules.json", mode = "0644" },
+  { source = "payload/config/role-routing.json", target = "gkd/config/role-routing.json", mode = "0644" },
+]
+
+[[components]]
+name = "role-routing-schemas"
+kind = "library"
+files = [
+  { source = "payload/schema/role/activation.schema.json", target = "gkd/schema/role/activation.schema.json", mode = "0644" },
+  { source = "payload/schema/role/context.schema.json", target = "gkd/schema/role/context.schema.json", mode = "0644" },
+  { source = "payload/schema/role/migration.schema.json", target = "gkd/schema/role/migration.schema.json", mode = "0644" },
+  { source = "payload/schema/role/route.schema.json", target = "gkd/schema/role/route.schema.json", mode = "0644" },
+  { source = "payload/schema/role/wait.schema.json", target = "gkd/schema/role/wait.schema.json", mode = "0644" },
+]
+
+[[components]]
+name = "workflow-skills"
+kind = "library"
+files = [
+  { source = "payload/skills/gkd-accept/SKILL.md", target = "gkd/skills/gkd-accept/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-accept/agents/openai.yaml", target = "gkd/skills/gkd-accept/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-ci-monitor/SKILL.md", target = "gkd/skills/gkd-ci-monitor/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-ci-monitor/agents/openai.yaml", target = "gkd/skills/gkd-ci-monitor/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-execute/SKILL.md", target = "gkd/skills/gkd-execute/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-execute/agents/openai.yaml", target = "gkd/skills/gkd-execute/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-local-verify/SKILL.md", target = "gkd/skills/gkd-local-verify/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-local-verify/agents/openai.yaml", target = "gkd/skills/gkd-local-verify/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-main/SKILL.md", target = "gkd/skills/gkd-main/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-main/agents/openai.yaml", target = "gkd/skills/gkd-main/agents/openai.yaml", mode = "0644" },
+]
