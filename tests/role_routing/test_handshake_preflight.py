@@ -74,8 +74,9 @@ class HandshakePreflightContracts(unittest.TestCase):
             repo = Path(root_name).resolve()
             command = live_command("codex", repo)
             self.assertEqual("exec", command[1])
-            for value in ("--ephemeral", "--ignore-user-config", "--strict-config", "--json", "gpt-5.6-sol", "workspace-write", "never", "agents.enabled=true", LIVE_PROMPT):
+            for value in ("--ephemeral", "--ignore-user-config", "--strict-config", "--json", "gpt-5.6-sol", "workspace-write", 'approval_policy="never"', "agents.enabled=true", LIVE_PROMPT):
                 self.assertIn(value, command)
+            self.assertNotIn("--ask-for-approval", command)
             self.assertIn('model_reasoning_effort="xhigh"', command)
             self.assertIn(trust_override(repo), command)
             self.assertNotIn("CODEX_HOME", json.dumps(command))
