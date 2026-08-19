@@ -7,7 +7,7 @@
 - F-004: 已通过 trusted custom-role handshake
 - Fixed base: `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea`
 - Implementation commit: `8f2ac63b4fcf5bc3c9741be362fd041e3ff5de38`
-- Evidence commit: 本次最终 evidence/delivery commit（完整 SHA 在提交后回填）
+- Evidence commit: `2325832b99a6b61f11c8b609b27c895964b53f43`
 - PR: [KNaiFen/gkd#6](https://github.com/KNaiFen/gkd/pull/6)，交付后标记 Ready
 
 本交付只表示 M2-A role/routing core ready，route 仍为 `manual_only`。不宣称 M2-B 一小时等待、automatic route、生产安装、AIO 接入或里程碑 3；本 session 不验收、不合并、不清理 worktree/branch。

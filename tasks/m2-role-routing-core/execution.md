@@ -13,7 +13,7 @@ enable automatic routing, or start milestone 3.
 
 ## Task Identity
 
-- Status: `in_progress`
+- Status: `delivered_ready`
 - Task: `GKD-M2-A`
 - Repository: `KNaiFen/gkd`
 - Base branch: `main`
