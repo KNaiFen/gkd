@@ -222,43 +222,6 @@ class UnavailableEvidenceProvider:
         raise TaskError("RUNTIME_EVIDENCE_UNAVAILABLE")
 
 
-class FixtureEvidenceProvider:
-    """Internal provider for deterministic L1/L2 fixtures."""
-
-    def __init__(self, evidence: dict[str, Any]) -> None:
-        validate_runtime_evidence(evidence)
-        self.evidence = evidence
-
-    def observe(self, purpose: str, expected: dict[str, Any]) -> dict[str, Any]:
-        del purpose, expected
-        return deepcopy(self.evidence)
-
-
-def make_fixture_evidence(
-    writer_id: str,
-    session_digest: str,
-    role_digest: str,
-    config_digest: str,
-    route: str,
-    status: str,
-    observed_at: str,
-) -> dict[str, Any]:
-    value = {
-        "schemaVersion": TASK_SCHEMA_VERSION,
-        "provider": "fixture",
-        "writerId": writer_id,
-        "sessionDigest": session_digest,
-        "roleDigest": role_digest,
-        "configDigest": config_digest,
-        "route": route,
-        "status": status,
-        "observedAt": observed_at,
-    }
-    value["evidenceDigest"] = digest_object(value)
-    validate_runtime_evidence(value)
-    return value
-
-
 class TaskService:
     def __init__(
         self,

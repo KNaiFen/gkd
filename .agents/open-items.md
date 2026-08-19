@@ -20,8 +20,8 @@
 - [x] `GKD-M2-A` v1 requirements/plan/implementation/execution 已在base `839974fbcd9114e5a5ad3b8fa1d4c58e68cb90ea` 建立；branch `task/m2-role-routing-core`，planning head `51fee63a8b600df4f94aa042ea42ef09e3b73986`，PR #6。
 - [x] 独立 GPT-5.6 Sol / xhigh 人工顶层 execution session 已交付 M2-A 初始 fixed head `cd8c89899039070c29b2c5209e7c5afaefba0616`；独立验收确认 M2-A 仍为 `blocked`，未合并。
 - [x] 同一隔离 worktree 已处理 F-001 至 F-003 并生成两份一致 evidence；implementation/evidence commit 为 `b64cab4e76f5ddd372a682531fe5802067a3c1c0`。
-- [x] F-004：唯一获授权本机握手已执行一次并按 `HANDSHAKE_SETUP_FAILED` 保持 blocked；未读取认证材料、未降级或重试，未产生可信 custom-role/child/parent evidence。
-- [x] F-005：canonical/installable payload 已移除候选可调用的可信 activation writer；test seam 不在 bundle/manifest/inventory。无候选不可伪造 host attestation 时安装态 activation/claim 统一 fail-closed；plan delta 为 `candidate-inaccessible-host-attestation-required`。
+- [x] F-004：本轮唯一获授权本机握手已从完整项目级 role/Skills 配置启动，并按 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE` 保持 blocked；未读取认证材料、降级、fallback 或重试，未产生可信 custom-role/config/child/parent evidence。
+- [x] F-005：canonical/installable payload 已移除 activation writer、`FixtureEvidenceProvider` 和 `make_fixture_evidence`；test seam 不在 bundle/manifest/inventory。无 host attestation 时正常 CLI/library claim/recovery fail-closed 且 runtime/tracked bytes 不变。
 - [ ] `GKD-M2-A` fixed bundle通过并合并后，另建人工`GKD-M2-B`在fresh runtime执行真实`wait_agent(timeout_ms=3600000)`与child early-final门；通过前auto route保持禁用。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。

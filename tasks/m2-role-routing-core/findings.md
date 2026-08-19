@@ -54,7 +54,7 @@
 
 ## F-004：fresh trusted custom-role handshake 尚未建立
 
-- 状态：待按 2026-08-19 用户授权执行一次本机登录态复验
+- 状态：本机登录态复验已执行；可信 host evidence 仍未建立
 - 严重程度：阻塞
 - 返工责任：执行 session
 - 对应要求：requirements AC12；plan Acceptance 91-92；delivery Handshake Boundary
@@ -64,7 +64,7 @@
 - 修改边界：使用正常本机 Codex 登录态和一个临时 Git repo 内的项目级 `.codex/agents`/`.codex/skills`；父会话必须 ephemeral。不得设置 alternate `CODEX_HOME`、读取/复制认证材料、写生产配置、修改 AIO、启用 auto route 或运行真实一小时等待。
 - 测试与文档：保留旧 blocked 证据作为历史；新 probe 只提交最小化 path-free 事件事实，原始 JSONL 和临时 repo 必须删除。成功或再次 blocked 都要更新 delivery/evidence 并明确唯一尝试的宿主事实。
 - 复验方式：独立审查本机登录态 probe 的完整临时事件后只保留规范化结果；复核角色文件与 fixed bundle digest、真实 custom-role activation、effective model/effort/sandbox 以及 child/parent terminal。任何缺失均保持阻塞。
-- 执行回应：本轮按授权执行了唯一一次本机登录态握手。只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`；随后临时握手脚本在写入 role/Skill 前因环境准备错误中止，未形成可验证的项目级 custom-role 配置或 host event。结果固定为 `HANDSHAKE_SETUP_FAILED`，`attempts=1`、无 event/identity、无 custom-role activation、无 child/parent terminal，临时目录已清理；不把该次运行升级为角色证据，也不重试。
+- 执行回应：只读预检为 `codex-cli 0.147.0`、`Logged in using ChatGPT`。在干净临时 Git repo 写入并校验当前 bundle 的精确 `gkd_executor.toml` 与三个所需 Skills 后，仅启动一次 `codex exec --ephemeral --ignore-user-config --json`，固定 `gpt-5.6-sol`、`xhigh`、`workspace-write` 和 no-approval。宿主退出码 1，仅产生 `error`、`thread.started`、`turn.started`、`item.completed`、`turn.failed`；未提供 custom-role activation、effective model/effort/sandbox、host digest binding 或 child/parent terminal。机器分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，原始 JSONL 与临时 repo 已删除；未降级、fallback 或重试，outcome 保持 `blocked`。
 
 ## F-005：安装态 activation writer 仍可由候选进程直接调用
 
@@ -78,7 +78,7 @@
 - 修改边界：仅 activation authority/writer/receipt 边界及测试；不得放宽 task CAS、lock、journal、claim receipt、delivery/acceptance、F-004 host evidence 或 manual-only 路由。若无法在批准范围内建立候选不可访问的宿主边界，停止并提交具体 plan delta。
 - 测试与文档：新增 executor-equivalent 独立子进程测试，尝试 import/call canonical 或 installed payload 中全部 activation 写入路径，必须在写记录或 claim commit 前失败；断言测试 seam 不在 manifest、bundle 和 installed inventory。保留 freshness、replay、cross-task/role/digest 测试。
 - 复验方式：从 clean temporary runtime，以 executor 等权限进程尝试构造完整 observation、直接调用 writer、替换 receipt 和重放；均须失败。真实正向 claim 只能在已证明候选不可伪造的 host receipt 存在时通过。
-- 执行回应：移除 canonical `gkd_role.activation.record_activation`、`ActivationEvidenceProvider` 和 `RuntimeStore.write_activation`；测试 host seam 移至 `tests/role_routing/activation_support.py`，未进入 `source.toml`、manifest 或 installed inventory。安装态 CLI 与 `TaskService` v2 claim/recovery 在无候选不可访问 host attestation 时统一返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`；executor-equivalent 独立子进程覆盖 import/call writer、直接库级 claim、CLI claim，均在写 activation 或 claim commit 前失败。stale、replay、cross-task/cross-role、digest drift、candidate-written rejection 和并发单赢家回归保持通过。由于当前宿主没有可证明的候选不可伪造 receipt/attestation 边界，plan delta 固定为 `candidate-inaccessible-host-attestation-required`，安装态 activation/claim 保持 blocked。
+- 执行回应：canonical payload 已移除 `gkd_role.activation.record_activation`、`ActivationEvidenceProvider`、`RuntimeStore.write_activation`、`FixtureEvidenceProvider` 与 `make_fixture_evidence`；两类 fixture seam 分别位于 `tests/role_routing` 和 `tests/task_core`，不进入 source、manifest、bundle 或安装 inventory。正常公开 CLI/library v2 claim/recovery 在无真实 host attestation 时统一返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`，并新增 runtime/tracked bytes 不变断言。未增加 monkeypatch/subclass 防御、daemon、IPC 或签名协议；CAS、锁、journal、recovery、freshness、replay、cross-task/cross-role、digest drift 回归全部保留。plan delta 仍为 `candidate-inaccessible-host-attestation-required`。
 
 ## 本轮边界
 

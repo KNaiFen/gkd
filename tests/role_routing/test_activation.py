@@ -274,20 +274,16 @@ RuntimeStore.write_activation(None, {})
 from pathlib import Path
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
-class CandidateProvider:
-    def observe(self, purpose, expected):
-        return {
-            "schemaVersion": 1, "provider": "candidate", "writerId": "candidate",
-            "sessionDigest": "b" * 64, "roleDigest": expected["roleDigest"],
-            "configDigest": expected["configDigest"], "route": expected["route"],
-            "status": "active", "observedAt": "2026-01-02T03:04:05Z",
-            "evidenceDigest": "c" * 64,
-        }
 runtime = RuntimeStore(Path(__import__("sys").argv[3]))
-service = TaskService(Path(__import__("sys").argv[1]), __import__("sys").argv[2], runtime=runtime, evidence_provider=CandidateProvider())
+service = TaskService(Path(__import__("sys").argv[1]), __import__("sys").argv[2], runtime=runtime)
 state = service._state()
 service.claim(service.status()["head"], state["revision"], __import__("sys").argv[4])
 """
+        before_runtime = {
+            path.relative_to(self.repo.runtime_root).as_posix(): path.read_bytes()
+            for path in self.repo.runtime_root.rglob("*")
+            if path.is_file()
+        }
         library = subprocess.run(
             [sys.executable, "-c", library_script, str(self.repo.candidate), self.repo.task_path, str(self.repo.runtime_root), self.handoff["envelopeId"]],
             cwd=Path.cwd(),
@@ -301,6 +297,12 @@ service.claim(service.status()["head"], state["revision"], __import__("sys").arg
         self.assertIn("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE", library.stderr)
         self.assertEqual(before_head, self.repo.head())
         self.assertEqual(before_revision, self.repo.state()["revision"])
+        after_runtime = {
+            path.relative_to(self.repo.runtime_root).as_posix(): path.read_bytes()
+            for path in self.repo.runtime_root.rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(before_runtime, after_runtime)
 
 
 if __name__ == "__main__":

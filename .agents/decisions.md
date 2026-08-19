@@ -172,3 +172,7 @@
 - [2026-08-19] GKD-M2-A F-005 已整改但可信宿主边界仍缺失。
   - Why: canonical payload 删除 `record_activation`、`ActivationEvidenceProvider` 与 `RuntimeStore.write_activation`；测试 host seam 移入 tests，安装态 CLI 与库级 v2 claim/recovery 在无 host attestation 时固定返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。56 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过。
   - Impact: 当前唯一允许结论仍为 `blocked`。本机登录态握手只执行一次并在临时 role/Skill 准备阶段以 `HANDSHAKE_SETUP_FAILED` 结束，未建立 custom-role activation 或 child/parent terminal；plan delta 固定为 `candidate-inaccessible-host-attestation-required`。PR #6 保持 Draft，禁止验收、合并、M2-B、automatic route 与生产/AIO 修改。
+
+- [2026-08-19] GKD-M2-A 完成最小安装面整改与本机握手复验。
+  - Why: canonical/installable payload 进一步移除 M1 的 `FixtureEvidenceProvider` 与 `make_fixture_evidence`，所有 activation/fixture writer seam 只留在 tests；正常 CLI/library v2 claim/recovery 无 host attestation 时在任何 runtime/tracked 写前返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。唯一 live probe 已从校验过 digest 的项目级 `gkd_executor`/Skills 启动，但宿主只给出失败事件，未证明角色、effective config 或双 terminal。
+  - Impact: F-005 最小整改闭环，F-004 分类为 `CUSTOM_ROLE_HANDSHAKE_INCOMPLETE`，总体仍为 `blocked`。不引入 daemon、IPC、签名协议或恶意 subclass 防御；PR #6 保持 Draft，auto route 与 M2-B 继续禁用。

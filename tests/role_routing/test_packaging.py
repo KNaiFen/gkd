@@ -22,6 +22,10 @@ class PackagingContracts(unittest.TestCase):
         self.assertTrue({"role-routing-cli", "role-routing-library", "role-routing-source", "role-routing-schemas", "workflow-skills"}.issubset(names))
         self.assertEqual(45, len(lock["installFiles"]))
         self.assertEqual(bundle_digest(), lock["contentDigest"])
+        payload_text = "\n".join(path.read_text(encoding="utf-8") for path in (BUNDLE_ROOT / "lib").rglob("*.py"))
+        self.assertNotIn("FixtureEvidenceProvider", payload_text)
+        self.assertNotIn("make_fixture_evidence", payload_text)
+        self.assertNotIn("record_activation", payload_text)
 
     def test_role_and_task_schemas_are_versioned_and_strict(self) -> None:
         role_schemas = {path.name for path in (BUNDLE_ROOT / "schema" / "role").iterdir()}
@@ -46,6 +50,11 @@ class PackagingContracts(unittest.TestCase):
             self.assertEqual(3, len(json.loads(result.stdout)["roles"]))
             self.assertEqual("0755", oct(executable.stat().st_mode & 0o777).removeprefix("0o").zfill(4))
             self.assertEqual(49, installed["files"])
+            inventory = json.loads((target / "gkd" / ".bundle" / "install.json").read_text(encoding="utf-8"))
+            inventory_text = json.dumps(inventory, sort_keys=True)
+            self.assertNotIn("FixtureEvidenceProvider", inventory_text)
+            self.assertNotIn("make_fixture_evidence", inventory_text)
+            self.assertNotIn("record_activation", inventory_text)
 
     def test_installed_role_files_follow_current_custom_agent_schema(self) -> None:
         for name, raw in role_files(BUNDLE_ROOT, bundle_digest()).items():
