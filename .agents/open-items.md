@@ -27,7 +27,7 @@
 - [x] `GKD-M2-A` fixed head `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 已独立验收并以 squash merge `9351d628d198ec8638311901cf288abadc643a42` 进入 main；70 项 M2、104 项 task-core、53 项 foundation、47 项 watcher core、15 项 live-negative 通过，两次 M2 evidence 逐字节一致。
 - [x] `GKD-M2-A` 收尾已完成：候选 worktree、本地任务分支、远端任务分支和跟踪引用均已删除；终态记录为 `tasks/m2-role-routing-core/acceptance.md`，复盘为 `tasks/m2-role-routing-core/retrospective.md`。
 - [x] `GKD-M2-B` 已按用户明确确认绑定 M2-A bundle digest 固化；一小时等待与early-final门完成。
-- [ ] `GKD-M2-C`：实现非生产project-scoped role stager和trusted-main spawn→activation→claim bridge，纠正README漂移；完成前不得假装M3 automatic route已可操作，也不得退回generic worker。
+- [ ] `GKD-M2-C` 已在 base `302f60d96c2f81e85052025f814593015a436bd7` 登记，branch `task/m2-automatic-runtime-bridge`、planning/offer head `77331cfa33575fb9b32c0c58f2c5894f67f1e316`、Draft PR #7，状态 `awaiting_claim`/revision 4；执行 Session 须实现非生产project stager与trusted-main activation/claim bridge并fixed-head交付。
 - [ ] `GKD-M3-A`：通用`.gkd` policy schema、repo/policy/origin一致性和GitHub fixed-head terminal monitor。
 - [ ] `GKD-M3-B`：产物分类、资源预设、GitHub runner/billing facts推荐与固定scanner wrapper。
 - [ ] `GKD-M3-C`：共享review core、`gkd-optimize-ci`、`gkd-review-remediation`和七Skill bundle收口。
