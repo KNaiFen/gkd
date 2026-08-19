@@ -216,3 +216,11 @@
 - [2026-08-20] 用户确认 M2-B 一小时原生等待门可用并免于重新取证。
   - Why: 用户明确说明已经验证 `wait_agent(timeout_ms=3600000)` 与 child early-final 可用，并要求直接按可用事实固化，不再定位 session 记录或重跑 live gate。M2-A 已由 fake-clock 合同覆盖最多12轮静默重等、绝对deadline、一次interrupt和单一timeout。
   - Impact: 用户确认作为本计划的 M2-B 接受依据，绑定 M2-A bundle digest `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880`；不伪装成重新生成的机器 session evidence。里程碑2完成，manual继续默认，M3/M4/M5可按已有hybrid B授权显式启动唯一`gkd_executor` automatic route；门禁漂移仍fail-closed。生产安装与AIO授权不变。
+
+- [2026-08-20] 自动路线启动前补充 `GKD-M2-C` runtime bridge。
+  - Why: M2-A 已实现角色生成、路由和 `TrustedMainActivationAuthority` library seam，但 project `.codex` staging 只存在于测试 fixture；仓库根没有可发现的 `gkd_executor`。公开 CLI 又故意禁止 candidate activation/claim，canonical payload 没有把 trusted main 的 exact spawn 返回值转换为 activation 并注入 claim 的可执行入口。当前 session 无法回溯加载后来生成的 custom role，直接启动 M3 会跳过 offer/claim 或退化为 generic worker。
+  - Impact: 先由最后一次人工顶层 session 实现窄的 M2-C：确定性 project-role stager、main-only spawn事实→activation→claim bridge、执行 bundle digest与候选输出 bundle digest分离、对应L1/L2合同及README纠偏。不安装生产 `~/.codex`，不实现M3产品功能，不读取session/auth。M2-C通过后从staged project启动fresh main，后续M3/M4/M5才真正使用automatic route。
+
+- [2026-08-20] 里程碑3拆分为三个依赖有序任务。
+  - Why: fixed-head monitor/policy、资源与防泄漏基础、用户工作流Skills虽同属M3，但接口和验收风险不同；合并为单一PR会扩大审查面并让资源/审查语义阻塞CI最小核心。
+  - Impact: `GKD-M3-A`只实现通用`.gkd` policy与GitHub fixed-head monitor；`GKD-M3-B`实现产物分类、资源预设、GitHub facts/推荐和固定scanner wrapper；`GKD-M3-C`实现共享review core、`gkd-optimize-ci`、`gkd-review-remediation`及七Skill收口。三者依次依赖并在M2-C后自动执行。

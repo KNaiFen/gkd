@@ -5,9 +5,10 @@
 里程碑 0、里程碑 1、M2-A 和 M2-B 已完成。M2-A 固定 head
 `b579926aaff50d40b462e7f21cf91c9709eeb3a3` 已由独立 main 验收并以
 `9351d628d198ec8638311901cf288abadc643a42` 合并。用户随后明确确认 M2-B 的
-一小时等待与 child early-final 已验证可用并免于重新取证。manual 仍为默认，
-但里程碑 3、4、5 现在可以显式使用专用 `gkd_executor` automatic route；生产
-安装和 AIO 接入仍未授权。
+一小时等待与 child early-final 已验证可用并免于重新取证。后续操作审计确认
+project role staging 与 trusted-main activation/claim bridge 尚未进入 canonical
+payload，因此先完成窄的人工 M2-C；其后里程碑 3、4、5 才实际使用专用
+`gkd_executor` automatic route。生产安装和 AIO 接入仍未授权。
 
 ## 子代理与角色实现的实际偏移
 
@@ -42,10 +43,11 @@
 
 ## 后续最小路线
 
-1. 从同步 main 规划里程碑 3 的首个任务，并按已有 hybrid B 授权显式请求
-   automatic route；不再创建 M2-B worktree。
-2. main 只能启动一个 `gkd_executor`，绑定 exact bundle、role/config、offer/claim、
-   activation 和 M2-B gate；executor 不验收、不合并、不清理，也不派生替代 worker。
+1. 人工完成 M2-C project stager 与 trusted-main activation/claim bridge；不实现
+   M3 功能，不安装生产 bundle，也不退回 generic worker。
+2. 从 staged project 启动 fresh main 后依次自动执行 M3-A、M3-B、M3-C；每项只
+   启动一个 `gkd_executor`，绑定 exact execution bundle、role/config、offer/claim、
+   activation 和 M2-B gate。
 3. 每次健康等待只调用 `wait_agent(timeout_ms=3600000)`；超时后立即重等，最多
    12轮。终态、错误、用户介入或deadline结束循环，不使用短wait或外部watcher。
 

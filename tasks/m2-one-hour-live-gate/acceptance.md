@@ -25,8 +25,9 @@
 ## 路由影响
 
 - manual 继续作为默认路线。
-- 里程碑 3、4、5 现在可以按既有授权显式请求 automatic route，并且只能选择
-  `gkd_executor`。
+- 里程碑 3、4、5 的 wait gate 现在允许显式请求 automatic route，并且只能选择
+  `gkd_executor`；实际启动仍须由后续 M2-C 提供 project role staging 与
+  trusted-main activation/claim bridge。
 - automatic route 仍必须绑定 exact bundle、role/config、offer/claim、activation
   和本记录对应的 wait gate；任一事实缺失或漂移时 fail-closed 回到 manual-only。
 - 本决定不授权生产 `~/.codex` 安装、AIO 接入、付费 runner、Secrets 或计划外
