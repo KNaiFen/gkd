@@ -24,6 +24,12 @@ from .canonical import (
 from .errors import TaskError
 
 
+AUTOMATIC_ROUTE_GATES = {
+    "activationProviderReady", "bundleFixed", "offerClaimReady",
+    "roleAvailable", "roleConfigFixed", "waitGateReady",
+}
+
+
 RUNTIME_SCHEMA_VERSION = 1
 
 
@@ -115,9 +121,20 @@ def validate_envelope(value: dict[str, Any]) -> None:
             "envelopeDigest",
         }
     if "roleName" in value or "bundleDigest" in value:
-        require_keys(value, legacy_keys | {"roleName", "bundleDigest"}, "INVALID_LAUNCH_ENVELOPE")
+        keys = legacy_keys | {"roleName", "bundleDigest"}
+        if "routeDecisionDigest" in value or "routeGates" in value:
+            keys |= {"routeDecisionDigest", "routeGates"}
+        require_keys(value, keys, "INVALID_LAUNCH_ENVELOPE")
         require_string(value["roleName"], "INVALID_LAUNCH_ENVELOPE")
         require_sha256(value["bundleDigest"], "INVALID_LAUNCH_ENVELOPE")
+        if "routeDecisionDigest" in value:
+            require_sha256(value["routeDecisionDigest"], "INVALID_LAUNCH_ENVELOPE")
+            if (
+                not isinstance(value["routeGates"], dict)
+                or set(value["routeGates"]) != AUTOMATIC_ROUTE_GATES
+                or not all(gate is True for gate in value["routeGates"].values())
+            ):
+                raise TaskError("INVALID_LAUNCH_ENVELOPE")
     else:
         require_keys(value, legacy_keys, "INVALID_LAUNCH_ENVELOPE")
     if value["schemaVersion"] != RUNTIME_SCHEMA_VERSION or value["kind"] != "launch-envelope":
@@ -131,6 +148,8 @@ def validate_envelope(value: dict[str, Any]) -> None:
     _absolute_directory(value["candidateRoot"], "INVALID_LAUNCH_ENVELOPE")
     for field in ("taskPath", "route"):
         require_string(value[field], "INVALID_LAUNCH_ENVELOPE")
+    if value["route"] == "automatic" and "routeDecisionDigest" not in value:
+        raise TaskError("INVALID_LAUNCH_ENVELOPE")
     require_utc(value["createdAt"], "INVALID_LAUNCH_ENVELOPE")
     unsigned = dict(value)
     actual = unsigned.pop("envelopeDigest")
@@ -269,6 +288,10 @@ class RuntimeStore:
             "ACTIVATION_UNAVAILABLE",
             validate_activation,
         )
+
+    def delete_activation(self, activation_id: str) -> None:
+        require_sha256(activation_id, "INVALID_ACTIVATION")
+        unlink_file(self._path("activations", activation_id))
 
     def write_activation_receipt(self, value: dict[str, Any]) -> None:
         from gkd_role.activation import validate_activation_receipt

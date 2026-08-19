@@ -65,8 +65,10 @@ kind = "library"
 files = [
   { source = "payload/lib/gkd_role/__init__.py", target = "gkd/lib/gkd_role/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_role/activation.py", target = "gkd/lib/gkd_role/activation.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/bridge.py", target = "gkd/lib/gkd_role/bridge.py", mode = "0644" },
   { source = "payload/lib/gkd_role/cli.py", target = "gkd/lib/gkd_role/cli.py", mode = "0644" },
   { source = "payload/lib/gkd_role/migration.py", target = "gkd/lib/gkd_role/migration.py", mode = "0644" },
+  { source = "payload/lib/gkd_role/project.py", target = "gkd/lib/gkd_role/project.py", mode = "0644" },
   { source = "payload/lib/gkd_role/roles.py", target = "gkd/lib/gkd_role/roles.py", mode = "0644" },
   { source = "payload/lib/gkd_role/routing.py", target = "gkd/lib/gkd_role/routing.py", mode = "0644" },
   { source = "payload/lib/gkd_role/waiting.py", target = "gkd/lib/gkd_role/waiting.py", mode = "0644" },
@@ -87,7 +89,10 @@ files = [
   { source = "payload/schema/role/activation.schema.json", target = "gkd/schema/role/activation.schema.json", mode = "0644" },
   { source = "payload/schema/role/context.schema.json", target = "gkd/schema/role/context.schema.json", mode = "0644" },
   { source = "payload/schema/role/migration.schema.json", target = "gkd/schema/role/migration.schema.json", mode = "0644" },
+  { source = "payload/schema/role/project.schema.json", target = "gkd/schema/role/project.schema.json", mode = "0644" },
+  { source = "payload/schema/role/route-decision.schema.json", target = "gkd/schema/role/route-decision.schema.json", mode = "0644" },
   { source = "payload/schema/role/route.schema.json", target = "gkd/schema/role/route.schema.json", mode = "0644" },
+  { source = "payload/schema/role/spawn-result.schema.json", target = "gkd/schema/role/spawn-result.schema.json", mode = "0644" },
   { source = "payload/schema/role/wait.schema.json", target = "gkd/schema/role/wait.schema.json", mode = "0644" },
 ]
 

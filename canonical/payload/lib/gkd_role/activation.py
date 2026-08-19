@@ -20,15 +20,18 @@ def _instant(value: str, code: str) -> datetime:
 
 
 def validate_activation(value: dict[str, Any]) -> None:
+    keys = {
+        "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
+        "offerId", "envelopeId", "route", "agentId", "threadDigest", "roleName",
+        "roleDigest", "configDigest", "bundleDigest", "effectiveModel",
+        "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt",
+        "offerCreatedAt", "offerExpiresAt", "evidenceClass", "providerName", "providerDigest", "activationDigest",
+    }
+    if "routeDecisionDigest" in value:
+        keys.add("routeDecisionDigest")
     require_keys(
         value,
-        {
-            "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
-            "offerId", "envelopeId", "route", "agentId", "threadDigest", "roleName",
-            "roleDigest", "configDigest", "bundleDigest", "effectiveModel",
-            "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt",
-            "offerCreatedAt", "offerExpiresAt", "evidenceClass", "providerName", "providerDigest", "activationDigest",
-        },
+        keys,
         "INVALID_ACTIVATION",
     )
     if value["schemaVersion"] != 1 or value["kind"] != "role-activation" or value["evidenceClass"] != "host-runtime-event":
@@ -37,6 +40,8 @@ def validate_activation(value: dict[str, Any]) -> None:
         require_string(value[field], "INVALID_ACTIVATION")
     for field in ("activationId", "offerId", "envelopeId", "threadDigest", "roleDigest", "configDigest", "bundleDigest", "providerDigest", "activationDigest"):
         require_sha256(value[field], "INVALID_ACTIVATION")
+    if "routeDecisionDigest" in value:
+        require_sha256(value["routeDecisionDigest"], "INVALID_ACTIVATION")
     if value["runtimeSeconds"] not in {3600, 43200}:
         raise TaskError("INVALID_ACTIVATION")
     for field in ("offerCreatedAt", "offerExpiresAt", "activatedAt"):
@@ -72,8 +77,11 @@ def validate_activation_binding(activation: dict[str, Any], expected: dict[str, 
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
     if not _instant(activation["offerCreatedAt"], "RUNTIME_EVIDENCE_MISMATCH") <= _instant(activation["activatedAt"], "RUNTIME_EVIDENCE_MISMATCH") < _instant(activation["offerExpiresAt"], "RUNTIME_EVIDENCE_MISMATCH"):
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-    for name in ("taskId", "repository", "taskBranch", "route", "roleDigest", "configDigest", "roleName", "bundleDigest", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt"):
-        if expected.get(name) != activation[name]:
+    names = ["taskId", "repository", "taskBranch", "route", "roleDigest", "configDigest", "roleName", "bundleDigest", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt"]
+    if "routeDecisionDigest" in expected:
+        names.append("routeDecisionDigest")
+    for name in names:
+        if expected.get(name) != activation.get(name):
             raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
 
 
@@ -93,7 +101,11 @@ class TrustedMainActivationAuthority:
         host_facts: dict[str, Any],
         nonce: str,
     ) -> dict[str, Any]:
-        require_keys(expected, {"taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt"}, "INVALID_ACTIVATION_REQUEST")
+        expected_keys = {"taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt"}
+        if "routeDecisionDigest" in expected:
+            expected_keys.add("routeDecisionDigest")
+            require_sha256(expected["routeDecisionDigest"], "INVALID_ACTIVATION_REQUEST")
+        require_keys(expected, expected_keys, "INVALID_ACTIVATION_REQUEST")
         require_keys(host_facts, {"evidenceClass", "agentId", "threadDigest", "model", "reasoningEffort", "sandbox", "runtimeSeconds", "activatedAt"}, "INVALID_ACTIVATION_OBSERVATION")
         role = role_record(self.catalog, expected["roleName"])
         if (
@@ -225,6 +237,7 @@ class TrustedActivationEvidenceProvider:
                 "bundleDigest": offer["bundleDigest"],
                 "offerCreatedAt": offer["createdAt"],
                 "offerExpiresAt": offer["expiresAt"],
+                **({"routeDecisionDigest": offer["routeDecisionDigest"]} if offer.get("routeDecisionDigest") else {}),
             },
         )
         if activation["providerDigest"] != self.provider_digest or activation["providerName"] != self.provider_name or activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:

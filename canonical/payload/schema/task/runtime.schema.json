@@ -1,24 +1,138 @@
 {
+  "$id": "gkd://schema/task/runtime-v2",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gkd://schema/task/runtime-v1",
   "oneOf": [
     {"$ref": "#/$defs/attachment"},
     {"$ref": "#/$defs/capability"},
     {"$ref": "#/$defs/envelope"},
     {"$ref": "#/$defs/envelopeV2"},
+    {"$ref": "#/$defs/envelopeV3"},
     {"$ref": "#/$defs/claimReceipt"},
     {"$ref": "#/$defs/activation"},
     {"$ref": "#/$defs/activationReceipt"},
     {"$ref": "#/$defs/journal"}
   ],
   "$defs": {
-    "attachment": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "repository", "taskId", "taskBranch", "taskPath", "candidateRoot", "commonDir", "updatedAt", "attachmentDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "attachment"}, "repository": {"type": "string"}, "taskId": {"type": "string"}, "taskBranch": {"type": "string"}, "taskPath": {"type": "string"}, "candidateRoot": {"type": "string"}, "commonDir": {"type": "string"}, "updatedAt": {"type": "string"}, "attachmentDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
-    "capability": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "offerId", "epoch", "capability", "capabilityDigest", "createdAt"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "capability"}, "offerId": {"type": "string"}, "epoch": {"type": "integer"}, "capability": {"type": "string"}, "capabilityDigest": {"type": "string"}, "createdAt": {"type": "string"}}},
-    "envelope": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "envelopeId", "offerId", "epoch", "capability", "candidateRoot", "taskPath", "route", "roleDigest", "configDigest", "createdAt", "envelopeDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "launch-envelope"}, "envelopeId": {"type": "string"}, "offerId": {"type": "string"}, "epoch": {"type": "integer"}, "capability": {"type": "string"}, "candidateRoot": {"type": "string"}, "taskPath": {"type": "string"}, "route": {"type": "string"}, "roleDigest": {"type": "string"}, "configDigest": {"type": "string"}, "createdAt": {"type": "string"}, "envelopeDigest": {"type": "string"}}},
-    "envelopeV2": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "envelopeId", "offerId", "epoch", "capability", "candidateRoot", "taskPath", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "createdAt", "envelopeDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "launch-envelope"}, "envelopeId": {"type": "string"}, "offerId": {"type": "string"}, "epoch": {"type": "integer"}, "capability": {"type": "string"}, "candidateRoot": {"type": "string"}, "taskPath": {"type": "string"}, "route": {"type": "string"}, "roleName": {"type": "string"}, "roleDigest": {"type": "string"}, "configDigest": {"type": "string"}, "bundleDigest": {"type": "string"}, "createdAt": {"type": "string"}, "envelopeDigest": {"type": "string"}}},
-    "claimReceipt": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "taskId", "repository", "taskBranch", "taskPath", "offerId", "claimId", "epoch", "claimBaseHead", "claimCommit", "claimStateDigest", "offerDigest", "transactionId", "transactionDigest", "recordedAt", "receiptDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "claim-receipt"}, "taskId": {"type": "string"}, "repository": {"type": "string"}, "taskBranch": {"type": "string"}, "taskPath": {"type": "string"}, "offerId": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "claimId": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "epoch": {"type": "integer", "minimum": 0}, "claimBaseHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "claimCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "claimStateDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "offerDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "transactionId": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "transactionDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "recordedAt": {"type": "string"}, "receiptDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activationProviderReady": {"const": true},
+        "bundleFixed": {"const": true},
+        "offerClaimReady": {"const": true},
+        "roleAvailable": {"const": true},
+        "roleConfigFixed": {"const": true},
+        "waitGateReady": {"const": true}
+      },
+      "required": ["activationProviderReady", "bundleFixed", "offerClaimReady", "roleAvailable", "roleConfigFixed", "waitGateReady"]
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1}, "kind": {"const": "attachment"},
+        "repository": {"type": "string"}, "taskId": {"type": "string"},
+        "taskBranch": {"type": "string"}, "taskPath": {"type": "string"},
+        "candidateRoot": {"type": "string"}, "commonDir": {"type": "string"},
+        "updatedAt": {"type": "string"}, "attachmentDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["schemaVersion", "kind", "repository", "taskId", "taskBranch", "taskPath", "candidateRoot", "commonDir", "updatedAt", "attachmentDigest"]
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1}, "kind": {"const": "capability"},
+        "offerId": {"$ref": "#/$defs/sha256"}, "epoch": {"type": "integer", "minimum": 0},
+        "capability": {"type": "string"}, "capabilityDigest": {"$ref": "#/$defs/sha256"},
+        "createdAt": {"type": "string"}
+      },
+      "required": ["schemaVersion", "kind", "offerId", "epoch", "capability", "capabilityDigest", "createdAt"]
+    },
+    "envelopeBase": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {"const": 1}, "kind": {"const": "launch-envelope"},
+        "envelopeId": {"$ref": "#/$defs/sha256"}, "offerId": {"$ref": "#/$defs/sha256"},
+        "epoch": {"type": "integer", "minimum": 0}, "capability": {"type": "string"},
+        "candidateRoot": {"type": "string"}, "taskPath": {"type": "string"},
+        "route": {"type": "string"}, "roleDigest": {"$ref": "#/$defs/sha256"},
+        "configDigest": {"$ref": "#/$defs/sha256"}, "createdAt": {"type": "string"},
+        "envelopeDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["schemaVersion", "kind", "envelopeId", "offerId", "epoch", "capability", "candidateRoot", "taskPath", "route", "roleDigest", "configDigest", "createdAt", "envelopeDigest"]
+    },
+    "envelope": {
+      "type": "object", "unevaluatedProperties": false,
+      "allOf": [
+        {"$ref": "#/$defs/envelopeBase"},
+        {"properties": {"route": {"not": {"const": "automatic"}}}}
+      ]
+    },
+    "envelopeV2": {
+      "type": "object", "unevaluatedProperties": false,
+      "allOf": [
+        {"$ref": "#/$defs/envelopeBase"},
+        {"properties": {"route": {"not": {"const": "automatic"}}, "roleName": {"type": "string"}, "bundleDigest": {"$ref": "#/$defs/sha256"}}, "required": ["roleName", "bundleDigest"]}
+      ]
+    },
+    "envelopeV3": {
+      "type": "object", "unevaluatedProperties": false,
+      "allOf": [
+        {"$ref": "#/$defs/envelopeBase"},
+        {
+          "properties": {
+            "route": {"const": "automatic"}, "roleName": {"const": "gkd_executor"},
+            "bundleDigest": {"$ref": "#/$defs/sha256"},
+            "routeDecisionDigest": {"$ref": "#/$defs/sha256"},
+            "routeGates": {"$ref": "#/$defs/gates"}
+          },
+          "required": ["roleName", "bundleDigest", "routeDecisionDigest", "routeGates"]
+        }
+      ]
+    },
+    "claimReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1}, "kind": {"const": "claim-receipt"},
+        "taskId": {"type": "string"}, "repository": {"type": "string"},
+        "taskBranch": {"type": "string"}, "taskPath": {"type": "string"},
+        "offerId": {"$ref": "#/$defs/sha256"}, "claimId": {"$ref": "#/$defs/sha256"},
+        "epoch": {"type": "integer", "minimum": 0}, "claimBaseHead": {"$ref": "#/$defs/sha1"},
+        "claimCommit": {"$ref": "#/$defs/sha1"}, "claimStateDigest": {"$ref": "#/$defs/sha256"},
+        "offerDigest": {"$ref": "#/$defs/sha256"}, "transactionId": {"$ref": "#/$defs/sha256"},
+        "transactionDigest": {"$ref": "#/$defs/sha256"}, "recordedAt": {"type": "string"},
+        "receiptDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["schemaVersion", "kind", "taskId", "repository", "taskBranch", "taskPath", "offerId", "claimId", "epoch", "claimBaseHead", "claimCommit", "claimStateDigest", "offerDigest", "transactionId", "transactionDigest", "recordedAt", "receiptDigest"]
+    },
     "activation": {"$ref": "../role/activation.schema.json"},
-    "activationReceipt": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "kind", "activationId", "activationDigest", "claimId", "claimCommit", "claimReceiptDigest", "consumedAt", "receiptDigest"], "properties": {"schemaVersion": {"const": 1}, "kind": {"const": "activation-receipt"}, "activationId": {"type": "string"}, "activationDigest": {"type": "string"}, "claimId": {"type": "string"}, "claimCommit": {"type": "string"}, "claimReceiptDigest": {"type": "string"}, "consumedAt": {"type": "string"}, "receiptDigest": {"type": "string"}}},
-    "journal": {"type": "object", "additionalProperties": false, "required": ["schemaVersion", "transactionId", "runtimeKey", "status", "expectedHead", "expectedRevision", "files", "createdAt", "committedHead", "journalDigest"], "properties": {"schemaVersion": {"const": 1}, "transactionId": {"type": "string"}, "runtimeKey": {"type": "string"}, "status": {"enum": ["prepared", "committed", "rolled_back"]}, "expectedHead": {"type": "string"}, "expectedRevision": {"type": "integer"}, "files": {"type": "array"}, "createdAt": {"type": "string"}, "committedHead": {"type": ["string", "null"]}, "journalDigest": {"type": "string"}}}
+    "activationReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1}, "kind": {"const": "activation-receipt"},
+        "activationId": {"$ref": "#/$defs/sha256"}, "activationDigest": {"$ref": "#/$defs/sha256"},
+        "claimId": {"$ref": "#/$defs/sha256"}, "claimCommit": {"$ref": "#/$defs/sha1"},
+        "claimReceiptDigest": {"$ref": "#/$defs/sha256"}, "consumedAt": {"type": "string"},
+        "receiptDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["schemaVersion", "kind", "activationId", "activationDigest", "claimId", "claimCommit", "claimReceiptDigest", "consumedAt", "receiptDigest"]
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1}, "transactionId": {"$ref": "#/$defs/sha256"},
+        "runtimeKey": {"type": "string"}, "status": {"enum": ["prepared", "committed", "rolled_back"]},
+        "expectedHead": {"$ref": "#/$defs/sha1"}, "expectedRevision": {"type": "integer"},
+        "files": {"type": "array"}, "createdAt": {"type": "string"},
+        "committedHead": {"type": ["string", "null"]}, "journalDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["schemaVersion", "transactionId", "runtimeKey", "status", "expectedHead", "expectedRevision", "files", "createdAt", "committedHead", "journalDigest"]
+    }
   }
 }

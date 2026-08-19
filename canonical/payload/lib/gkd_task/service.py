@@ -650,14 +650,29 @@ class TaskService:
         expires_at: str,
         role_name: str | None = None,
         bundle_digest: str | None = None,
+        route_decision: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         require_string(route, "INVALID_ROUTE")
         require_sha256(role_digest, "INVALID_ROLE_DIGEST")
         require_sha256(config_digest, "INVALID_CONFIG_DIGEST")
         require_utc(expires_at, "INVALID_OFFER_EXPIRY")
-        if (role_name is None) != (bundle_digest is None):
+        automatic = route == "automatic"
+        if automatic:
+            if role_name is None or bundle_digest is None or route_decision is None:
+                raise TaskError("AUTOMATIC_ROUTE_DECISION_REQUIRED")
+            from gkd_role.routing import validate_route_decision
+
+            require_string(role_name, "INVALID_ROLE_NAME")
+            require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
+            validate_route_decision(route_decision, require_automatic=True)
+            if (
+                route_decision["bundleDigest"] != bundle_digest
+                or route_decision["selectedRole"] != role_name
+            ):
+                raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
+        elif route_decision is not None or (role_name is None) != (bundle_digest is None):
             raise TaskError("INVALID_OFFER")
-        if role_name is not None:
+        elif role_name is not None:
             require_string(role_name, "INVALID_ROLE_NAME")
             require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
         capability = self.nonce.token(48)
@@ -691,7 +706,7 @@ class TaskService:
             if expires_at <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
             value = {
-                "schemaVersion": 2 if role_name is not None else TASK_SCHEMA_VERSION,
+                "schemaVersion": 3 if automatic else (2 if role_name is not None else TASK_SCHEMA_VERSION),
                 "offerId": offer_id,
                 "status": "active",
                 "epoch": state["lifecycle"]["epoch"],
@@ -715,6 +730,9 @@ class TaskService:
             if role_name is not None:
                 value["roleName"] = role_name
                 value["bundleDigest"] = bundle_digest
+            if automatic:
+                value["routeDecisionDigest"] = route_decision["decisionDigest"]
+                value["routeGates"] = deepcopy(route_decision["gates"])
             validate_offer(value)
             updated = deepcopy(state)
             updated["lifecycle"]["phase"] = "awaiting_claim"
@@ -782,9 +800,12 @@ class TaskService:
             "configDigest": offer["configDigest"],
             "createdAt": self.clock.now(),
         }
-        if offer["schemaVersion"] == 2:
+        if offer["schemaVersion"] in {2, 3}:
             envelope["roleName"] = offer["roleName"]
             envelope["bundleDigest"] = offer["bundleDigest"]
+        if offer["schemaVersion"] == 3:
+            envelope["routeDecisionDigest"] = offer["routeDecisionDigest"]
+            envelope["routeGates"] = deepcopy(offer["routeGates"])
         envelope["envelopeDigest"] = digest_object(envelope)
         self.runtime.write_envelope(envelope_id, envelope)
         if head(self.candidate_root) != before or not is_clean(self.candidate_root):
@@ -813,21 +834,27 @@ class TaskService:
                 or offer["authorizationDigest"] != state["actionAuthorizationDigest"]
             ):
                 raise TaskError("CAPABILITY_MISMATCH")
-            if offer["schemaVersion"] == 2 and (
+            if offer["schemaVersion"] in {2, 3} and (
                 envelope.get("roleName") != offer["roleName"]
                 or envelope.get("bundleDigest") != offer["bundleDigest"]
             ):
                 raise TaskError("CAPABILITY_MISMATCH")
+            if offer["schemaVersion"] == 3 and (
+                envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
+                or envelope.get("routeGates") != offer["routeGates"]
+                or not all(offer["routeGates"].values())
+            ):
+                raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
             if offer["expiresAt"] <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
-            if offer["schemaVersion"] == 2:
+            if offer["schemaVersion"] in {2, 3}:
                 self._require_activation_authority()
             evidence_expectation = {
                 "route": offer["route"],
                 "roleDigest": offer["roleDigest"],
                 "configDigest": offer["configDigest"],
             }
-            if offer["schemaVersion"] == 2:
+            if offer["schemaVersion"] in {2, 3}:
                 evidence_expectation.update(
                     {
                         "taskId": state["taskId"],
@@ -841,6 +868,8 @@ class TaskService:
                         "offerExpiresAt": offer["expiresAt"],
                     }
                 )
+            if offer["schemaVersion"] == 3:
+                evidence_expectation["routeDecisionDigest"] = offer["routeDecisionDigest"]
             evidence = self.evidence_provider.observe("claim", evidence_expectation)
             validate_runtime_evidence(evidence)
             if (
@@ -862,12 +891,15 @@ class TaskService:
                 "claimedAt": self.clock.now(),
                 "claimBaseHead": expected_head,
             }
-            if offer["schemaVersion"] == 2:
+            if offer["schemaVersion"] in {2, 3}:
                 activation_id = getattr(self.evidence_provider, "activation_id", None)
                 if not isinstance(activation_id, str):
                     raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
                 claim["activationId"] = activation_id
                 claim["envelopeId"] = envelope["envelopeId"]
+            if offer["schemaVersion"] == 3:
+                claim["executionBundleDigest"] = offer["bundleDigest"]
+                claim["routeDecisionDigest"] = offer["routeDecisionDigest"]
             updated_offer = deepcopy(offer)
             updated_offer["status"] = "consumed"
             updated_offer["consumedByDigest"] = digest_object(claim)
@@ -900,6 +932,64 @@ class TaskService:
         if consume is not None:
             consume(claim["claimId"], result["head"], receipt["receiptDigest"], self.clock.now())
         return result
+
+    def automatic_claim_context(self, envelope_id: str) -> dict[str, Any]:
+        """Return only the fixed facts a trusted-main bridge may bind to a spawn."""
+
+        require_sha256(envelope_id, "INVALID_LAUNCH_ENVELOPE")
+        state = self._state()
+        offer = self._offer()
+        envelope = self.runtime.read_envelope(envelope_id)
+        if (
+            state["lifecycle"]["phase"] != "awaiting_claim"
+            or offer["schemaVersion"] != 3
+            or offer["status"] != "active"
+            or offer["route"] != "automatic"
+            or offer["offerId"] != envelope["offerId"]
+            or offer["epoch"] != envelope["epoch"]
+            or envelope.get("roleName") != offer["roleName"]
+            or envelope.get("bundleDigest") != offer["bundleDigest"]
+            or envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
+            or envelope.get("routeGates") != offer["routeGates"]
+            or not all(offer["routeGates"].values())
+            or sha256_bytes(envelope["capability"].encode("utf-8")) != offer["capabilityDigest"]
+        ):
+            raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
+        return {
+            "taskId": state["taskId"],
+            "repository": state["repository"]["identity"],
+            "taskBranch": state["repository"]["taskBranch"],
+            "offerId": offer["offerId"],
+            "envelopeId": envelope["envelopeId"],
+            "route": offer["route"],
+            "roleName": offer["roleName"],
+            "roleDigest": offer["roleDigest"],
+            "configDigest": offer["configDigest"],
+            "bundleDigest": offer["bundleDigest"],
+            "routeDecisionDigest": offer["routeDecisionDigest"],
+            "routeGates": deepcopy(offer["routeGates"]),
+            "offerCreatedAt": offer["createdAt"],
+            "offerExpiresAt": offer["expiresAt"],
+        }
+
+    def automatic_recovery_context(self) -> dict[str, Any]:
+        """Return the committed automatic claim binding needed for receipt recovery."""
+
+        state = self._state()
+        claim = state["lifecycle"]["claim"]
+        if (
+            state["lifecycle"]["phase"] != "implementing"
+            or claim is None
+            or "activationId" not in claim
+            or "executionBundleDigest" not in claim
+            or "routeDecisionDigest" not in claim
+        ):
+            raise TaskError("INVALID_TRANSITION")
+        return {
+            "activationId": claim["activationId"],
+            "executionBundleDigest": claim["executionBundleDigest"],
+            "routeDecisionDigest": claim["routeDecisionDigest"],
+        }
 
     def _require_activation_authority(self) -> None:
         """Accept only the provider object supplied by trusted main orchestration."""
@@ -1015,6 +1105,7 @@ class TaskService:
             or activation["roleDigest"] != offer["roleDigest"]
             or activation["configDigest"] != offer["configDigest"]
             or activation["bundleDigest"] != offer["bundleDigest"]
+            or activation.get("routeDecisionDigest") != offer.get("routeDecisionDigest")
             or activation["route"] != offer["route"]
             or activation["offerCreatedAt"] != offer["createdAt"]
             or activation["offerExpiresAt"] != offer["expiresAt"]
@@ -1062,13 +1153,25 @@ class TaskService:
 
         return self._transact(expected_head, expected_revision, builder)
 
-    def deliver(self, expected_head: str, expected_revision: int, claim_id: str) -> dict[str, Any]:
+    def deliver(
+        self,
+        expected_head: str,
+        expected_revision: int,
+        claim_id: str,
+        candidate_output_bundle_digest: str | None = None,
+    ) -> dict[str, Any]:
         require_sha256(claim_id, "CLAIM_MISMATCH")
         current_claim = self._state()["lifecycle"]["claim"]
         if current_claim is None or current_claim["claimId"] != claim_id:
             raise TaskError("CLAIM_MISMATCH")
         claim_receipt = self._ensure_claim_receipt(claim_id)
         self._require_activation_receipt(current_claim, claim_receipt)
+        if "executionBundleDigest" in current_claim:
+            if candidate_output_bundle_digest is None:
+                raise TaskError("CANDIDATE_OUTPUT_BUNDLE_REQUIRED")
+            require_sha256(candidate_output_bundle_digest, "INVALID_CANDIDATE_OUTPUT_BUNDLE")
+        elif candidate_output_bundle_digest is not None:
+            raise TaskError("INVALID_CANDIDATE_OUTPUT_BUNDLE")
 
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)
@@ -1081,6 +1184,10 @@ class TaskService:
             if authorization["authorizationDigest"] != state["actionAuthorizationDigest"]:
                 raise TaskError("authorization_mismatch")
             record = {"implementationHead": expected_head, "claimId": claim_id, "deliveredAt": self.clock.now()}
+            if "executionBundleDigest" in claim:
+                record["executionBundleDigest"] = claim["executionBundleDigest"]
+                record["candidateOutputBundleDigest"] = candidate_output_bundle_digest
+                record["routeDecisionDigest"] = claim["routeDecisionDigest"]
             updated = deepcopy(state)
             updated["lifecycle"]["phase"] = "delivered"
             updated["lifecycle"]["writer"] = None

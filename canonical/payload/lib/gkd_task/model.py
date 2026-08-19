@@ -174,7 +174,12 @@ def _lifecycle_record(value: Any) -> None:
         require_string(retired["reason"], "INVALID_TASK_STATE")
         require_utc(retired["retiredAt"], "INVALID_TASK_STATE")
     if value["delivery"] is not None:
-        require_keys(value["delivery"], {"implementationHead", "claimId", "deliveredAt"}, "INVALID_TASK_STATE")
+        delivery_keys = {"implementationHead", "claimId", "deliveredAt"}
+        if "executionBundleDigest" in value["delivery"]:
+            delivery_keys |= {"executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"}
+            for field in ("executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"):
+                require_sha256(value["delivery"][field], "INVALID_TASK_STATE")
+        require_keys(value["delivery"], delivery_keys, "INVALID_TASK_STATE")
         require_sha1(value["delivery"]["implementationHead"], "INVALID_TASK_STATE")
         require_sha256(value["delivery"]["claimId"], "INVALID_TASK_STATE")
         require_utc(value["delivery"]["deliveredAt"], "INVALID_TASK_STATE")
@@ -210,6 +215,17 @@ def _lifecycle_record(value: Any) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if delivery is not None and (claim is None or delivery["claimId"] != claim["claimId"]):
         raise TaskError("INVALID_TASK_STATE")
+    if delivery is not None:
+        automatic_claim = "executionBundleDigest" in claim
+        automatic_delivery = "executionBundleDigest" in delivery
+        if automatic_claim != automatic_delivery or (
+            automatic_claim
+            and (
+                delivery["executionBundleDigest"] != claim["executionBundleDigest"]
+                or delivery["routeDecisionDigest"] != claim["routeDecisionDigest"]
+            )
+        ):
+            raise TaskError("INVALID_TASK_STATE")
     if value["retiredClaims"]:
         epochs = [item["epoch"] for item in value["retiredClaims"]]
         if epochs != sorted(set(epochs)) or any(epoch >= value["epoch"] for epoch in epochs):
@@ -231,7 +247,13 @@ def _lifecycle_record(value: Any) -> None:
 def _claim_record(value: dict[str, Any]) -> None:
     legacy_keys = {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"}
     if "activationId" in value or "envelopeId" in value:
-        require_keys(value, legacy_keys | {"activationId", "envelopeId"}, "INVALID_TASK_STATE")
+        keys = legacy_keys | {"activationId", "envelopeId"}
+        if "executionBundleDigest" in value or "routeDecisionDigest" in value:
+            keys |= {"executionBundleDigest", "routeDecisionDigest"}
+        require_keys(value, keys, "INVALID_TASK_STATE")
+        if "executionBundleDigest" in value:
+            require_sha256(value["executionBundleDigest"], "INVALID_TASK_STATE")
+            require_sha256(value["routeDecisionDigest"], "INVALID_TASK_STATE")
         require_sha256(value["activationId"], "INVALID_TASK_STATE")
         require_sha256(value["envelopeId"], "INVALID_TASK_STATE")
     else:
@@ -599,14 +621,44 @@ def validate_offer(value: dict[str, Any]) -> None:
             "createdAt",
             "expiresAt",
             "consumedByDigest",
-        }
-    if value.get("schemaVersion") == 2:
-        require_keys(value, legacy_keys | {"roleName", "bundleDigest"}, "INVALID_OFFER")
+    }
+    if value.get("schemaVersion") in {2, 3}:
+        versioned_keys = legacy_keys | {"roleName", "bundleDigest"}
+        if value["schemaVersion"] == 3:
+            versioned_keys |= {"routeDecisionDigest", "routeGates"}
+        require_keys(value, versioned_keys, "INVALID_OFFER")
         require_string(value["roleName"], "INVALID_OFFER")
         require_sha256(value["bundleDigest"], "INVALID_OFFER")
+        if value["schemaVersion"] == 3:
+            require_sha256(value["routeDecisionDigest"], "INVALID_OFFER")
+            expected_gates = {
+                "activationProviderReady", "bundleFixed", "offerClaimReady",
+                "roleAvailable", "roleConfigFixed", "waitGateReady",
+            }
+            if (
+                not isinstance(value["routeGates"], dict)
+                or set(value["routeGates"]) != expected_gates
+                or not all(gate is True for gate in value["routeGates"].values())
+            ):
+                raise TaskError("INVALID_OFFER")
+            if value["route"] != "automatic" or value["roleName"] != "gkd_executor":
+                raise TaskError("INVALID_OFFER")
+            decision = {
+                "schemaVersion": 1,
+                "requestedRoute": "automatic",
+                "outcome": "automatic",
+                "bundleDigest": value["bundleDigest"],
+                "gates": value["routeGates"],
+                "selectedRole": "gkd_executor",
+                "fallbackAttempted": False,
+                "refusal": None,
+            }
+            decision["decisionDigest"] = digest_object(decision)
+            if decision["decisionDigest"] != value["routeDecisionDigest"]:
+                raise TaskError("INVALID_OFFER")
     else:
         require_keys(value, legacy_keys, "INVALID_OFFER")
-    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, 2} or value["status"] not in {"active", "consumed", "revoked"}:
+    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, 2, 3} or value["status"] not in {"active", "consumed", "revoked"}:
         raise TaskError("INVALID_OFFER")
     for field in ("offerId", "planMaterialDigest", "authorizationDigest", "roleDigest", "configDigest", "capabilityDigest"):
         require_sha256(value[field], "INVALID_OFFER")
@@ -619,6 +671,8 @@ def validate_offer(value: dict[str, Any]) -> None:
     if not isinstance(value["epoch"], int) or value["epoch"] < 0:
         raise TaskError("INVALID_OFFER")
     require_string(value["route"], "INVALID_OFFER")
+    if value["route"] == "automatic" and value["schemaVersion"] != 3:
+        raise TaskError("INVALID_OFFER")
     if not isinstance(value["planVersion"], int) or value["planVersion"] < 1:
         raise TaskError("INVALID_OFFER")
     if (

@@ -179,7 +179,7 @@ class PackagingContracts(unittest.TestCase):
         names = {component["name"] for component in manifest["components"]}
         self.assertTrue({"task-cli", "task-library", "task-schemas"}.issubset(names))
         lock = json.loads((self.source / "manifest.lock.json").read_text(encoding="utf-8"))
-        self.assertEqual(45, len(lock["installFiles"]))
+        self.assertEqual(50, len(lock["installFiles"]))
         self.assertEqual(self.generated["contentDigest"], lock["contentDigest"])
 
     def test_payload_and_machine_output_contain_no_fixture_path_or_plain_capability(self) -> None:

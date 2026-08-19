@@ -40,18 +40,28 @@ repository identity, independent candidate path and reviewed three-document
 planning package. Runtime attachments, one-time capabilities, envelopes, claim
 receipts, locks and journals stay outside tracked task data. A claim receipt is
 bound to the exact claim commit and committed transaction postimages before
-delivery or trusted acceptance can proceed. Installed claim routing remains
-fail-closed until a later milestone provides a trusted runtime evidence
-provider; this development component does not enable automatic execution.
+delivery or trusted acceptance can proceed. Candidate-facing claim and
+activation commands, and the default library path without a trusted provider,
+remain fail-closed.
 
 The M2-A payload additionally defines three fixed custom-agent role TOMLs,
 minimal role context manifests, hard-rule subsets, five progressive-disclosure
 workflow Skills, route and wait schemas, and a trusted-main workflow activation
-provider. Candidate-facing CLI and default library claim/recovery remain
-fail-closed without that provider. This is not same-user process isolation and
-does not add signing, daemon, IPC, or key infrastructure. The default route is
-manual; automatic routing has six explicit gates and remains manual-only until
-the separate M2-B fresh-runtime wait gate proves the required one-hour tool
-behavior. The authorized production-environment handshake proved one exact
-`gkd_executor` child and both terminal events, so M2-A evidence is
-`role_routing_core_ready` while automatic routing remains disabled.
+provider. This is not same-user process isolation and does not add signing,
+daemon, IPC, or key infrastructure.
+
+The M2-C payload promotes project staging and the trusted-main runtime bridge
+to supported `gkd-role` surfaces. `project-stage` renders the exact parent
+Skill, executor role/config and executor Skills from one pinned bundle into an
+explicit non-production Git project; `project-verify` checks its byte inventory
+and digests before use. The bridge binds the six-gate automatic route decision
+to offer, envelope, one exact direct `gkd_executor` spawn, activation, claim and
+recovery. It never exposes the capability or raw agent/thread identity in main
+output. The claim retains the immutable execution bundle digest, while delivery
+requires a separately generated candidate output bundle digest.
+
+Manual remains the default. Automatic routing is operational only from a
+verified project staging rooted at an accepted bundle and through the
+trusted-main bridge after the accepted M2-B one-hour wait gate. This development
+surface does not install production `~/.codex`, modify a consumer repository,
+or imply M3 completion.

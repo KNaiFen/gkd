@@ -142,6 +142,7 @@ def _parser() -> MachineParser:
     deliver = commands.add_parser("deliver")
     _add_cas(deliver)
     deliver.add_argument("--claim-id", required=True)
+    deliver.add_argument("--candidate-output-bundle-digest")
 
     migrate = commands.add_parser("migrate-v1")
     _add_cas(migrate)
@@ -274,7 +275,12 @@ def _dispatch(args: Any) -> dict[str, Any]:
     if args.command == "resume":
         return service.resume(args.expected_head, args.expected_revision)
     if args.command == "deliver":
-        return service.deliver(args.expected_head, args.expected_revision, args.claim_id)
+        return service.deliver(
+            args.expected_head,
+            args.expected_revision,
+            args.claim_id,
+            args.candidate_output_bundle_digest,
+        )
     raise TaskError("INVALID_ARGUMENTS")
 
 
