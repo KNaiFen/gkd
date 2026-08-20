@@ -36,6 +36,6 @@
 ## 归档与清理
 
 - 归档路径：任务资料保留在 `tasks/m2-automatic-runtime-bridge/`；本仓库无 Trellis archive 入口。
-- records-only 提交：本记录与 `.agents` 终态先进入 main，再执行 worktree/分支清理。
-- worktree：删除前已确认 clean、head 为被验收 fixed head、tree 与 merge tree 一致；实际删除结果待回填。
-- 本地/远端分支：实际删除结果待回填。
+- records-only 提交：终态验收记录由 `ed03708bfd067715bf1935a15bfa928dd8d7adf7` 先进入 main；本次提交回填实际清理结果。
+- worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/m2-automatic-runtime-bridge` 删除前已确认 clean、head 为被验收 fixed head、tree 与 merge tree 一致，随后已删除。
+- 本地/远端分支：`task/m2-automatic-runtime-bridge` 与远端同名分支均已删除；worktree 列表仅保留 main。

@@ -248,3 +248,7 @@
 - [2026-08-20] `GKD-M2-C` fixed head 已独立验收并合并，一次性 bootstrap exception 终止。
   - Why: main 对 `b25637d8f0989427f9bfe0cc46e603ffd3c79550` 复核三轮整改和完整 AC；M2-C 在两个隔离根及 fixed-head archive 各通过 32 项，104/70/53/47/15 项保留回归通过，候选与 squash merge tree 完全一致。无 configured checks 被记录为 bootstrap 事实，不伪装为 CI 成功。
   - Impact: PR #7 以 `b16349af24ae76055f86f3b02437168404b97ff8` 进入 main，bundle `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` 成为 accepted execution-bundle upgrade。M2-C 的 planning/epoch 1/revision 5 与无 claim/delivery/activation/receipt 保留为一次性历史，禁止补造；M3/M4/M5 必须使用正式 automatic bridge。当前 Session 未从 staged project 发现 exact `gkd_executor`，所以不启动 M3，后续 fresh main 的任一 gate 不匹配继续 fail-closed。
+
+- [2026-08-20] `GKD-M2-C` 收尾清理完成。
+  - Why: 终态验收记录已进入 main；候选 worktree 删除前保持干净，head 为验收 fixed head，candidate tree 与 squash merge tree 一致。
+  - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m2-automatic-runtime-bridge`、本地 `task/m2-automatic-runtime-bridge` 与远端同名分支均已删除。任务资料原位保留；当前 Session 继续因未发现 exact `gkd_executor` 而不启动 M3。
