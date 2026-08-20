@@ -260,3 +260,7 @@
 - [2026-08-20] `GKD-M3-A` 候选建立版本化仓库 CI policy 与 GitHub fixed-head terminal monitor。
   - Why: trusted acceptance 需要把仓库特有 required checks 留在 `.gkd/policy.json`，并由通用只读机制对显式 PR/full head 拥有 bounded polling 与单一终态，避免 Agent 手工轮询或把任意出现的 checks 当成 policy。
   - Impact: candidate output bundle `92e218e9809e6147f3b04ec7f8fed79231c6e8b3a94480729b52b6fcdbafafe8` 新增严格 policy/origin parser、read-only GitHub adapter、deadline-bound monitor 和 terminal schema；本仓库标准 check 为 `GKD Verify`，本地与 Actions 共用版本化 verifier。候选经 333 项本地合同与 27 项双 evidence 证明，仍须 PR #8 最终 fixed-head CI 与 trusted-main 独立验收；不授权 M3-B/M3-C、生产/AIO 或 GitHub 设置变化。
+
+- [2026-08-21] `GKD-M3-A` 修复 PR #8 暴露的 shallow checkout 与 schema/parser 契约缺口。
+  - Why: Actions 默认 `fetch-depth: 1` 无法证明显式 base SHA ancestry；标准 checkout 也不保证创建 `refs/remotes/origin/HEAD`；旧 schema 与 terminal parser 对 branch/check 约束及早期错误结果的可空身份形状不一致。
+  - Impact: workflow 使用完整历史，policy 只校验 `origin/<baseBranch>`，schema/parser 共享严格约束并覆盖早期 error terminal；候选 bundle digest 更新为 `0484095704599750df655bc6c92cf0b5829bc2c1ebb877aa3f3cd132cc29998f`，335 项版本化本地验证与 29 项双 evidence 通过。仍只实现 M3-A，不授权 M3-B/M3-C、生产/AIO 或 GitHub 设置变化。

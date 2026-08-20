@@ -117,6 +117,7 @@ class CliAndRepositoryContracts(unittest.TestCase):
         self.assertEqual(["GKD Verify"], policy["requiredChecks"])
         self.assertIn("name: GKD Verify", workflow)
         self.assertIn("runs-on: ubuntu-latest", workflow)
+        self.assertIn("fetch-depth: 0", workflow)
         self.assertIn("scripts/gkd-verify --base-sha", workflow)
         self.assertNotIn("secrets.", workflow)
         self.assertNotIn("self-hosted", workflow)

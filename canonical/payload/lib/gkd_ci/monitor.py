@@ -81,6 +81,10 @@ def validate_terminal_result(value: dict[str, Any]) -> None:
         },
         "TERMINAL_RESULT_INVALID",
     )
+    early_error = all(
+        value[field] is None
+        for field in ("baseBranch", "expectedHead", "policyDigest", "pullRequest", "repository")
+    )
     if (
         value["schemaVersion"] != 1
         or value["provider"] != "github"
@@ -92,18 +96,34 @@ def validate_terminal_result(value: dict[str, Any]) -> None:
         or not isinstance(value["elapsedSeconds"], int)
         or value["elapsedSeconds"] < 0
         or not isinstance(value["checks"], list)
-        or not _valid_repository(value["repository"])
-        or isinstance(value["pullRequest"], bool)
-        or not isinstance(value["pullRequest"], int)
-        or value["pullRequest"] < 1
-        or not _valid_branch(value["baseBranch"])
+        or (not early_error and not _valid_repository(value["repository"]))
+        or (not early_error and (isinstance(value["pullRequest"], bool) or not isinstance(value["pullRequest"], int)))
+        or (not early_error and value["pullRequest"] < 1)
+        or (not early_error and not _valid_branch(value["baseBranch"]))
         or (value["headBranch"] is not None and not _valid_branch(value["headBranch"]))
         or value["pullRequestState"] not in {None, "closed", "open"}
         or not isinstance(value["requiredChecks"], list)
+        or (not early_error and not value["requiredChecks"])
         or value["requiredChecks"] != sorted(set(value["requiredChecks"]))
         or any(not isinstance(check, str) or not CHECK_RE.fullmatch(check) for check in value["requiredChecks"])
+        or (early_error and (
+            value["outcome"] != "error"
+            or value["checks"]
+            or value["requiredChecks"]
+            or value["headBranch"] is not None
+            or value["observedHead"] is not None
+            or value["pullRequestState"] is not None
+            or value["observations"] != 0
+            or value["elapsedSeconds"] != 0
+        ))
+        or (not early_error and any(
+            value[field] is None
+            for field in ("baseBranch", "expectedHead", "policyDigest", "pullRequest", "repository")
+        ))
     ):
         raise TaskError("TERMINAL_RESULT_INVALID")
+    if early_error:
+        return
     require_sha1(value["expectedHead"], "TERMINAL_RESULT_INVALID")
     require_sha256(value["policyDigest"], "TERMINAL_RESULT_INVALID")
     if value["observedHead"] is not None:

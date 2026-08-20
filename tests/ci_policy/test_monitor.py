@@ -196,6 +196,28 @@ class MonitorContracts(unittest.TestCase):
                 with self.assertRaisesRegex(TaskError, "TERMINAL_RESULT_INVALID"):
                     validate_terminal_result(mutated)
 
+    def test_terminal_result_accepts_canonical_early_error_shape(self) -> None:
+        validate_terminal_result(
+            {
+                "baseBranch": None,
+                "checks": [],
+                "elapsedSeconds": 0,
+                "expectedHead": None,
+                "headBranch": None,
+                "observations": 0,
+                "observedHead": None,
+                "outcome": "error",
+                "policyDigest": None,
+                "provider": "github",
+                "pullRequest": None,
+                "pullRequestState": None,
+                "reason": "POLICY_INVALID",
+                "repository": None,
+                "requiredChecks": [],
+                "schemaVersion": 1,
+            }
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

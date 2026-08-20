@@ -191,13 +191,11 @@ def load_validated_policy(
         raise TaskError("REPOSITORY_MISMATCH")
     if repository.casefold() != policy.repository.casefold():
         raise TaskError("REPOSITORY_MISMATCH")
-    head = _git(
+    _git(
         checkout,
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        code="BASE_BRANCH_UNAVAILABLE",
+        "show-ref",
+        "--verify",
+        f"refs/remotes/origin/{policy.base_branch}",
+        code="BASE_BRANCH_MISMATCH",
     )
-    prefix = "refs/remotes/origin/"
-    if len(head) != 1 or not head[0].startswith(prefix) or head[0][len(prefix) :] != policy.base_branch:
-        raise TaskError("BASE_BRANCH_MISMATCH")
     return policy

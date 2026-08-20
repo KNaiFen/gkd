@@ -55,6 +55,12 @@ class PolicyContracts(unittest.TestCase):
                 self.assertEqual(SYNTHETIC_REPOSITORY, policy.repository)
                 self.assertEqual(("Fixture Verify",), policy.required_checks)
 
+    def test_policy_does_not_require_origin_head_symbolic_ref(self) -> None:
+        checkout = init_checkout(self.root)
+        run("git", "symbolic-ref", "--delete", "refs/remotes/origin/HEAD", cwd=checkout)
+        policy = load_validated_policy(checkout, SYNTHETIC_REPOSITORY, POLICY_PATH)
+        self.assertEqual("main", policy.base_branch)
+
     def test_policy_rejects_absent_nonfile_symlink_ancestor_and_traversal(self) -> None:
         checkout = init_checkout(self.root)
         policy_path = checkout / POLICY_PATH
@@ -129,7 +135,8 @@ class PolicyContracts(unittest.TestCase):
                 elif case == "ambiguous":
                     run("git", "config", "--add", "remote.origin.url", "git@github.com:acme/widgets.git", cwd=checkout)
                 else:
-                    run("git", "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/release", cwd=checkout)
+                    run("git", "update-ref", "-d", "refs/remotes/origin/main", cwd=checkout)
+                    run("git", "update-ref", "refs/remotes/origin/release", "HEAD", cwd=checkout)
                 with self.assertRaisesRegex(TaskError, code):
                     load_validated_policy(checkout, SYNTHETIC_REPOSITORY, POLICY_PATH)
 
