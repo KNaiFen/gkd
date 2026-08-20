@@ -24,6 +24,7 @@ from .errors import TaskError
 
 
 TASK_SCHEMA_VERSION = 1
+TASK_STATE_REWORK_VERSION = 2
 PHASES = {
     "planning",
     "awaiting_claim",
@@ -54,6 +55,7 @@ EVENT_TYPES = {
     "blocked",
     "resumed",
     "delivered",
+    "reworked",
     "accepted",
     "completed",
     "migrated_v1",
@@ -124,14 +126,94 @@ def _implementation_authorization(value: Any) -> None:
     require_utc(value["authorizedAt"], "INVALID_TASK_STATE")
 
 
-def _lifecycle_record(value: Any) -> None:
+def _delivery_record(value: dict[str, Any]) -> None:
+    delivery_keys = {"implementationHead", "claimId", "deliveredAt"}
+    if "executionBundleDigest" in value:
+        delivery_keys |= {"executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"}
+        for field in ("executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"):
+            require_sha256(value[field], "INVALID_TASK_STATE")
+    require_keys(value, delivery_keys, "INVALID_TASK_STATE")
+    require_sha1(value["implementationHead"], "INVALID_TASK_STATE")
+    require_sha256(value["claimId"], "INVALID_TASK_STATE")
+    require_utc(value["deliveredAt"], "INVALID_TASK_STATE")
+
+
+def _rejected_attempt(value: Any) -> None:
     if not isinstance(value, dict):
         raise TaskError("INVALID_TASK_STATE")
     require_keys(
         value,
-        {"phase", "epoch", "blocked", "writer", "offer", "claim", "retiredClaims", "delivery", "acceptance", "completion"},
+        {
+            "schemaVersion",
+            "taskId",
+            "repository",
+            "prNumber",
+            "baseBranch",
+            "taskBranch",
+            "candidateHead",
+            "epoch",
+            "offer",
+            "claim",
+            "delivery",
+            "claimReceiptDigest",
+            "activationReceiptDigest",
+            "reviewDigest",
+            "findingsDigest",
+            "rejectedAt",
+        },
         "INVALID_TASK_STATE",
     )
+    if value["schemaVersion"] != 1:
+        raise TaskError("INVALID_TASK_STATE")
+    for field in ("taskId", "repository", "baseBranch", "taskBranch"):
+        require_string(value[field], "INVALID_TASK_STATE")
+    if not isinstance(value["prNumber"], int) or value["prNumber"] < 1:
+        raise TaskError("INVALID_TASK_STATE")
+    require_sha1(value["candidateHead"], "INVALID_TASK_STATE")
+    if not isinstance(value["epoch"], int) or value["epoch"] < 0:
+        raise TaskError("INVALID_TASK_STATE")
+    if not isinstance(value["offer"], dict) or not isinstance(value["claim"], dict) or not isinstance(value["delivery"], dict):
+        raise TaskError("INVALID_TASK_STATE")
+    validate_offer(value["offer"])
+    _claim_record(value["claim"])
+    _delivery_record(value["delivery"])
+    require_sha256(value["claimReceiptDigest"], "INVALID_TASK_STATE")
+    if value["activationReceiptDigest"] is not None:
+        require_sha256(value["activationReceiptDigest"], "INVALID_TASK_STATE")
+    require_sha256(value["reviewDigest"], "INVALID_TASK_STATE")
+    require_sha256(value["findingsDigest"], "INVALID_TASK_STATE")
+    require_utc(value["rejectedAt"], "INVALID_TASK_STATE")
+    claim = value["claim"]
+    offer = value["offer"]
+    delivery = value["delivery"]
+    automatic = "executionBundleDigest" in claim
+    if (
+        offer["status"] != "consumed"
+        or offer["offerId"] != claim["offerId"]
+        or offer["epoch"] != value["epoch"]
+        or claim["epoch"] != value["epoch"]
+        or offer["consumedByDigest"] != digest_object(claim)
+        or delivery["claimId"] != claim["claimId"]
+        or automatic != (value["activationReceiptDigest"] is not None)
+        or automatic != ("executionBundleDigest" in delivery)
+    ):
+        raise TaskError("INVALID_TASK_STATE")
+    if automatic and (
+        offer.get("bundleDigest") != claim["executionBundleDigest"]
+        or offer.get("routeDecisionDigest") != claim["routeDecisionDigest"]
+        or delivery["executionBundleDigest"] != claim["executionBundleDigest"]
+        or delivery["routeDecisionDigest"] != claim["routeDecisionDigest"]
+    ):
+        raise TaskError("INVALID_TASK_STATE")
+
+
+def _lifecycle_record(value: Any, state_schema_version: int) -> None:
+    if not isinstance(value, dict):
+        raise TaskError("INVALID_TASK_STATE")
+    keys = {"phase", "epoch", "blocked", "writer", "offer", "claim", "retiredClaims", "delivery", "acceptance", "completion"}
+    if state_schema_version == TASK_STATE_REWORK_VERSION:
+        keys.add("rejectedAttempts")
+    require_keys(value, keys, "INVALID_TASK_STATE")
     if value["phase"] not in PHASES or not isinstance(value["epoch"], int) or value["epoch"] < 0:
         raise TaskError("INVALID_TASK_STATE")
     if value["blocked"] is not None:
@@ -173,16 +255,15 @@ def _lifecycle_record(value: Any) -> None:
             raise TaskError("INVALID_TASK_STATE")
         require_string(retired["reason"], "INVALID_TASK_STATE")
         require_utc(retired["retiredAt"], "INVALID_TASK_STATE")
+    rejected_attempts = value.get("rejectedAttempts", [])
+    if not isinstance(rejected_attempts, list):
+        raise TaskError("INVALID_TASK_STATE")
+    for attempt in rejected_attempts:
+        _rejected_attempt(attempt)
+    if state_schema_version == TASK_STATE_REWORK_VERSION and not rejected_attempts:
+        raise TaskError("INVALID_TASK_STATE")
     if value["delivery"] is not None:
-        delivery_keys = {"implementationHead", "claimId", "deliveredAt"}
-        if "executionBundleDigest" in value["delivery"]:
-            delivery_keys |= {"executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"}
-            for field in ("executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"):
-                require_sha256(value["delivery"][field], "INVALID_TASK_STATE")
-        require_keys(value["delivery"], delivery_keys, "INVALID_TASK_STATE")
-        require_sha1(value["delivery"]["implementationHead"], "INVALID_TASK_STATE")
-        require_sha256(value["delivery"]["claimId"], "INVALID_TASK_STATE")
-        require_utc(value["delivery"]["deliveredAt"], "INVALID_TASK_STATE")
+        _delivery_record(value["delivery"])
     if value["acceptance"] is not None:
         require_keys(value["acceptance"], {"candidateHead", "reviewDigest", "merged", "acceptedAt"}, "INVALID_TASK_STATE")
         require_sha1(value["acceptance"]["candidateHead"], "INVALID_TASK_STATE")
@@ -230,6 +311,21 @@ def _lifecycle_record(value: Any) -> None:
         epochs = [item["epoch"] for item in value["retiredClaims"]]
         if epochs != sorted(set(epochs)) or any(epoch >= value["epoch"] for epoch in epochs):
             raise TaskError("INVALID_TASK_STATE")
+    if rejected_attempts:
+        rejected_epochs = [item["epoch"] for item in rejected_attempts]
+        if rejected_epochs != sorted(set(rejected_epochs)) or any(epoch >= value["epoch"] for epoch in rejected_epochs):
+            raise TaskError("INVALID_TASK_STATE")
+        retired_by_epoch = {item["epoch"]: item for item in value["retiredClaims"]}
+        for attempt in rejected_attempts:
+            retired = retired_by_epoch.get(attempt["epoch"])
+            if (
+                retired is None
+                or retired["offerId"] != attempt["offer"]["offerId"]
+                or retired["claim"] != attempt["claim"]
+                or retired["reason"] != "rejected-review"
+                or retired["retiredAt"] != attempt["rejectedAt"]
+            ):
+                raise TaskError("INVALID_TASK_STATE")
     phase_requirements = {
         "planning": (False, False, False, False, False, False),
         "awaiting_claim": (False, True, False, False, False, False),
@@ -277,21 +373,29 @@ def _history_relationships(value: dict[str, Any]) -> None:
     if [event["at"] for event in history] != sorted(event["at"] for event in history):
         raise TaskError("INVALID_TASK_STATE")
 
-    retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed"}]
+    retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed", "reworked"}]
     retired_claims = lifecycle["retiredClaims"]
     if len(retirement_events) != lifecycle["epoch"] or len(retirement_events) != len(retired_claims):
         raise TaskError("INVALID_TASK_STATE")
-    if any(event["recordDigest"] != digest_object(retired) for event, retired in zip(retirement_events, retired_claims)):
+    for event, retired in zip(retirement_events, retired_claims, strict=True):
+        if event["type"] != "reworked" and event["recordDigest"] != digest_object(retired):
+            raise TaskError("INVALID_TASK_STATE")
+    rework_events = [event for event in history if event["type"] == "reworked"]
+    rejected_attempts = lifecycle.get("rejectedAttempts", [])
+    if len(rework_events) != len(rejected_attempts) or any(
+        event["recordDigest"] != digest_object(attempt)
+        for event, attempt in zip(rework_events, rejected_attempts, strict=True)
+    ):
         raise TaskError("INVALID_TASK_STATE")
 
     phase_events = [
         event
         for event in history
-        if event["type"] in {"offer_created", "claimed", "revoked", "reclaimed", "delivered", "accepted", "completed"}
+        if event["type"] in {"offer_created", "claimed", "revoked", "reclaimed", "reworked", "delivered", "accepted", "completed"}
     ]
     last_phase_event = phase_events[-1]["type"] if phase_events else None
     expected_last = {
-        "planning": None if lifecycle["epoch"] == 0 else {"revoked", "reclaimed"},
+        "planning": None if lifecycle["epoch"] == 0 else {"revoked", "reclaimed", "reworked"},
         "awaiting_claim": "offer_created",
         "implementing": "claimed",
         "delivered": "delivered",
@@ -363,7 +467,7 @@ def validate_state(value: dict[str, Any]) -> None:
         },
         "INVALID_TASK_STATE",
     )
-    if value["schemaVersion"] != TASK_SCHEMA_VERSION:
+    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, TASK_STATE_REWORK_VERSION}:
         raise TaskError("INVALID_TASK_STATE")
     require_string(value["taskId"], "INVALID_TASK_STATE")
     if not isinstance(value["revision"], int) or value["revision"] < 0:
@@ -374,7 +478,15 @@ def validate_state(value: dict[str, Any]) -> None:
     _implementation_authorization(value["implementationAuthorization"])
     if value["actionAuthorizationDigest"] is not None:
         require_sha256(value["actionAuthorizationDigest"], "INVALID_TASK_STATE")
-    _lifecycle_record(value["lifecycle"])
+    _lifecycle_record(value["lifecycle"], value["schemaVersion"])
+    for attempt in value["lifecycle"].get("rejectedAttempts", []):
+        if (
+            attempt["taskId"] != value["taskId"]
+            or attempt["repository"] != value["repository"]["identity"]
+            or attempt["baseBranch"] != value["repository"]["baseBranch"]
+            or attempt["taskBranch"] != value["repository"]["taskBranch"]
+        ):
+            raise TaskError("INVALID_TASK_STATE")
     approval = value["approval"]
     implementation = value["implementationAuthorization"]
     authorization_digest_value = value["actionAuthorizationDigest"]
@@ -406,6 +518,8 @@ def validate_state(value: dict[str, Any]) -> None:
         if event["head"] is not None:
             require_sha1(event["head"], "INVALID_TASK_STATE")
         require_sha256(event["recordDigest"], "INVALID_TASK_STATE")
+    if value["schemaVersion"] == TASK_SCHEMA_VERSION and any(event["type"] == "reworked" for event in value["history"]):
+        raise TaskError("INVALID_TASK_STATE")
     _history_relationships(value)
     require_sha256(value["integrityDigest"], "INVALID_TASK_STATE")
     unsigned = deepcopy(value)

@@ -64,6 +64,14 @@ recovery. It never exposes the capability or raw agent/thread identity in main
 output. The claim retains the immutable execution bundle digest, while delivery
 requires a separately generated candidate output bundle digest.
 
+The task state v2 extension adds trusted fixed-head rejection/rework without
+rewriting a delivered attempt. `gkd-task rework` requires a clean synchronized
+main context, an exact clean candidate and live PR snapshot, an independent
+rejected review with findings, and the original claim/activation receipts. It
+revokes the consumed offer, preserves the old claim, delivery, bundle and review
+digests, increments the epoch, and returns to authorized planning. Executors
+remain stopped after delivery and cannot reject, accept, or resume themselves.
+
 Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the
 trusted-main bridge after the accepted M2-B one-hour wait gate. This development

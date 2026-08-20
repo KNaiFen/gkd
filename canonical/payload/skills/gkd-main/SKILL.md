@@ -15,4 +15,5 @@ Use durable task Markdown for decisions and `gkd-task` output for machine state.
 6. Feed each host result to `gkd-role wait-transition`. When it returns `wait_again`, immediately call `wait_agent(timeout_ms=3600000)` for the same executor with no commentary, analysis, repository/CI reads, or other tool call.
 7. Stop on terminal/error/drift. On `deadline_timeout`, interrupt the bound executor exactly once and report the single timeout result.
 8. Keep the execution bundle digest immutable through wait and delivery. Treat the candidate output bundle digest as a separate deliver input.
-9. Route a delivered fixed head to `gkd_acceptor`; only trusted main owns archival and cleanup.
+9. Route a delivered fixed head to `gkd_acceptor`. If canonical independent review rejects it, invoke only `gkd-task rework` from a clean synchronized trusted main checkout with the exact delivered head, PR snapshot, review, candidate worktree, and runtime root. Never hand-edit or reuse the retired offer, activation, envelope, or claim; create a fresh automatic offer and claim after rework.
+10. Only trusted main owns merge, archival, and cleanup.

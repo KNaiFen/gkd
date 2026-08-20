@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -eu
+
+if [ "$#" -ne 2 ] || [ "$1" != "--base-sha" ]; then
+  printf '%s\n' '{"status":"error","error":"INVALID_ARGUMENTS"}' >&2
+  exit 2
+fi
+
+base_sha=$2
+case "$base_sha" in
+  *[!0-9a-f]*|'')
+    printf '%s\n' '{"status":"error","error":"INVALID_BASE_SHA"}' >&2
+    exit 2
+    ;;
+esac
+if [ "${#base_sha}" -ne 40 ]; then
+  printf '%s\n' '{"status":"error","error":"INVALID_BASE_SHA"}' >&2
+  exit 2
+fi
+
+repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+if ! git -C "$repository_root" cat-file -e "$base_sha^{commit}" 2>/dev/null ||
+   ! git -C "$repository_root" merge-base --is-ancestor "$base_sha" HEAD; then
+  printf '%s\n' '{"status":"error","error":"BASE_NOT_ANCESTOR"}' >&2
+  exit 2
+fi
+
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="$repository_root/canonical/payload/lib:$repository_root/src:$repository_root/probes/app-server-watcher:$repository_root"
+cd "$repository_root"
+
+python_bin=
+for candidate in python3.14 python3.13 python3.12 python3.11 python3; do
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+    python_bin=$candidate
+    break
+  fi
+done
+if [ -z "$python_bin" ]; then
+  printf '%s\n' '{"status":"error","error":"PYTHON_311_REQUIRED"}' >&2
+  exit 2
+fi
+
+"$python_bin" -m unittest discover -s tests/task_core -p 'test_*.py' -t .
+"$python_bin" -m unittest discover -s tests/runtime_bridge -p 'test_*.py' -t .
+"$python_bin" -m unittest discover -s tests/role_routing -p 'test_*.py' -t .
+"$python_bin" -m unittest discover -s tests/foundation -p 'test_*.py' -t .
+"$python_bin" -m unittest discover -s tests/watchdog -p 'test_*.py' -t .
+"$python_bin" -m unittest tests.watchdog.live.live_test_probe
+
+printf '{"baseSha":"%s","status":"pass","suites":["task_core","runtime_bridge","role_routing","foundation","watchdog","watchdog_live_negative"]}\n' "$base_sha"

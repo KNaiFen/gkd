@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "gkd://schema/task/task-state-v1",
+  "$id": "gkd://schema/task/task-state-v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "taskId", "revision", "repository", "documents", "approval", "implementationAuthorization", "actionAuthorizationDigest", "lifecycle", "history", "integrityDigest"],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {"enum": [1, 2]},
     "taskId": {"type": "string", "minLength": 1},
     "revision": {"type": "integer", "minimum": 0},
     "repository": {"$ref": "#/$defs/repository"},
@@ -17,6 +17,10 @@
     "history": {"type": "array", "items": {"$ref": "#/$defs/event"}},
     "integrityDigest": {"$ref": "#/$defs/sha256"}
   },
+  "allOf": [
+    {"if": {"properties": {"schemaVersion": {"const": 1}}}, "then": {"properties": {"lifecycle": {"not": {"required": ["rejectedAttempts"]}}}}},
+    {"if": {"properties": {"schemaVersion": {"const": 2}}}, "then": {"properties": {"lifecycle": {"required": ["rejectedAttempts"], "properties": {"rejectedAttempts": {"minItems": 1}}}}}}
+  ],
   "$defs": {
     "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -54,6 +58,7 @@
         "offer": {"type": ["object", "null"]},
         "claim": {"type": ["object", "null"]},
         "retiredClaims": {"type": "array"},
+        "rejectedAttempts": {"type": "array", "items": {"$ref": "#/$defs/rejectedAttempt"}},
         "delivery": {"type": ["object", "null"]},
         "acceptance": {"type": ["object", "null"]},
         "completion": {"type": ["object", "null"]}
@@ -67,11 +72,34 @@
         {"if": {"properties": {"phase": {"const": "completed"}}}, "then": {"properties": {"writer": {"type": "null"}, "offer": {"type": "object"}, "claim": {"type": "object"}, "delivery": {"type": "object"}, "acceptance": {"type": "object"}, "completion": {"type": "object"}}}}
       ]
     },
+    "rejectedAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "taskId", "repository", "prNumber", "baseBranch", "taskBranch", "candidateHead", "epoch", "offer", "claim", "delivery", "claimReceiptDigest", "activationReceiptDigest", "reviewDigest", "findingsDigest", "rejectedAt"],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "taskId": {"type": "string", "minLength": 1},
+        "repository": {"type": "string", "minLength": 1},
+        "prNumber": {"type": "integer", "minimum": 1},
+        "baseBranch": {"type": "string", "minLength": 1},
+        "taskBranch": {"type": "string", "minLength": 1},
+        "candidateHead": {"$ref": "#/$defs/sha1"},
+        "epoch": {"type": "integer", "minimum": 0},
+        "offer": {"type": "object"},
+        "claim": {"type": "object"},
+        "delivery": {"type": "object"},
+        "claimReceiptDigest": {"$ref": "#/$defs/sha256"},
+        "activationReceiptDigest": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "reviewDigest": {"$ref": "#/$defs/sha256"},
+        "findingsDigest": {"$ref": "#/$defs/sha256"},
+        "rejectedAt": {"type": "string"}
+      }
+    },
     "event": {
       "type": "object",
       "additionalProperties": false,
       "required": ["revision", "type", "at", "head", "recordDigest"],
-      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"type": "string"}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "recordDigest": {"$ref": "#/$defs/sha256"}}
+      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"enum": ["bootstrap", "requirements_ready", "plan_proposed", "plan_approved", "authorized", "offer_created", "claimed", "revoked", "reclaimed", "blocked", "resumed", "delivered", "reworked", "accepted", "completed", "migrated_v1"]}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "recordDigest": {"$ref": "#/$defs/sha256"}}
     }
   }
 }
