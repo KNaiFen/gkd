@@ -40,6 +40,7 @@ from .gitops import (
     require_clean,
     is_clean,
     read_tree_file,
+    require_regular_tree_file,
     verified_relative_path,
     verify_identity,
 )
@@ -1177,19 +1178,57 @@ class TaskService:
         expected_revision: int,
         claim_id: str,
         candidate_output_bundle_digest: str | None = None,
+        delivery_document_path: str | None = None,
+        delivery_document_digest: str | None = None,
     ) -> dict[str, Any]:
         require_sha256(claim_id, "CLAIM_MISMATCH")
-        current_claim = self._state()["lifecycle"]["claim"]
+        current_state = self._state()
+        current_claim = current_state["lifecycle"]["claim"]
         if current_claim is None or current_claim["claimId"] != claim_id:
             raise TaskError("CLAIM_MISMATCH")
-        claim_receipt = self._ensure_claim_receipt(claim_id)
-        self._require_activation_receipt(current_claim, claim_receipt)
+        if current_state["lifecycle"]["phase"] != "implementing":
+            raise TaskError("INVALID_TRANSITION")
+        if current_state["revision"] != expected_revision:
+            raise TaskError("REVISION_MISMATCH")
         if "executionBundleDigest" in current_claim:
             if candidate_output_bundle_digest is None:
                 raise TaskError("CANDIDATE_OUTPUT_BUNDLE_REQUIRED")
             require_sha256(candidate_output_bundle_digest, "INVALID_CANDIDATE_OUTPUT_BUNDLE")
         elif candidate_output_bundle_digest is not None:
             raise TaskError("INVALID_CANDIDATE_OUTPUT_BUNDLE")
+        if delivery_document_path is None or delivery_document_digest is None:
+            raise TaskError("DELIVERY_DOCUMENT_REQUIRED")
+        relative_path(delivery_document_path, "INVALID_DELIVERY_DOCUMENT")
+        require_sha256(delivery_document_digest, "INVALID_DELIVERY_DOCUMENT")
+        canonical_document_path = f"{self.task_path}/delivery.md"
+        if delivery_document_path != canonical_document_path:
+            raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        if head(self.candidate_root) != expected_head:
+            raise TaskError("HEAD_MISMATCH")
+        require_clean(self.candidate_root)
+        try:
+            document_parent = git(self.candidate_root, "rev-parse", f"{expected_head}^", code="INVALID_DELIVERY_DOCUMENT").decode("ascii").strip()
+        except UnicodeDecodeError:
+            raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
+        if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
+            raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        try:
+            read_tree_file(self.candidate_root, document_parent, delivery_document_path)
+        except TaskError:
+            document_already_exists = False
+        else:
+            document_already_exists = True
+        if document_already_exists and not current_state["lifecycle"].get("rejectedAttempts"):
+            raise TaskError("DUPLICATE_DELIVERY_DOCUMENT")
+        try:
+            document_raw = read_tree_file(self.candidate_root, expected_head, delivery_document_path)
+        except TaskError:
+            raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
+        require_regular_tree_file(self.candidate_root, expected_head, delivery_document_path, "INVALID_DELIVERY_DOCUMENT")
+        if sha256_bytes(document_raw) != delivery_document_digest:
+            raise TaskError("DELIVERY_DOCUMENT_MISMATCH")
+        claim_receipt = self._ensure_claim_receipt(claim_id)
+        self._require_activation_receipt(current_claim, claim_receipt)
 
         def builder(state: dict[str, Any]) -> TransactionChange:
             self._require_unblocked(state)
@@ -1201,7 +1240,14 @@ class TaskService:
             authorization = self._authorization()
             if authorization["authorizationDigest"] != state["actionAuthorizationDigest"]:
                 raise TaskError("authorization_mismatch")
-            record = {"implementationHead": expected_head, "claimId": claim_id, "deliveredAt": self.clock.now()}
+            record = {
+                "implementationHead": document_parent,
+                "deliveryDocumentCommit": expected_head,
+                "deliveryDocumentPath": delivery_document_path,
+                "deliveryDocumentDigest": delivery_document_digest,
+                "claimId": claim_id,
+                "deliveredAt": self.clock.now(),
+            }
             if "executionBundleDigest" in claim:
                 record["executionBundleDigest"] = claim["executionBundleDigest"]
                 record["candidateOutputBundleDigest"] = candidate_output_bundle_digest
@@ -1214,7 +1260,12 @@ class TaskService:
             return TransactionChange(
                 {f"{self.task_path}/task.json": canonical_bytes(updated)},
                 "交付任务候选",
-                {"status": "delivered", "revision": updated["revision"], "implementationHead": expected_head},
+                {
+                    "status": "delivered",
+                    "revision": updated["revision"],
+                    "implementationHead": document_parent,
+                    "deliveryDocumentCommit": expected_head,
+                },
             )
 
         return self._transact(expected_head, expected_revision, builder)

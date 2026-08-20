@@ -59,7 +59,7 @@
         "claim": {"type": ["object", "null"]},
         "retiredClaims": {"type": "array"},
         "rejectedAttempts": {"type": "array", "items": {"$ref": "#/$defs/rejectedAttempt"}},
-        "delivery": {"type": ["object", "null"]},
+        "delivery": {"anyOf": [{"$ref": "#/$defs/delivery"}, {"type": "null"}]},
         "acceptance": {"type": ["object", "null"]},
         "completion": {"type": ["object", "null"]}
       },
@@ -94,6 +94,26 @@
         "findingsDigest": {"$ref": "#/$defs/sha256"},
         "rejectedAt": {"type": "string"}
       }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementationHead", "claimId", "deliveredAt"],
+      "properties": {
+        "implementationHead": {"$ref": "#/$defs/sha1"},
+        "deliveryDocumentCommit": {"$ref": "#/$defs/sha1"},
+        "deliveryDocumentPath": {"type": "string"},
+        "deliveryDocumentDigest": {"$ref": "#/$defs/sha256"},
+        "claimId": {"$ref": "#/$defs/sha256"},
+        "deliveredAt": {"type": "string"},
+        "executionBundleDigest": {"$ref": "#/$defs/sha256"},
+        "candidateOutputBundleDigest": {"$ref": "#/$defs/sha256"},
+        "routeDecisionDigest": {"$ref": "#/$defs/sha256"}
+      },
+      "oneOf": [
+        {"not": {"anyOf": [{"required": ["deliveryDocumentCommit"]}, {"required": ["deliveryDocumentPath"]}, {"required": ["deliveryDocumentDigest"]}]}},
+        {"required": ["deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"]}
+      ]
     },
     "event": {
       "type": "object",

@@ -70,9 +70,8 @@ class ReworkContracts(unittest.TestCase):
         )
         prepared = bridge.prepare(*self.repo.cas(), automatic_decision(digest), FUTURE_TIME)
         claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "automatic-activation")
-        TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME)).deliver(
-            *self.repo.cas(), claimed["claimId"], OUTPUT_BUNDLE_DIGEST
-        )
+        service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME))
+        self.repo.deliver(service, claimed["claimId"], OUTPUT_BUNDLE_DIGEST)
         return prepared, claimed, self.repo.head()
 
     def test_rework_preserves_exact_attempt_and_only_commits_coordination_files(self) -> None:
@@ -168,9 +167,8 @@ class ReworkContracts(unittest.TestCase):
         self.assertNotEqual(old_state["lifecycle"]["claim"]["envelopeId"], claimed["envelopeId"])
         self.assertNotEqual(old_state["lifecycle"]["claim"]["activationId"], self.repo.state()["lifecycle"]["claim"]["activationId"])
         self.assertEqual(1, self.repo.state()["lifecycle"]["claim"]["epoch"])
-        TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME)).deliver(
-            *self.repo.cas(), claimed["claimId"], "e" * 64
-        )
+        service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME))
+        self.repo.deliver(service, claimed["claimId"], "e" * 64)
         repaired_head = self.repo.head()
         accepted_review = make_review(self.repo.task_id, repaired_head, "acceptor", REVIEWER_DIGEST, "accepted", [])
         accepted = accept_candidate(
@@ -210,7 +208,7 @@ class ReworkContracts(unittest.TestCase):
             service.offer(*other.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
             envelope = service.handoff()["envelopeId"]
             claimed = service.claim(*other.cas(), envelope)
-            service.deliver(*other.cas(), claimed["claimId"])
+            other.deliver(service, claimed["claimId"])
             other_head = other.head()
             adapter = FakeGitHub(github_snapshot(other, other_head))
             review = make_review(other.task_id, other_head, "acceptor", REVIEWER_DIGEST, "rejected", ["repair-required"])

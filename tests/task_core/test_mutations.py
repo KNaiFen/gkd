@@ -99,6 +99,18 @@ class MutationContracts(unittest.TestCase):
             "tests.task_core.test_acceptance.AcceptanceContracts.test_wrong_repo_base_pr_or_head_is_rejected",
         )
 
+    def test_mutation_delivery_document_digest_check_is_killed(self) -> None:
+        self._killed(
+            {"service.py": [("        if sha256_bytes(document_raw) != delivery_document_digest:\n", "        if False:\n")]},
+            "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_requires_precommitted_canonical_document_binding",
+        )
+
+    def test_mutation_delivery_document_commit_paths_check_is_killed(self) -> None:
+        self._killed(
+            {"service.py": [("        if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:\n", "        if False:\n")]},
+            "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_rejects_document_commit_with_extra_tracked_path",
+        )
+
     def test_mutation_no_retry_is_killed(self) -> None:
         self._killed(
             {"acceptance.py": [("    if result != {\"status\": \"merged\", \"mergedHead\": candidate_head}:\n        raise TaskError(\"MERGE_REJECTED\")\n", "    if result != {\"status\": \"merged\", \"mergedHead\": candidate_head}:\n        result = adapter.merge(repository, pr_number, candidate_head)\n        raise TaskError(\"MERGE_REJECTED\")\n")]},

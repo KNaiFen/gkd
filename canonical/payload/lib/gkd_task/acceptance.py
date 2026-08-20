@@ -13,7 +13,7 @@ from typing import Any, Protocol
 from .canonical import CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
-from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, verify_identity
+from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
 from .model import TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
 from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
 from .transaction import TransactionChange, TransactionManager
@@ -135,6 +135,58 @@ def _fixed_json(root: Path, commit: str, path: str, code: str) -> dict[str, Any]
     if not isinstance(value, dict) or raw != canonical_bytes(value):
         raise TaskError(code)
     return value
+
+
+def _tree_path_exists(root: Path, commit: str, path: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", f"{commit}:{path}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode not in {0, 1, 128}:
+        raise TaskError("CANDIDATE_INVALID")
+    return result.returncode == 0
+
+
+def _validate_delivery_sequence(
+    candidate_root: Path,
+    task_path: str,
+    candidate_head: str,
+    claim_base_head: str,
+    delivery: dict[str, Any],
+    allow_existing_document: bool,
+) -> None:
+    required = {"deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"}
+    if not required.issubset(delivery):
+        raise TaskError("DELIVERY_DOCUMENT_BINDING_REQUIRED")
+    expected_path = f"{task_path}/delivery.md"
+    if delivery["deliveryDocumentPath"] != expected_path:
+        raise TaskError("CANDIDATE_INVALID")
+    document_commit = delivery["deliveryDocumentCommit"]
+    implementation_head = delivery["implementationHead"]
+    try:
+        final_parent = git(candidate_root, "rev-parse", f"{candidate_head}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+        document_parent = git(candidate_root, "rev-parse", f"{document_commit}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+    except UnicodeDecodeError:
+        raise TaskError("CANDIDATE_INVALID") from None
+    if (
+        final_parent != document_commit
+        or document_parent != implementation_head
+        or not is_ancestor(candidate_root, claim_base_head, implementation_head)
+        or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
+        or changed_paths(candidate_root, document_commit) != [expected_path]
+    ):
+        raise TaskError("CANDIDATE_INVALID")
+    if _tree_path_exists(candidate_root, implementation_head, expected_path) and not allow_existing_document:
+        raise TaskError("DUPLICATE_DELIVERY_DOCUMENT")
+    try:
+        document_raw = read_tree_file(candidate_root, document_commit, expected_path)
+    except TaskError:
+        raise TaskError("CANDIDATE_INVALID") from None
+    require_regular_tree_file(candidate_root, document_commit, expected_path)
+    if sha256_bytes(document_raw) != delivery["deliveryDocumentDigest"]:
+        raise TaskError("CANDIDATE_INVALID")
 
 
 def _journal_image(record: dict[str, Any]) -> bytes | None:
@@ -282,12 +334,14 @@ def _validate_fixed_candidate(
     delivery = state["lifecycle"]["delivery"]
     if delivery is None:
         raise TaskError("CANDIDATE_INVALID")
-    try:
-        parent = git(candidate_root, "rev-parse", f"{candidate_head}^", code="CANDIDATE_INVALID").decode("ascii").strip()
-    except UnicodeDecodeError:
-        raise TaskError("CANDIDATE_INVALID") from None
-    if parent != delivery["implementationHead"] or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]:
-        raise TaskError("CANDIDATE_INVALID")
+    _validate_delivery_sequence(
+        candidate_root,
+        task_path,
+        candidate_head,
+        claim["claimBaseHead"],
+        delivery,
+        bool(state["lifecycle"].get("rejectedAttempts")),
+    )
     anchored_state = _fixed_json(candidate_root, claim["claimBaseHead"], f"{task_path}/task.json", "CANDIDATE_INVALID")
     validate_state(anchored_state)
     anchored_authorization_raw = read_tree_file(candidate_root, claim["claimBaseHead"], f"{task_path}/authorization.json")
