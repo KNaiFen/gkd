@@ -978,6 +978,7 @@ class TaskService:
             "repository": state["repository"]["identity"],
             "taskBranch": state["repository"]["taskBranch"],
             "offerId": offer["offerId"],
+            "epoch": offer["epoch"],
             "envelopeId": envelope["envelopeId"],
             "route": offer["route"],
             "roleName": offer["roleName"],
