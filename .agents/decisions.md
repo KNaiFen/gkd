@@ -244,3 +244,7 @@
 - [2026-08-20] `GKD-M2-C` AC7 in-flight execution bundle 复验缺口已修复。
   - Why: fixed head `d0d24fcea80d926fb4b9d29cfb93a3e58e1eb516` 的 bridge 只在构造时生成并缓存 role catalog；prepare 后删除或替换执行 bundle，claim/recover 仍可沿用旧 catalog，违反执行 bundle 不可静默替换合同。
   - Impact: implementation/evidence commits 为 `c5bf34c4f8623c1720cd4ddd990811cc29840295` / `0c2578ab4a6d98634dbc2ba13cf89ef1e6719bc3`。bridge 每次构造、prepare、claim、recover 都从当前 bundle 完整复验并重建 catalog；删除 bundle 的 claim 与 committed 中断后替换 bundle 的 recover 均在写前稳定拒绝，恢复原 bundle 后可确定性补齐 receipts。32 项 M2-C 双 evidence 与 archive 副本、全部保留回归通过；bundle/evidence digest 为 `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` / `ab6efbc3cded637edc1fd0acd155958a3949566d48282fa1c4bfa81b266bbb82`。Python 3.11+ 前提已写入 README；本轮使用 3.14.6。PR #7 必须在新 fixed head 独立验收，bootstrap 与停止边界不变。
+
+- [2026-08-20] `GKD-M2-C` fixed head 已独立验收并合并，一次性 bootstrap exception 终止。
+  - Why: main 对 `b25637d8f0989427f9bfe0cc46e603ffd3c79550` 复核三轮整改和完整 AC；M2-C 在两个隔离根及 fixed-head archive 各通过 32 项，104/70/53/47/15 项保留回归通过，候选与 squash merge tree 完全一致。无 configured checks 被记录为 bootstrap 事实，不伪装为 CI 成功。
+  - Impact: PR #7 以 `b16349af24ae76055f86f3b02437168404b97ff8` 进入 main，bundle `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` 成为 accepted execution-bundle upgrade。M2-C 的 planning/epoch 1/revision 5 与无 claim/delivery/activation/receipt 保留为一次性历史，禁止补造；M3/M4/M5 必须使用正式 automatic bridge。当前 Session 未从 staged project 发现 exact `gkd_executor`，所以不启动 M3，后续 fresh main 的任一 gate 不匹配继续 fail-closed。
