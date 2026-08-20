@@ -27,3 +27,19 @@
 - Fixed head `d0d24fcea80d926fb4b9d29cfb93a3e58e1eb516` 不得合并。
 - 返工责任：原独立人工顶层 execution Session。
 - M2-C bootstrap exception、`planning / epoch 1 / revision 5`、无 claim/delivery/activation/receipt 的边界继续保持；不得启动 M3。
+
+## Execution Remediation
+
+- F-001：已由原 execution Session 修复，等待新 fixed head 独立复验。
+- Implementation commit：`c5bf34c4f8623c1720cd4ddd990811cc29840295`。
+- Evidence commit：`0c2578ab4a6d98634dbc2ba13cf89ef1e6719bc3`。
+- `TrustedMainRuntimeBridge` 不再缓存 bundle catalog；构造、`prepare`、`claim` 与
+  `recover` 均从当前 bundle 实体完成 manifest/lock/content 与 role/config/Skill
+  复验，再建立当次 catalog。删除或替换 bundle 时稳定返回
+  `BUNDLE_CONTENT_MISMATCH`，且 claim/recovery 写入前 task/runtime 字节不变。
+- 新合同真实删除 prepare 后的 bundle 再 claim；另在 committed interruption 后替换
+  Skill、保留旧 lock 再 recover。后者先零写入拒绝，恢复原 bundle 后同一事务成功
+  补齐 claim/activation receipts，未破坏既有确定性恢复语义。
+- F-002：已采纳非阻塞建议。根 README 与 canonical README 现在明确要求 Python
+  3.11+；本轮 default-Python 合同使用 `/opt/homebrew/bin/python3` 3.14.6，未设置
+  `PYTHONDONTWRITEBYTECODE`。
