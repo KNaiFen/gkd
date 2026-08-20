@@ -75,6 +75,22 @@ class RuntimeBridgeMutationContracts(unittest.TestCase):
             "tests.runtime_bridge.test_bridge.AutomaticBridgeContracts.test_concurrent_automatic_claim_has_one_activation_and_no_orphan",
         )
 
+    def test_mutation_terminal_name_binding_is_killed(self) -> None:
+        self._killed(
+            "bridge.py",
+            '            or terminal_result["taskName"] != expected_name\n',
+            '            or False\n',
+            "tests.runtime_bridge.test_bridge.AutomaticBridgeContracts.test_terminal_reclaim_rejects_mismatch_active_and_stale_without_writes",
+        )
+
+    def test_mutation_terminal_time_binding_is_killed(self) -> None:
+        self._killed(
+            "bridge.py",
+            "        if terminal_at < claimed_at or terminal_at > now:\n",
+            "        if False:\n",
+            "tests.runtime_bridge.test_bridge.AutomaticBridgeContracts.test_terminal_reclaim_rejects_mismatch_active_and_stale_without_writes",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
