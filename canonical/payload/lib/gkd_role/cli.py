@@ -8,9 +8,7 @@ import sys
 
 from gkd_task.canonical import canonical_bytes, read_canonical_json
 from gkd_task.errors import TaskError
-from gkd_task.runtime import RuntimeStore
 
-from .bridge import TrustedMainRuntimeBridge
 from .migration import apply_migration, migration_plan, verify_migration
 from .project import remove_project, stage_project, verify_project
 from .roles import context_manifest, locked_bundle_digest, resume_snapshot, role_action, role_catalog
@@ -101,6 +99,8 @@ def _read(path: Path, code: str, validator=None) -> dict:
 
 
 def _dispatch(args: argparse.Namespace) -> dict:
+    if args.command in {"automatic-prepare", "automatic-claim", "automatic-recover"}:
+        raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
     if args.command == "roles":
         return role_catalog(args.bundle_root, args.bundle_digest)
     if args.command == "context":
@@ -132,30 +132,6 @@ def _dispatch(args: argparse.Namespace) -> dict:
         return verify_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root)
     if args.command == "project-remove":
         return remove_project(args.project_root, args.production_root)
-    if args.command in {"automatic-prepare", "automatic-claim", "automatic-recover"}:
-        bridge = TrustedMainRuntimeBridge(
-            args.candidate_root,
-            args.task_path,
-            RuntimeStore(args.runtime_root),
-            args.bundle_root,
-            args.execution_bundle_digest,
-        )
-        if args.command == "automatic-prepare":
-            return bridge.prepare(
-                args.expected_head,
-                args.expected_revision,
-                _read(args.route_decision, "INVALID_ROUTE_DECISION"),
-                args.expires_at,
-            )
-        if args.command == "automatic-claim":
-            return bridge.claim(
-                args.expected_head,
-                args.expected_revision,
-                args.envelope_id,
-                _read(args.spawn_result, "INVALID_SPAWN_RESULT"),
-                args.activation_nonce,
-            )
-        return bridge.recover()
     raise TaskError("INVALID_ARGUMENTS")
 
 

@@ -306,6 +306,22 @@ class TaskService:
         records = {record["path"]: record for record in journal["files"]}
         if sorted(records) != expected_paths:
             raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        runtime_records = {record["path"]: record for record in journal.get("runtimeFiles", [])}
+        if "executionBundleDigest" in claim:
+            activation_path = f"activations/{claim['activationId']}.json"
+            if sorted(runtime_records) != [activation_path] or runtime_records[activation_path]["preimage"] is not None:
+                raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+            activation_raw = self._journal_image(runtime_records[activation_path])
+            if activation_raw is None:
+                raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+            try:
+                activation = self.runtime.read_activation(claim["activationId"])
+            except TaskError:
+                raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+            if canonical_bytes(activation) != activation_raw:
+                raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        elif runtime_records:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
         if not is_ancestor(self.candidate_root, claim["claimBaseHead"], journal["committedHead"]):
             raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
         try:
@@ -913,6 +929,7 @@ class TaskService:
             updated["lifecycle"]["claim"] = claim
             updated = advance_state(updated, "claimed", self.clock.now(), expected_head, claim)
             holder["claim"] = claim
+            transaction_files = getattr(self.evidence_provider, "transaction_files", lambda: {})()
             return TransactionChange(
                 {
                     f"{self.task_path}/task.json": canonical_bytes(updated),
@@ -920,6 +937,7 @@ class TaskService:
                 },
                 "认领任务执行权",
                 {"status": "implementing", "revision": updated["revision"], "claimId": claim_id},
+                transaction_files,
             )
 
         result = self._transact(expected_head, expected_revision, builder)

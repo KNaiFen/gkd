@@ -50,8 +50,9 @@ workflow Skills, route and wait schemas, and a trusted-main workflow activation
 provider. This is not same-user process isolation and does not add signing,
 daemon, IPC, or key infrastructure.
 
-The M2-C payload promotes project staging and the trusted-main runtime bridge
-to supported `gkd-role` surfaces. `project-stage` renders the exact parent
+The M2-C payload promotes project staging to supported `gkd-role` surfaces and
+the runtime bridge to the main-role-only `TrustedMainRuntimeBridge` library
+interface. Public `gkd-role automatic-*` commands fail closed. `project-stage` renders the exact parent
 Skill, executor role/config and executor Skills from one pinned bundle into an
 explicit non-production Git project; `project-verify` checks its byte inventory
 and digests before use. The bridge binds the six-gate automatic route decision

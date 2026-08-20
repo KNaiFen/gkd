@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -80,6 +81,42 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual("PROJECT_CONFIG_CONFLICT", raised.exception.code)
         self.assertEqual(before, (project / ".codex" / "config.toml").read_bytes())
         self.assertFalse((project / ".gkd" / "runtime-project.json").exists())
+
+    def test_tampered_bundle_and_symlink_ancestors_fail_before_project_write(self) -> None:
+        tampered_source = self.root / "tampered-canonical"
+        shutil.copytree(Path("canonical"), tampered_source)
+        skill = tampered_source / "payload" / "skills" / "gkd-main" / "SKILL.md"
+        skill.write_bytes(skill.read_bytes() + b"\n# tampered\n")
+        project = self._project("tampered-target")
+        with self.assertRaises(TaskError) as raised:
+            stage_project(tampered_source / "payload", bundle_digest(), project, self.production)
+        self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
+        self.assertFalse((project / ".codex").exists())
+        self.assertFalse((project / ".agents").exists())
+        self.assertFalse((project / ".gkd").exists())
+
+        project_parent = self.root / "project-parent"
+        project_parent.mkdir()
+        ancestor_project = project_parent / "project"
+        init_repo(ancestor_project)
+        project_alias = self.root / "project-parent-alias"
+        project_alias.symlink_to(project_parent, target_is_directory=True)
+        with self.assertRaises(TaskError) as raised:
+            stage_project(BUNDLE_ROOT, bundle_digest(), project_alias / "project", self.production)
+        self.assertEqual("PROJECT_ROOT_SYMLINK", raised.exception.code)
+        self.assertFalse((ancestor_project / ".gkd").exists())
+
+        source_parent = self.root / "source-parent"
+        source_parent.mkdir()
+        copied_source = source_parent / "canonical"
+        shutil.copytree(Path("canonical"), copied_source)
+        source_alias = self.root / "source-parent-alias"
+        source_alias.symlink_to(source_parent, target_is_directory=True)
+        bundle_target = self._project("bundle-ancestor-target")
+        with self.assertRaises(TaskError) as raised:
+            stage_project(source_alias / "canonical" / "payload", bundle_digest(), bundle_target, self.production)
+        self.assertEqual("PROJECT_SOURCE_SYMLINK", raised.exception.code)
+        self.assertFalse((bundle_target / ".gkd").exists())
 
     def test_symlink_traversal_overlap_and_bundle_drift_fail_closed(self) -> None:
         project = self._project("project")

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import stat
 import subprocess
 import tomllib
 from typing import Any
 
+from gkd_bundle import BundleError, verify_bundle_root
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
 from .roles import load_role_source, role_catalog, role_files, role_record
@@ -41,14 +43,35 @@ def _reject_symlink_chains(project: Path, relative_paths: Any) -> None:
                 raise TaskError("PROJECT_STAGE_SYMLINK")
 
 
-def _git_project(value: Path) -> Path:
+def _root_without_symlink_ancestors(value: Path, code: str) -> Path:
     if ".." in value.parts:
         raise TaskError("PROJECT_PATH_TRAVERSAL")
-    if value.is_symlink():
-        raise TaskError("PROJECT_ROOT_SYMLINK")
-    if not value.is_dir():
+    absolute = value if value.is_absolute() else Path.cwd() / value
+    # macOS exposes these temporary roots as stable system aliases; inspect
+    # their physical targets while retaining lexical checks for project paths.
+    parts = absolute.parts
+    if len(parts) > 1 and Path(parts[0], parts[1]) in {Path("/var"), Path("/tmp")}:
+        system_root = Path(parts[0], parts[1]).resolve()
+        absolute = system_root.joinpath(*parts[2:])
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current /= part
+        try:
+            metadata = os.lstat(current)
+        except FileNotFoundError:
+            break
+        except OSError:
+            raise TaskError(code) from None
+        if stat.S_ISLNK(metadata.st_mode):
+            raise TaskError(code)
+    return absolute
+
+
+def _git_project(value: Path) -> Path:
+    absolute = _root_without_symlink_ancestors(value, "PROJECT_ROOT_SYMLINK")
+    if not absolute.is_dir():
         raise TaskError("PROJECT_NOT_GIT_ROOT")
-    root = value.resolve()
+    root = absolute.resolve()
     result = subprocess.run(
         ("git", "rev-parse", "--show-toplevel"),
         cwd=root,
@@ -108,6 +131,12 @@ def _skill_files(bundle_root: Path, skill: str, target_root: Path) -> dict[str, 
 
 def _desired_files(bundle_root: Path, bundle_digest: str) -> tuple[dict[str, tuple[bytes, int]], dict[str, Any]]:
     root = bundle_root.resolve()
+    try:
+        verified = verify_bundle_root(root)
+    except BundleError:
+        raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
+    if verified["contentDigest"] != bundle_digest:
+        raise TaskError("BUNDLE_DIGEST_MISMATCH")
     source, _ = load_role_source(root)
     catalog = role_catalog(root, bundle_digest)
     definition = next(item for item in source["roles"] if item["name"] == "gkd_executor")
@@ -197,15 +226,15 @@ def _validate_inventory(value: dict[str, Any]) -> None:
 
 
 def _validate_boundaries(bundle_root: Path, project_root: Path, production_root: Path) -> tuple[Path, Path]:
-    if project_root.resolve(strict=False) == production_root.resolve(strict=False):
-        raise TaskError("PRODUCTION_PROJECT_FORBIDDEN")
-    project = _git_project(project_root)
-    source = bundle_root.resolve()
+    project_path = _root_without_symlink_ancestors(project_root, "PROJECT_ROOT_SYMLINK")
     production = production_root.resolve(strict=False)
-    if project == production or _overlap(project, production):
+    if project_path == production or _overlap(project_path, production):
         raise TaskError("PRODUCTION_PROJECT_FORBIDDEN")
-    if bundle_root.is_symlink():
-        raise TaskError("PROJECT_SOURCE_SYMLINK")
+    project = _git_project(project_path)
+    source_path = _root_without_symlink_ancestors(bundle_root, "PROJECT_SOURCE_SYMLINK")
+    if not source_path.is_dir():
+        raise TaskError("INVALID_BUNDLE_ROOT")
+    source = source_path.resolve()
     if _overlap(source, project):
         raise TaskError("PROJECT_SOURCE_OVERLAP")
     _reject_symlink_chains(

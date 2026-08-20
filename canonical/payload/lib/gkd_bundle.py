@@ -463,6 +463,32 @@ def _validated_source(source_root_value: Path) -> tuple[Path, dict[str, Any], di
     return source_root, actual_manifest, actual_lock
 
 
+def verify_bundle_root(bundle_root_value: Path) -> dict[str, Any]:
+    """Verify the complete canonical or installed bundle behind a payload root."""
+
+    bundle_root = _existing_directory(bundle_root_value, "INVALID_BUNDLE_ROOT")
+    source_root = bundle_root.parent
+    if bundle_root.name == "payload" and (source_root / "source.toml").is_file():
+        _, manifest, lock = _validated_source(source_root)
+        return {
+            "status": "verified",
+            "layout": "canonical-source",
+            "bundleVersion": manifest["bundleVersion"],
+            "contentDigest": lock["contentDigest"],
+            "files": len(lock["installFiles"]),
+        }
+    if bundle_root.name == "gkd" and (bundle_root / ".bundle").is_dir():
+        result = _verify_target(bundle_root.parent)
+        return {
+            "status": result["status"],
+            "layout": "installed",
+            "bundleVersion": result["bundleVersion"],
+            "contentDigest": result["contentDigest"],
+            "files": len(result["files"]),
+        }
+    raise BundleError("INVALID_BUNDLE_ROOT")
+
+
 def _is_within(path: Path, parent: Path) -> bool:
     try:
         path.relative_to(parent)

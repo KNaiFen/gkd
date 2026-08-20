@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 
 from gkd_role.bridge import validate_spawn_result
 from gkd_role.roles import role_catalog
 from gkd_role.routing import validate_route_decision
-from gkd_task.canonical import digest_object
+from gkd_task.acceptance import _validate_fixed_candidate
+from gkd_task.canonical import canonical_bytes, digest_object
 from gkd_task.errors import TaskError
 from gkd_task.model import finalize_state, validate_offer, validate_state
 from gkd_task.runtime import RuntimeStore, validate_envelope
@@ -39,6 +42,8 @@ class AutomaticBridgeContracts(unittest.TestCase):
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root))
         delivered = service.deliver(*self.repo.cas(), claimed["claimId"], candidate_output)
         self.assertEqual("delivered", delivered["status"])
+        runtime = RuntimeStore(self.repo.runtime_root)
+        _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
         delivery = self.repo.state()["lifecycle"]["delivery"]
         self.assertEqual(prepared["executionBundleDigest"], delivery["executionBundleDigest"])
         self.assertEqual(candidate_output, delivery["candidateOutputBundleDigest"])
@@ -48,6 +53,10 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             validate_state(finalize_state(tampered))
         self.assertEqual("INVALID_TASK_STATE", raised.exception.code)
+        runtime.delete_activation(claim["activationId"])
+        with self.assertRaises(TaskError) as raised:
+            _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
+        self.assertEqual("CLAIM_RECEIPT_UNAVAILABLE", raised.exception.code)
 
     def test_automatic_offer_requires_exact_persisted_decision_and_six_gates(self) -> None:
         service = self.repo.ready_and_authorized()
@@ -186,6 +195,108 @@ class AutomaticBridgeContracts(unittest.TestCase):
         self.assertEqual("activation_consumption_recovered", recovered["status"])
         self.assertEqual(claim_id, recovered["claimId"])
 
+    def test_interrupted_activation_transaction_rolls_back_without_residue(self) -> None:
+        bridge, prepared = ready_bridge(self.repo)
+        before = (self.repo.task_root / "task.json").read_bytes()
+
+        def interrupt(phase: str) -> None:
+            if phase == "runtime_written":
+                raise RuntimeError("synthetic activation transaction interruption")
+
+        bridge.failure_hook = interrupt
+        with self.assertRaises(RuntimeError):
+            bridge.claim(
+                *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "interrupted-activation"
+            )
+        self.assertEqual(1, len(list((self.repo.runtime_root / "activations").glob("*.json"))))
+        self.assertEqual(1, len(list((self.repo.runtime_root / "active-transactions").glob("*.json"))))
+        self.assertEqual(before, (self.repo.task_root / "task.json").read_bytes())
+        bridge.failure_hook = None
+        recovered = bridge.recover()
+        self.assertEqual("recovered_rolled_back", recovered["status"])
+        self.assertEqual([], list((self.repo.runtime_root / "activations").glob("*.json")))
+        self.assertEqual([], list((self.repo.runtime_root / "active-transactions").glob("*.json")))
+        self.assertEqual([], list((self.repo.runtime_root / "activation-receipts").glob("*.json")))
+        self.assertEqual([], list((self.repo.runtime_root / "claim-activation-receipts").glob("*.json")))
+        self.assertEqual(before, (self.repo.task_root / "task.json").read_bytes())
+
+    def test_committed_activation_transaction_recovery_finishes_receipts(self) -> None:
+        bridge, prepared = ready_bridge(self.repo)
+
+        def interrupt(phase: str) -> None:
+            if phase == "committed":
+                raise RuntimeError("synthetic committed transaction interruption")
+
+        bridge.failure_hook = interrupt
+        with self.assertRaises(RuntimeError):
+            bridge.claim(
+                *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "committed-activation"
+            )
+        claim_id = self.repo.state()["lifecycle"]["claim"]["claimId"]
+        self.assertEqual(1, len(list((self.repo.runtime_root / "active-transactions").glob("*.json"))))
+        bridge.failure_hook = None
+        recovered = bridge.recover()
+        self.assertEqual("activation_consumption_recovered", recovered["status"])
+        self.assertEqual(claim_id, recovered["claimId"])
+        self.assertEqual([], list((self.repo.runtime_root / "active-transactions").glob("*.json")))
+        for directory in ("activations", "activation-receipts", "claim-activation-receipts", "claim-receipts"):
+            self.assertEqual(1, len(list((self.repo.runtime_root / directory).glob("*.json"))))
+
+    def test_concurrent_automatic_claim_has_one_activation_and_no_orphan(self) -> None:
+        _, prepared = ready_bridge(self.repo)
+        expected_head, expected_revision = self.repo.cas()
+        spawn_path = self.repo.root / "spawn-result.json"
+        marker = self.repo.root / "claim-start"
+        spawn_path.write_bytes(canonical_bytes(spawn_result(prepared)))
+        worker = Path("tests/runtime_bridge/automatic_claim_worker.py").resolve()
+        base_command = [
+            sys.executable,
+            str(worker),
+            "--candidate-root", str(self.repo.candidate),
+            "--task-path", self.repo.task_path,
+            "--runtime-root", str(self.repo.runtime_root),
+            "--bundle-root", str(BUNDLE_ROOT.resolve()),
+            "--bundle-digest", bundle_digest(),
+            "--expected-head", expected_head,
+            "--expected-revision", str(expected_revision),
+            "--envelope-id", str(prepared["envelopeId"]),
+            "--spawn-result", str(spawn_path),
+            "--start-marker", str(marker),
+        ]
+        environment = {
+            **os.environ,
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONPATH": os.environ.get("PYTHONPATH", f"{Path('canonical/payload/lib').resolve()}:{Path.cwd()}"),
+        }
+        processes = [
+            subprocess.Popen(
+                [*base_command, "--activation-nonce", nonce],
+                cwd=Path.cwd(),
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for nonce in ("concurrent-activation-a", "concurrent-activation-b")
+        ]
+        marker.touch()
+        results = [(process.returncode, stdout, stderr) for process in processes for stdout, stderr in [process.communicate(timeout=30)]]
+        self.assertEqual([0, 2], sorted(result[0] for result in results))
+        loser = next(result for result in results if result[0] != 0)
+        self.assertIn(json.loads(loser[2])["error"], {"HEAD_MISMATCH", "CAS_HEAD_MISMATCH"})
+        for directory in ("activations", "activation-receipts", "claim-activation-receipts", "claim-receipts"):
+            self.assertEqual(1, len(list((self.repo.runtime_root / directory).glob("*.json"))))
+        self.assertEqual([], list((self.repo.runtime_root / "active-transactions").glob("*.json")))
+        self.assertEqual([], list((self.repo.runtime_root / "transaction-doubt").glob("*.json")))
+        automatic_journals = [
+            json.loads(path.read_bytes())
+            for path in (self.repo.runtime_root / "transactions").glob("*.json")
+            if "runtimeFiles" in json.loads(path.read_bytes())
+        ]
+        self.assertEqual(1, len(automatic_journals))
+        self.assertEqual("committed", automatic_journals[0]["status"])
+        self.assertEqual("implementing", self.repo.state()["lifecycle"]["phase"])
+
     def test_candidate_public_claim_stays_fail_closed_and_byte_unchanged(self) -> None:
         bridge, prepared = ready_bridge(self.repo)
         before = (self.repo.task_root / "task.json").read_bytes()
@@ -208,6 +319,48 @@ class AutomaticBridgeContracts(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertEqual("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE", json.loads(result.stderr)["error"])
         self.assertEqual(before, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(
+            runtime_before,
+            {
+                path.relative_to(self.repo.runtime_root).as_posix(): path.read_bytes()
+                for path in self.repo.runtime_root.rglob("*")
+                if path.is_file()
+            },
+        )
+
+    def test_public_role_automatic_claim_rejects_forged_spawn_without_writes(self) -> None:
+        _, prepared = ready_bridge(self.repo)
+        spawn_path = self.repo.root / "forged-spawn.json"
+        spawn_path.write_bytes(canonical_bytes(spawn_result(prepared)))
+        task_before = (self.repo.task_root / "task.json").read_bytes()
+        runtime_before = {
+            path.relative_to(self.repo.runtime_root).as_posix(): path.read_bytes()
+            for path in self.repo.runtime_root.rglob("*")
+            if path.is_file()
+        }
+        result = subprocess.run(
+            [
+                str(Path("canonical/payload/bin/gkd-role").resolve()),
+                "automatic-claim",
+                "--candidate-root", str(self.repo.candidate),
+                "--task-path", self.repo.task_path,
+                "--runtime-root", str(self.repo.runtime_root),
+                "--bundle-root", str(BUNDLE_ROOT.resolve()),
+                "--execution-bundle-digest", bundle_digest(),
+                "--spawn-result", str(spawn_path),
+                "--expected-head", self.repo.head(),
+                "--expected-revision", str(self.repo.state()["revision"]),
+                "--envelope-id", str(prepared["envelopeId"]),
+                "--activation-nonce", "forged-activation",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(2, result.returncode)
+        self.assertEqual("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE", json.loads(result.stderr)["error"])
+        self.assertEqual(task_before, (self.repo.task_root / "task.json").read_bytes())
         self.assertEqual(
             runtime_before,
             {

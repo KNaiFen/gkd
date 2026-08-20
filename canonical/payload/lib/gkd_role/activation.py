@@ -95,7 +95,7 @@ class TrustedMainActivationAuthority:
         self.provider_name = provider["name"]
         self.provider_digest = digest_object(provider)
 
-    def record(
+    def build(
         self,
         expected: dict[str, Any],
         host_facts: dict[str, Any],
@@ -144,11 +144,20 @@ class TrustedMainActivationAuthority:
         }
         value["activationDigest"] = digest_object(value)
         validate_activation(value)
-        atomic_write(self.runtime._path("activations", activation_id), canonical_bytes(value), mode=0o600)
-        return {"status": "activation_recorded", "activationId": activation_id, "activationDigest": value["activationDigest"]}
+        return value
 
-    def provider(self, activation_id: str) -> "TrustedActivationEvidenceProvider":
-        return TrustedActivationEvidenceProvider(self.runtime, activation_id, self.catalog)
+    def record(
+        self,
+        expected: dict[str, Any],
+        host_facts: dict[str, Any],
+        nonce: str,
+    ) -> dict[str, Any]:
+        value = self.build(expected, host_facts, nonce)
+        atomic_write(self.runtime._path("activations", value["activationId"]), canonical_bytes(value), mode=0o600)
+        return {"status": "activation_recorded", "activationId": value["activationId"], "activationDigest": value["activationDigest"]}
+
+    def provider(self, activation_id: str, pending_activation: dict[str, Any] | None = None) -> "TrustedActivationEvidenceProvider":
+        return TrustedActivationEvidenceProvider(self.runtime, activation_id, self.catalog, pending_activation)
 
 
 class TrustedActivationEvidenceProvider:
@@ -156,7 +165,7 @@ class TrustedActivationEvidenceProvider:
 
     trusted_main_owned = True
 
-    def __init__(self, runtime: Any, activation_id: str, catalog: dict[str, Any]) -> None:
+    def __init__(self, runtime: Any, activation_id: str, catalog: dict[str, Any], pending_activation: dict[str, Any] | None = None) -> None:
         require_sha256(activation_id, "INVALID_ACTIVATION")
         self.runtime = runtime
         self.activation_id = activation_id
@@ -164,6 +173,7 @@ class TrustedActivationEvidenceProvider:
         self.provider_name = provider["name"]
         self.provider_digest = digest_object(provider)
         self.activation: dict[str, Any] | None = None
+        self.pending_activation = deepcopy(pending_activation) if pending_activation is not None else None
 
     def observe(self, purpose: str, expected: dict[str, Any]) -> dict[str, Any]:
         if purpose != "claim":
@@ -175,7 +185,10 @@ class TrustedActivationEvidenceProvider:
                 raise
         else:
             raise TaskError("ACTIVATION_REPLAYED")
-        activation = self.runtime.read_activation(self.activation_id)
+        activation = self.pending_activation or self.runtime.read_activation(self.activation_id)
+        if activation["activationId"] != self.activation_id:
+            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+        validate_activation(activation)
         validate_activation_binding(activation, expected)
         self.activation = activation
         value = {
@@ -191,6 +204,13 @@ class TrustedActivationEvidenceProvider:
         }
         value["evidenceDigest"] = digest_object(value)
         return value
+
+    def transaction_files(self) -> dict[str, bytes]:
+        if self.pending_activation is None:
+            return {}
+        return {
+            f"activations/{self.activation_id}.json": canonical_bytes(self.pending_activation),
+        }
 
     def consume(self, claim_id: str, claim_commit: str, claim_receipt_digest: str, consumed_at: str) -> None:
         if self.activation is None:

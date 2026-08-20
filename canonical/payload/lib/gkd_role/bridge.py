@@ -68,6 +68,7 @@ class TrustedMainRuntimeBridge:
         execution_bundle_digest: str,
         clock: Any | None = None,
         nonce: Any | None = None,
+        failure_hook: Any | None = None,
     ) -> None:
         require_sha256(execution_bundle_digest, "INVALID_BUNDLE_DIGEST")
         self.candidate_root = candidate_root
@@ -77,6 +78,7 @@ class TrustedMainRuntimeBridge:
         self.execution_bundle_digest = execution_bundle_digest
         self.clock = clock or SystemClock()
         self.nonce = nonce or SystemNonce()
+        self.failure_hook = failure_hook
 
     def _service(self, provider: Any | None = None) -> TaskService:
         return TaskService(
@@ -86,6 +88,7 @@ class TrustedMainRuntimeBridge:
             clock=self.clock,
             nonce=self.nonce,
             evidence_provider=provider,
+            failure_hook=self.failure_hook,
         )
 
     def prepare(
@@ -181,7 +184,7 @@ class TrustedMainRuntimeBridge:
             )
         }
         authority = TrustedMainActivationAuthority(self.runtime, self.catalog)
-        activation = authority.record(
+        activation = authority.build(
             activation_expected,
             {
                 "evidenceClass": "host-runtime-event",
@@ -195,14 +198,8 @@ class TrustedMainRuntimeBridge:
             },
             activation_nonce,
         )
-        provider = authority.provider(activation["activationId"])
-        try:
-            result = self._service(provider).claim(expected_head, expected_revision, envelope_id)
-        except (TaskError, OSError):
-            current = self._service().status()
-            if current["phase"] != "implementing":
-                self.runtime.delete_activation(activation["activationId"])
-            raise
+        provider = authority.provider(activation["activationId"], activation)
+        result = self._service(provider).claim(expected_head, expected_revision, envelope_id)
         return {
             "status": result["status"],
             "revision": result["revision"],
@@ -218,7 +215,11 @@ class TrustedMainRuntimeBridge:
         }
 
     def recover(self) -> dict[str, Any]:
-        context = self._service().automatic_recovery_context()
+        service = self._service()
+        transaction = service.recover()
+        if transaction["status"] == "recovered_rolled_back":
+            return transaction
+        context = service.automatic_recovery_context()
         if context["executionBundleDigest"] != self.execution_bundle_digest:
             raise TaskError("EXECUTION_BUNDLE_MISMATCH")
         authority = TrustedMainActivationAuthority(self.runtime, self.catalog)

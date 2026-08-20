@@ -122,6 +122,16 @@
       },
       "required": ["schemaVersion", "kind", "activationId", "activationDigest", "claimId", "claimCommit", "claimReceiptDigest", "consumedAt", "receiptDigest"]
     },
+    "runtimeFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "pattern": "^activations/[0-9a-f]{64}\\.json$"},
+        "preimage": {"type": "null"},
+        "postimage": {"type": "string"}
+      },
+      "required": ["path", "preimage", "postimage"]
+    },
     "journal": {
       "type": "object",
       "additionalProperties": false,
@@ -129,7 +139,9 @@
         "schemaVersion": {"const": 1}, "transactionId": {"$ref": "#/$defs/sha256"},
         "runtimeKey": {"type": "string"}, "status": {"enum": ["prepared", "committed", "rolled_back"]},
         "expectedHead": {"$ref": "#/$defs/sha1"}, "expectedRevision": {"type": "integer"},
-        "files": {"type": "array"}, "createdAt": {"type": "string"},
+        "files": {"type": "array"},
+        "runtimeFiles": {"type": "array", "items": {"$ref": "#/$defs/runtimeFile"}},
+        "createdAt": {"type": "string"},
         "committedHead": {"type": ["string", "null"]}, "journalDigest": {"$ref": "#/$defs/sha256"}
       },
       "required": ["schemaVersion", "transactionId", "runtimeKey", "status", "expectedHead", "expectedRevision", "files", "createdAt", "committedHead", "journalDigest"]

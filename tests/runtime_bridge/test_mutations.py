@@ -59,6 +59,22 @@ class RuntimeBridgeMutationContracts(unittest.TestCase):
             "tests.runtime_bridge.test_project.ProjectStagingContracts.test_symlink_traversal_overlap_and_bundle_drift_fail_closed",
         )
 
+    def test_mutation_bundle_content_verification_is_killed(self) -> None:
+        self._killed(
+            "project.py",
+            "        verified = verify_bundle_root(root)\n",
+            '        verified = {"contentDigest": bundle_digest}\n',
+            "tests.runtime_bridge.test_project.ProjectStagingContracts.test_tampered_bundle_and_symlink_ancestors_fail_before_project_write",
+        )
+
+    def test_mutation_activation_prewrite_is_killed(self) -> None:
+        self._killed(
+            "bridge.py",
+            "        activation = authority.build(\n",
+            "        activation = authority.record(\n",
+            "tests.runtime_bridge.test_bridge.AutomaticBridgeContracts.test_concurrent_automatic_claim_has_one_activation_and_no_orphan",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

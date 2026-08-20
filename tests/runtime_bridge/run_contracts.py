@@ -164,10 +164,12 @@ def main() -> int:
             "automaticFlow": flow,
             "publicBoundaries": {
                 "candidateTaskClaimFailClosed": True,
+                "publicRoleAutomaticClaimFailClosed": True,
                 "candidateActivationWriterAvailable": False,
                 "genericWorkerFallback": False,
                 "mainOutputPathMinimized": True,
                 "runtimeIdentityCommittedAsEvidence": False,
+                "activationTransactionSingleWriter": True,
             },
             "protected": {
                 "production": {"before": before_production, "after": after_production, "unchanged": True},

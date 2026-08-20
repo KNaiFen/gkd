@@ -174,6 +174,33 @@ def _validate_claim_receipt(
     records = {record["path"]: record for record in journal["files"]}
     if sorted(records) != expected_paths:
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    runtime_records = {record["path"]: record for record in journal.get("runtimeFiles", [])}
+    if "executionBundleDigest" in claim:
+        activation_path = f"activations/{claim['activationId']}.json"
+        if sorted(runtime_records) != [activation_path] or runtime_records[activation_path]["preimage"] is not None:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        activation_raw = _journal_image(runtime_records[activation_path])
+        if activation_raw is None:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        try:
+            activation = json.loads(activation_raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+        if not isinstance(activation, dict) or activation_raw != canonical_bytes(activation):
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        from gkd_role.activation import validate_activation
+
+        validate_activation(activation)
+        if activation["activationId"] != claim["activationId"]:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+        try:
+            durable_activation = runtime.read_activation(claim["activationId"])
+        except TaskError:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE") from None
+        if canonical_bytes(durable_activation) != activation_raw:
+            raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    elif runtime_records:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
     try:
         parent = git(candidate_root, "rev-parse", f"{receipt['claimCommit']}^", code="CLAIM_RECEIPT_UNAVAILABLE").decode("ascii").strip()
     except UnicodeDecodeError:
