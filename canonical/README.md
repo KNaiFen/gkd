@@ -74,6 +74,14 @@ revokes the consumed offer, preserves the old claim, delivery, bundle and review
 digests, increments the epoch, and returns to authorized planning. Executors
 remain stopped after delivery and cannot reject, accept, or resume themselves.
 
+Automatic spawn names are bounded to 128 ASCII characters and combine a
+sanitized task prefix with a digest of the exact offer and epoch. The same offer
+reconstructs the same name; a later automatic attempt cannot reuse it. The
+trusted-main-only `TrustedMainRuntimeBridge.reclaim_terminal` method accepts one
+normalized terminal or missing result, validates the active claim and terminal
+time, and passes only an in-memory evidence projection to the existing atomic
+reclaim transaction. Candidate and public CLI reclaim paths remain unavailable.
+
 Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the
 trusted-main bridge after the accepted M2-B one-hour wait gate. This development

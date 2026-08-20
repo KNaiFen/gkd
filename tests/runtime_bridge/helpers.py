@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
@@ -97,3 +98,33 @@ def spawn_result(prepared: dict[str, object], **overrides: object) -> dict[str, 
     }
     value.update(overrides)
     return value
+
+
+def terminal_result(
+    repo: TaskRepo,
+    prepared: dict[str, object],
+    claim: dict[str, object],
+    **overrides: object,
+) -> dict[str, object]:
+    spawned = spawn_result(prepared)
+    value: dict[str, object] = {
+        "schemaVersion": 1,
+        "status": "terminal",
+        "taskId": repo.task_id,
+        "repository": repo.identity,
+        "taskBranch": repo.task_branch,
+        "offerId": prepared["offerId"],
+        "claimId": claim["claimId"],
+        "taskName": prepared["spawnRequest"]["taskName"],
+        "agentId": spawned["agentId"],
+        "sessionDigest": spawned["threadDigest"],
+        "roleName": prepared["roleName"],
+        "roleDigest": prepared["roleDigest"],
+        "configDigest": prepared["configDigest"],
+        "executionBundleDigest": prepared["executionBundleDigest"],
+        "routeDecisionDigest": prepared["routeDecisionDigest"],
+        "route": "automatic",
+        "terminalAt": FIXED_TIME,
+    }
+    value.update(overrides)
+    return deepcopy(value)
