@@ -5,7 +5,8 @@
 - Outcome: `automatic_runtime_bridge_ready`
 - Fixed base: `302f60d96c2f81e85052025f814593015a436bd7`
 - Bootstrap planning head: `a7208f2d796ec62b3ddb300730d8e9b37be9a56e`
-- Implementation/evidence commit: `958a313f48ea7fd5d190dfa5b200230d81d29fd4`
+- Rework base: `b512a2aa644992c88ae2a2012d1322573a9ead0b`
+- Implementation/evidence commit: `e72803783b2abbf453a90ee1ebc89c911cd12c57`
 - PR: [KNaiFen/gkd#7](https://github.com/KNaiFen/gkd/pull/7)，Ready
 - Checks: 未配置，事实为 `required_checks_not_configured_bootstrap`
 
@@ -26,12 +27,17 @@ offer `d25292982fcd667d81971050a56814434a6027d9c5721e41c51cd1e132b404ab`
 
 - `gkd-role project-stage/project-verify/project-remove` 从固定 bundle 生成并验证
   parent `gkd-main` Skill、exact `gkd_executor` TOML 与三个 executor Skills；只接受
-  显式非生产 Git 根，完整拒绝冲突、路径穿越、受管路径 symlink、source/target
-  overlap、摘要/mode 漂移，并在写失败时恢复空 preimage。
-- `gkd-role automatic-prepare/automatic-claim/automatic-recover` 把六门 route
+  显式非生产 Git 根，在项目写入前重新验证 bundle 全部真实文件与 manifest/lock，
+  并逐组件拒绝 project/bundle root 的祖先 symlink；冲突、路径穿越、source/target
+  overlap、摘要/mode 漂移与受管路径 symlink 均 fail-closed。
+- main role 通过受支持的 `TrustedMainRuntimeBridge` library interface 把六门 route
   decision 绑定到 offer/envelope，验证唯一 direct `gkd_executor` spawn 的 task、
-  role/config/execution-bundle、model/effort/sandbox/runtime、identity 与 offer window，
-  再通过既有 trusted-main authority/provider 完成 exact claim 和 receipt recovery。
+  role/config/execution-bundle、model/effort/sandbox/runtime、identity 与 offer window。
+  公开 `gkd-role automatic-*`、candidate `gkd-task claim` 与默认 task library 路径
+  均返回 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`，不会消费伪造 spawn JSON。
+- automatic activation postimage 与 task/offer postimage 进入同一 task lock、exact
+  CAS 和 journal 事务。并发失败方不产生 activation/receipt/journal；pre-commit
+  中断回滚 activation，post-commit 中断一次 recovery 即补齐 claim/activation receipts。
 - automatic 只允许 v3 offer/envelope；旧 v1/v2 仍可读取，但不能以单个
   `route=automatic` 绕过 route decision。失败路径不创建 manual claim、generic
   worker fallback 或候选写入。
@@ -43,11 +49,11 @@ offer `d25292982fcd667d81971050a56814434a6027d9c5721e41c51cd1e132b404ab`
 ## Digests
 
 - Historical M2-A/M2-B gate bundle: `5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880`
-- Candidate output bundle: `2d8117b5ac8ecf9d30fa578424d208ff7795192a3396eb653ee641376955116a`
-- M2-C evidence digest/file SHA-256: `5ffe2feef2646b39f5bf293e2365fcbf509fd5518d9a5885250716d1b9814e0e` / `f30f4ceb6e54b776f5623555680e2e0a8622270568068b9aae3ec7d15f18973e`
+- Candidate output bundle: `c385b10ca631b94c8e26c4f1accfdd8a3c9208b0cacfc1e320b52bbe631c9650`
+- M2-C evidence digest/file SHA-256: `5b8f824d7fb98b82c7db805e7cebea848c4185f8a4c078e969998a48f7d5ef13` / `cf52161e1f2c065d146036b024a126820f49dabe4ee5fe78591132f562023fda`
 - Executor role/config: `08bfcea59c7be5ea03cd7958ac2195e6a0a5703823a739fd819aabd6c48427dd` / `10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e`
-- Project config/inventory: `9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0` / `6b997c82307c21087fa6ffeb4960b53f05c055e9f39b25d4029d64ae00eb0425`
-- Skills: main `827a1c6b3b067f92740eaaab20f67781113962d2b005553e039c21cfe2d3e12e`; execute `a85105da54144a964e832affcd552daadbc09534e57c45d46f8cde2d1f4ce836`; local verify `3ec80b83782c7e1ff69d7fb72e6fb1665c6a5add66d97c19dd235908c33d6ad3`; CI monitor `45589e31a888437774b67c9c20be2ab4075c48bbb9de918f8ad7c068c82dc7a0`
+- Project config/inventory: `9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0` / `358107ebab2805a3bb35a2b3503f78414e5a3b22c72e202219dd2d93bb22efa6`
+- Skills: main `955471652de96a0de4e82e462b60700ff2d4b7a76afb6dcc32769fa41787ede6`; execute `a85105da54144a964e832affcd552daadbc09534e57c45d46f8cde2d1f4ce836`; local verify `3ec80b83782c7e1ff69d7fb72e6fb1665c6a5add66d97c19dd235908c33d6ad3`; CI monitor `45589e31a888437774b67c9c20be2ab4075c48bbb9de918f8ad7c068c82dc7a0`
 
 M2-C evidence 中的 synthetic end-to-end flow 使用当前 candidate bundle 作为测试执行
 bundle，并用 `d` × 64 作为独立 synthetic output digest；它不是本任务的 claim 或
@@ -58,7 +64,7 @@ execution-bundle upgrade。
 
 | Contract | Result |
 | --- | ---: |
-| M2-C bridge/staging/recovery/mutation（两次） | 17/17 + 17/17 |
+| M2-C bridge/staging/recovery/mutation（两次） | 24/24 + 24/24 |
 | M1 task-core | 104/104 |
 | M2-A role-routing | 70/70 |
 | Foundation | 53/53 |
@@ -67,7 +73,7 @@ execution-bundle upgrade。
 | Historical M2-A runner on current candidate | 70/70 |
 
 两次 M2-C evidence 来自互不相交的干净系统临时根，文件逐字节一致，SHA-256
-均为 `f30f4ceb6e54b776f5623555680e2e0a8622270568068b9aae3ec7d15f18973e`；
+均为 `cf52161e1f2c065d146036b024a126820f49dabe4ee5fe78591132f562023fda`；
 临时根结束为空。两个 staged project 的 inventory 与输出逐字节一致，candidate
 Git 无污染。
 
