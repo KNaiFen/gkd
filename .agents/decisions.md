@@ -260,3 +260,7 @@
 - [2026-08-20] `GKD-M2-D` delivered rejection/rework core 达到候选交付门。
   - Why: M3-A 暴露了 delivery 后 executor 已停止、但 CI/独立审查只能在 delivered PR head 上得出最终拒绝结论的生命周期缺口。task state v2 现由 trusted main/acceptor 在固定 candidate/PR/review/receipt/authorization 全部匹配时原子保存旧 attempt、撤销 offer、递增 epoch 并返回 planning；executor 与旧 capability/envelope/claim 均不可自行恢复执行。
   - Impact: implementation/evidence commits 为 `c0ee720cce21500faf5ef396c5e5a985498caeff` / `c41e35e420e3bc05b7fd23149a956403a0a5732c`，candidate output bundle/evidence digest 为 `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766` / `da884bc1efe152ed983deda4c04d02bf95eafad17b2f61bd2f2067b729a2324d`。118 项 task-core 在两个独立临时根逐字节生成相同 evidence，完整 versioned verifier 的 118/32/70/53/47/15 项通过；生产/AIO 摘要不变，唯一任务 PR #9 已 Ready，PR #8/M3-A 未修改。候选仍须 fixed-head 独立验收，本 session 不验收、不合并、不清理或启动 M3-A 返工。
+
+- [2026-08-20] `GKD-M2-D` fixed head 已独立验收、合并、安装并完成清理。
+  - Why: main 对 `e8729934f567d74ee19e7583b8f8433dacb9ac60` 的完整 diff、requirements、rework 状态/事务/GitHub 合同和 fixed-head archive 独立复验均无阻塞 finding；candidate 与 squash merge tree 完全一致。无 configured checks 只记录为 bootstrap 事实，不伪装为 CI 成功。
+  - Impact: PR #9 以 `0976b4900346e972bd8e03f6e8fa4ab761fe8952` 进入 main；bundle `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766` 成为 accepted execution-bundle upgrade。隔离安装和 project staging 已验证，role digest 更新为 `880e1855cfdeb50ba890a3023c818cde377b9c6a71c230360154b79ecc16d680`；候选 worktree 与本地/远端分支已清理。M3-A 只能通过此 accepted transition 保存旧 delivered attempt 后重新 automatic offer/claim，禁止手改状态或复用旧 claim。
