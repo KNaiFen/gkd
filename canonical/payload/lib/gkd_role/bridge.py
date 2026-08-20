@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from gkd_bundle import BundleError, verify_bundle_root
 from gkd_task.canonical import SystemClock, SystemNonce, require_keys, require_sha256, require_string, require_utc
 from gkd_task.errors import TaskError
 from gkd_task.runtime import RuntimeStore
@@ -74,11 +76,21 @@ class TrustedMainRuntimeBridge:
         self.candidate_root = candidate_root
         self.task_path = task_path
         self.runtime = runtime
-        self.catalog = role_catalog(bundle_root, execution_bundle_digest)
+        self.bundle_root = Path(bundle_root)
         self.execution_bundle_digest = execution_bundle_digest
         self.clock = clock or SystemClock()
         self.nonce = nonce or SystemNonce()
         self.failure_hook = failure_hook
+        self._verified_catalog()
+
+    def _verified_catalog(self) -> dict[str, Any]:
+        try:
+            verified = verify_bundle_root(self.bundle_root)
+        except BundleError:
+            raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
+        if verified["contentDigest"] != self.execution_bundle_digest:
+            raise TaskError("EXECUTION_BUNDLE_MISMATCH")
+        return role_catalog(self.bundle_root, self.execution_bundle_digest)
 
     def _service(self, provider: Any | None = None) -> TaskService:
         return TaskService(
@@ -98,10 +110,11 @@ class TrustedMainRuntimeBridge:
         route_decision: dict[str, Any],
         expires_at: str,
     ) -> dict[str, Any]:
+        catalog = self._verified_catalog()
         validate_route_decision(route_decision, require_automatic=True)
         if route_decision["bundleDigest"] != self.execution_bundle_digest:
             raise TaskError("EXECUTION_BUNDLE_MISMATCH")
-        role = role_record(self.catalog, "gkd_executor")
+        role = role_record(catalog, "gkd_executor")
         service = self._service()
         service.offer(
             expected_head,
@@ -156,7 +169,8 @@ class TrustedMainRuntimeBridge:
         context = service.automatic_claim_context(envelope_id)
         if context["bundleDigest"] != self.execution_bundle_digest:
             raise TaskError("EXECUTION_BUNDLE_MISMATCH")
-        role = role_record(self.catalog, "gkd_executor")
+        catalog = self._verified_catalog()
+        role = role_record(catalog, "gkd_executor")
         expected_spawn = {
             "executionBundleDigest": context["bundleDigest"],
             "routeDecisionDigest": context["routeDecisionDigest"],
@@ -183,7 +197,7 @@ class TrustedMainRuntimeBridge:
                 "routeDecisionDigest", "offerCreatedAt", "offerExpiresAt",
             )
         }
-        authority = TrustedMainActivationAuthority(self.runtime, self.catalog)
+        authority = TrustedMainActivationAuthority(self.runtime, catalog)
         activation = authority.build(
             activation_expected,
             {
@@ -215,6 +229,7 @@ class TrustedMainRuntimeBridge:
         }
 
     def recover(self) -> dict[str, Any]:
+        catalog = self._verified_catalog()
         service = self._service()
         transaction = service.recover()
         if transaction["status"] == "recovered_rolled_back":
@@ -222,5 +237,5 @@ class TrustedMainRuntimeBridge:
         context = service.automatic_recovery_context()
         if context["executionBundleDigest"] != self.execution_bundle_digest:
             raise TaskError("EXECUTION_BUNDLE_MISMATCH")
-        authority = TrustedMainActivationAuthority(self.runtime, self.catalog)
+        authority = TrustedMainActivationAuthority(self.runtime, catalog)
         return self._service(authority.provider(context["activationId"])).recover_activation()

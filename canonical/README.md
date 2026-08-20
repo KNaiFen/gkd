@@ -5,6 +5,9 @@ developer declaration; `manifest.json` and `manifest.lock.json` are generated
 outputs and must never be edited by hand. The current version is deliberately a
 development version and carries no release or compatibility promise.
 
+The canonical CLI, project staging, and automatic runtime bridge require
+Python 3.11 or newer.
+
 The content digest is SHA-256 over newline-delimited canonical JSON records,
 sorted by canonical source path. Each record binds path, file type, mode and
 content SHA-256. Inputs are `manifest.schema.json`, the generated

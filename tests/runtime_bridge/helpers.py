@@ -55,14 +55,14 @@ def automatic_decision(digest: str | None = None) -> dict[str, object]:
     )
 
 
-def ready_bridge(repo: TaskRepo) -> tuple[TrustedMainRuntimeBridge, dict[str, object]]:
+def ready_bridge(repo: TaskRepo, bundle_root: Path = BUNDLE_ROOT) -> tuple[TrustedMainRuntimeBridge, dict[str, object]]:
     repo.ready_and_authorized()
     digest = bundle_digest()
     bridge = TrustedMainRuntimeBridge(
         repo.candidate,
         repo.task_path,
         RuntimeStore(repo.runtime_root),
-        BUNDLE_ROOT,
+        bundle_root,
         digest,
         FixedClock(FIXED_TIME),
         FixedNonce(["c" * 48, *[f"bridge-nonce-{index}" for index in range(20)]]),

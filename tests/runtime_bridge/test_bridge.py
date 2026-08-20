@@ -5,6 +5,7 @@ from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import unittest
@@ -18,7 +19,7 @@ from gkd_task.errors import TaskError
 from gkd_task.model import finalize_state, validate_offer, validate_state
 from gkd_task.runtime import RuntimeStore, validate_envelope
 from gkd_task.service import TaskService
-from tests.runtime_bridge.helpers import BUNDLE_ROOT, automatic_decision, bundle_digest, ready_bridge, spawn_result
+from tests.runtime_bridge.helpers import BUNDLE_ROOT, SOURCE_ROOT, automatic_decision, bundle_digest, ready_bridge, spawn_result
 from tests.task_core.helpers import FUTURE_TIME, TaskRepo
 
 
@@ -28,6 +29,19 @@ class AutomaticBridgeContracts(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.repo.close()
+
+    def _runtime_snapshot(self) -> dict[str, bytes]:
+        return {
+            path.relative_to(self.repo.runtime_root).as_posix(): path.read_bytes()
+            for path in self.repo.runtime_root.rglob("*")
+            if path.is_file()
+        }
+
+    def _copied_bundle_bridge(self):
+        source = self.repo.root / "execution-source"
+        shutil.copytree(SOURCE_ROOT, source)
+        bridge, prepared = ready_bridge(self.repo, source / "payload")
+        return bridge, prepared, source / "payload"
 
     def _delivered_candidate(self):
         bridge, prepared = ready_bridge(self.repo)
@@ -220,7 +234,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
             self.assertEqual(tracked_before, (self.repo.task_root / "task.json").read_bytes())
             self.assertEqual(runtime_before, sorted(path.relative_to(self.repo.runtime_root).as_posix() for path in self.repo.runtime_root.rglob("*") if path.is_file()))
 
-    def test_replay_stale_cas_and_execution_bundle_replacement_fail_closed(self) -> None:
+    def test_replay_and_stale_cas_fail_closed(self) -> None:
         bridge, prepared = ready_bridge(self.repo)
         facts = spawn_result(prepared)
         with self.assertRaises(TaskError) as raised:
@@ -230,6 +244,54 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError):
             bridge.claim(*self.repo.cas(), prepared["envelopeId"], facts, "activation-nonce")
         self.assertEqual(claimed["claimId"], self.repo.state()["lifecycle"]["claim"]["claimId"])
+
+    def test_claim_revalidates_execution_bundle_after_prepare(self) -> None:
+        bridge, prepared, copied_bundle = self._copied_bundle_bridge()
+        tracked_before = (self.repo.task_root / "task.json").read_bytes()
+        runtime_before = self._runtime_snapshot()
+        shutil.rmtree(copied_bundle)
+
+        with self.assertRaises(TaskError) as raised:
+            bridge.claim(
+                *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "missing-bundle"
+            )
+        self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
+        self.assertEqual(tracked_before, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(runtime_before, self._runtime_snapshot())
+
+    def test_recover_revalidates_replaced_bundle_and_remains_retryable(self) -> None:
+        bridge, prepared, copied_bundle = self._copied_bundle_bridge()
+
+        def interrupt(phase: str) -> None:
+            if phase == "committed":
+                raise RuntimeError("synthetic committed transaction interruption")
+
+        bridge.failure_hook = interrupt
+        with self.assertRaises(RuntimeError):
+            bridge.claim(
+                *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "replaced-bundle"
+            )
+        bridge.failure_hook = None
+        tracked_before = (self.repo.task_root / "task.json").read_bytes()
+        runtime_before = self._runtime_snapshot()
+
+        shutil.rmtree(copied_bundle)
+        shutil.copytree(BUNDLE_ROOT, copied_bundle)
+        skill = copied_bundle / "skills" / "gkd-execute" / "SKILL.md"
+        skill.write_bytes(skill.read_bytes() + b"replaced\n")
+        with self.assertRaises(TaskError) as raised:
+            bridge.recover()
+        self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
+        self.assertEqual(tracked_before, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(runtime_before, self._runtime_snapshot())
+
+        shutil.rmtree(copied_bundle)
+        shutil.copytree(BUNDLE_ROOT, copied_bundle)
+        recovered = bridge.recover()
+        self.assertEqual("activation_consumption_recovered", recovered["status"])
+        self.assertEqual([], list((self.repo.runtime_root / "active-transactions").glob("*.json")))
+        for directory in ("activations", "activation-receipts", "claim-activation-receipts", "claim-receipts"):
+            self.assertEqual(1, len(list((self.repo.runtime_root / directory).glob("*.json"))))
 
     def test_committed_claim_receipt_interruption_recovers_without_replay(self) -> None:
         bridge, prepared = ready_bridge(self.repo)
