@@ -29,6 +29,7 @@
 - [x] `GKD-M2-B` 已按用户明确确认绑定 M2-A bundle digest 固化；一小时等待与early-final门完成。
 - [x] `GKD-M2-C` fixed head `b25637d8f0989427f9bfe0cc46e603ffd3c79550` 已独立验收并以 squash merge `b16349af24ae76055f86f3b02437168404b97ff8` 进入 main；32×3 M2-C、104 task-core、70 role-routing、53 foundation、47 watcher-core、15 live-negative 通过。accepted execution-bundle upgrade/evidence digest 为 `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` / `ab6efbc3cded637edc1fd0acd155958a3949566d48282fa1c4bfa81b266bbb82`。一次性 bootstrap exception 已终止；候选 worktree、本地分支和远端分支均已清理。
 - [x] accepted M2-C bundle 已安装到隔离的非生产临时根并完成本仓库机器本地 project staging；exact `gkd_executor` 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`，bundle/role/config/project-config/inventory digest 均已复核，Git 跟踪面干净且生产 `~/.codex`、AIO 快照不变。当前 Session 未动态重载角色，M3 必须由 fresh main 先通过全部正式门禁再启动。
+- [ ] `GKD-M2-D` 候选实现与双次 evidence 已完成：implementation head `c0ee720cce21500faf5ef396c5e5a985498caeff`，candidate bundle `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766`，evidence digest `da884bc1efe152ed983deda4c04d02bf95eafad17b2f61bd2f2067b729a2324d`；待唯一任务 PR fixed-head 独立验收，未验收、合并或清理。
 - [ ] `GKD-M3-A`：通用`.gkd` policy schema、repo/policy/origin一致性和GitHub fixed-head terminal monitor。
 - [ ] `GKD-M3-B`：产物分类、资源预设、GitHub runner/billing facts推荐与固定scanner wrapper。
 - [ ] `GKD-M3-C`：共享review core、`gkd-optimize-ci`、`gkd-review-remediation`和七Skill bundle收口。
