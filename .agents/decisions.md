@@ -264,3 +264,11 @@
 - [2026-08-20] `GKD-M2-D` fixed head 已独立验收、合并、安装并完成清理。
   - Why: main 对 `e8729934f567d74ee19e7583b8f8433dacb9ac60` 的完整 diff、requirements、rework 状态/事务/GitHub 合同和 fixed-head archive 独立复验均无阻塞 finding；candidate 与 squash merge tree 完全一致。无 configured checks 只记录为 bootstrap 事实，不伪装为 CI 成功。
   - Impact: PR #9 以 `0976b4900346e972bd8e03f6e8fa4ab761fe8952` 进入 main；bundle `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766` 成为 accepted execution-bundle upgrade。隔离安装和 project staging 已验证，role digest 更新为 `880e1855cfdeb50ba890a3023c818cde377b9c6a71c230360154b79ecc16d680`；候选 worktree 与本地/远端分支已清理。M3-A 只能通过此 accepted transition 保存旧 delivered attempt 后重新 automatic offer/claim，禁止手改状态或复用旧 claim。
+
+- [2026-08-20] M2-J delivery-document contract 已独立验收、合并并成为新的 accepted bundle。
+  - Why: M2-I 首个候选在功能验证通过后暴露了 delivery document 在 final task state 之后提交的固定 head 缺口；M2-J 以通用、仓库中立的 sequencing/binding contract 修复该问题，并明确 legacy delivered state 必须显式迁移，不能静默接受。
+  - Impact: PR #15 fixed head `10427606bd71985f5115b0d4ef3d9c5d8609f0a2` 以 squash merge `c2ae190f96ca321b1b5fe83035f8c67b4c20a42c` 进入 main；candidate bundle/evidence digest 为 `d17c5f5259591ab1dbd0b1148786fc5126dc858bdf577172c0df7c2a29f1c95b` / `c540592337c305f3b0fb738f45752528e55608581ddc4987d795824ff237f774`。旧 M2-I 候选不绕过该合同。
+
+- [2026-08-20] M2-I trusted-host bridge 已按 M2-J 合同 redelivery、独立验收并合并。
+  - Why: 为保留已验证的 M2-I bridge 功能，同时满足新的 implementation -> delivery-document -> final-state fixed sequence，注册窄范围 `GKD-M2-I-R`，仅移植原 implementation commit，不重用旧 task state/claim/delivery commits。
+  - Impact: PR #16 fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 以 squash merge `faa49861e60ffd5b6b29732e4f769e7444b2dbf6` 进入 main；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，两次 focused evidence 逐字节一致，local verifier 全部通过。accepted bundle 已隔离安装并刷新 project staging；M3-A 现在只能从该 exact fresh main/role/bundle 开始。
