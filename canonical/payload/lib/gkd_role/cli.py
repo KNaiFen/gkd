@@ -10,6 +10,7 @@ from gkd_task.canonical import canonical_bytes, read_canonical_json
 from gkd_task.errors import TaskError
 
 from .migration import apply_migration, migration_plan, verify_migration
+from .project import remove_project, stage_project, verify_project
 from .roles import context_manifest, locked_bundle_digest, resume_snapshot, role_action, role_catalog
 from .routing import decide_route
 from .waiting import new_wait_state, transition, validate_wait_state
@@ -54,6 +55,40 @@ def _parser() -> MachineParser:
     activation.add_argument("--runtime-root", type=Path, required=True)
     activation.add_argument("--expected", type=Path, required=True)
     activation.add_argument("--nonce", required=True)
+    for name in ("project-stage", "project-verify", "project-remove"):
+        command = commands.add_parser(name)
+        command.add_argument("--project-root", type=Path, required=True)
+        command.add_argument("--production-root", type=Path, required=True)
+        if name != "project-remove":
+            command.add_argument("--bundle-root", type=Path, required=True)
+            command.add_argument("--bundle-digest", required=True)
+    prepare = commands.add_parser("automatic-prepare")
+    prepare.add_argument("--candidate-root", type=Path, required=True)
+    prepare.add_argument("--task-path", required=True)
+    prepare.add_argument("--runtime-root", type=Path, required=True)
+    prepare.add_argument("--bundle-root", type=Path, required=True)
+    prepare.add_argument("--execution-bundle-digest", required=True)
+    prepare.add_argument("--route-decision", type=Path, required=True)
+    prepare.add_argument("--expected-head", required=True)
+    prepare.add_argument("--expected-revision", type=int, required=True)
+    prepare.add_argument("--expires-at", required=True)
+    claim = commands.add_parser("automatic-claim")
+    claim.add_argument("--candidate-root", type=Path, required=True)
+    claim.add_argument("--task-path", required=True)
+    claim.add_argument("--runtime-root", type=Path, required=True)
+    claim.add_argument("--bundle-root", type=Path, required=True)
+    claim.add_argument("--execution-bundle-digest", required=True)
+    claim.add_argument("--spawn-result", type=Path, required=True)
+    claim.add_argument("--expected-head", required=True)
+    claim.add_argument("--expected-revision", type=int, required=True)
+    claim.add_argument("--envelope-id", required=True)
+    claim.add_argument("--activation-nonce", required=True)
+    recover = commands.add_parser("automatic-recover")
+    recover.add_argument("--candidate-root", type=Path, required=True)
+    recover.add_argument("--task-path", required=True)
+    recover.add_argument("--runtime-root", type=Path, required=True)
+    recover.add_argument("--bundle-root", type=Path, required=True)
+    recover.add_argument("--execution-bundle-digest", required=True)
     return parser
 
 
@@ -64,6 +99,8 @@ def _read(path: Path, code: str, validator=None) -> dict:
 
 
 def _dispatch(args: argparse.Namespace) -> dict:
+    if args.command in {"automatic-prepare", "automatic-claim", "automatic-recover"}:
+        raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
     if args.command == "roles":
         return role_catalog(args.bundle_root, args.bundle_digest)
     if args.command == "context":
@@ -89,6 +126,12 @@ def _dispatch(args: argparse.Namespace) -> dict:
         bundle_root = Path(__file__).resolve().parents[2]
         role_catalog(bundle_root, locked_bundle_digest(bundle_root))
         raise TaskError("ACTIVATION_PROVIDER_UNAVAILABLE")
+    if args.command == "project-stage":
+        return stage_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root)
+    if args.command == "project-verify":
+        return verify_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root)
+    if args.command == "project-remove":
+        return remove_project(args.project_root, args.production_root)
     raise TaskError("INVALID_ARGUMENTS")
 
 

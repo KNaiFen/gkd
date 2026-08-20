@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
 from typing import Any, Callable
@@ -31,23 +31,31 @@ def _decode(value: str | None) -> bytes | None:
         raise TaskError("INVALID_TRANSACTION_JOURNAL") from None
 
 
+def _runtime_activation_path(value: Any, code: str) -> str:
+    path = relative_path(value, code)
+    parts = path.split("/")
+    if len(parts) != 2 or parts[0] != "activations" or not parts[1].endswith(".json"):
+        raise TaskError(code)
+    require_sha256(parts[1][:-5], code)
+    return path
+
+
 def validate_journal(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {
-            "schemaVersion",
-            "transactionId",
-            "runtimeKey",
-            "status",
-            "expectedHead",
-            "expectedRevision",
-            "files",
-            "createdAt",
-            "committedHead",
-            "journalDigest",
-        },
-        "INVALID_TRANSACTION_JOURNAL",
-    )
+    keys = {
+        "schemaVersion",
+        "transactionId",
+        "runtimeKey",
+        "status",
+        "expectedHead",
+        "expectedRevision",
+        "files",
+        "createdAt",
+        "committedHead",
+        "journalDigest",
+    }
+    if "runtimeFiles" in value:
+        keys.add("runtimeFiles")
+    require_keys(value, keys, "INVALID_TRANSACTION_JOURNAL")
     if value["schemaVersion"] != JOURNAL_SCHEMA_VERSION or value["status"] not in {"prepared", "committed", "rolled_back"}:
         raise TaskError("INVALID_TRANSACTION_JOURNAL")
     require_sha256(value["transactionId"], "INVALID_TRANSACTION_JOURNAL")
@@ -69,6 +77,22 @@ def validate_journal(value: dict[str, Any]) -> None:
             raise TaskError("INVALID_TRANSACTION_JOURNAL")
     if paths != sorted(set(paths)):
         raise TaskError("INVALID_TRANSACTION_JOURNAL")
+    if "runtimeFiles" in value:
+        if not isinstance(value["runtimeFiles"], list):
+            raise TaskError("INVALID_TRANSACTION_JOURNAL")
+        runtime_paths = []
+        for record in value["runtimeFiles"]:
+            if not isinstance(record, dict):
+                raise TaskError("INVALID_TRANSACTION_JOURNAL")
+            require_keys(record, {"path", "preimage", "postimage"}, "INVALID_TRANSACTION_JOURNAL")
+            path = _runtime_activation_path(record["path"], "INVALID_TRANSACTION_JOURNAL")
+            runtime_paths.append(path)
+            _decode(record["preimage"])
+            _decode(record["postimage"])
+            if record["preimage"] is not None or record["postimage"] is None:
+                raise TaskError("INVALID_TRANSACTION_JOURNAL")
+        if runtime_paths != sorted(set(runtime_paths)):
+            raise TaskError("INVALID_TRANSACTION_JOURNAL")
     require_utc(value["createdAt"], "INVALID_TRANSACTION_JOURNAL")
     if value["committedHead"] is not None:
         require_sha1(value["committedHead"], "INVALID_TRANSACTION_JOURNAL")
@@ -91,6 +115,7 @@ class TransactionChange:
     files: dict[str, bytes | None]
     message: str
     result: dict[str, Any]
+    runtime_files: dict[str, bytes | None] = field(default_factory=dict)
 
 
 class TransactionManager:
@@ -171,6 +196,22 @@ class TransactionManager:
                     preimages[relative] = preimage
             if self.state_path not in normalized:
                 raise TaskError("INVALID_TRANSACTION_CHANGE")
+            normalized_runtime: dict[str, bytes] = {}
+            runtime_preimages: dict[str, None] = {}
+            for path, postimage in change.runtime_files.items():
+                relative = _runtime_activation_path(path, "INVALID_RUNTIME_TRANSACTION_CHANGE")
+                if postimage is None:
+                    raise TaskError("INVALID_RUNTIME_TRANSACTION_CHANGE")
+                target = self.runtime.root / relative
+                parent = target.parent
+                if parent.exists() and (parent.is_symlink() or not parent.is_dir()):
+                    raise TaskError("INVALID_RUNTIME_TRANSACTION_CHANGE")
+                if target.is_symlink() or (target.exists() and not target.is_file()):
+                    raise TaskError("RUNTIME_EFFECT_CONFLICT")
+                if target.exists():
+                    raise TaskError("RUNTIME_EFFECT_CONFLICT")
+                normalized_runtime[relative] = postimage
+                runtime_preimages[relative] = None
             transaction_id = digest_object(
                 {
                     "runtimeKey": self.runtime_key,
@@ -179,22 +220,26 @@ class TransactionManager:
                     "nonce": self.nonce.token(),
                 }
             )
-            journal = _finalize_journal(
-                {
-                    "schemaVersion": JOURNAL_SCHEMA_VERSION,
-                    "transactionId": transaction_id,
-                    "runtimeKey": self.runtime_key,
-                    "status": "prepared",
-                    "expectedHead": expected_head,
-                    "expectedRevision": expected_revision,
-                    "files": [
-                        {"path": path, "preimage": _encode(preimages[path]), "postimage": _encode(normalized[path])}
-                        for path in sorted(normalized)
-                    ],
-                    "createdAt": self.clock.now(),
-                    "committedHead": None,
-                }
-            )
+            journal_value = {
+                "schemaVersion": JOURNAL_SCHEMA_VERSION,
+                "transactionId": transaction_id,
+                "runtimeKey": self.runtime_key,
+                "status": "prepared",
+                "expectedHead": expected_head,
+                "expectedRevision": expected_revision,
+                "files": [
+                    {"path": path, "preimage": _encode(preimages[path]), "postimage": _encode(normalized[path])}
+                    for path in sorted(normalized)
+                ],
+                "createdAt": self.clock.now(),
+                "committedHead": None,
+            }
+            if normalized_runtime:
+                journal_value["runtimeFiles"] = [
+                    {"path": path, "preimage": _encode(runtime_preimages[path]), "postimage": _encode(normalized_runtime[path])}
+                    for path in sorted(normalized_runtime)
+                ]
+            journal = _finalize_journal(journal_value)
             journal_path = self.runtime.journal_path(transaction_id)
             atomic_write(journal_path, canonical_bytes(journal), mode=0o600)
             atomic_write(
@@ -203,6 +248,15 @@ class TransactionManager:
                 mode=0o600,
             )
             self.failure_hook("prepared")
+            for path in sorted(normalized_runtime):
+                target = self.runtime.root / path
+                parent = target.parent
+                parent.mkdir(mode=0o700, parents=False, exist_ok=True)
+                if parent.is_symlink() or not parent.is_dir():
+                    raise TaskError("INVALID_RUNTIME_ROOT")
+                atomic_write(target, normalized_runtime[path], mode=0o600)
+            if normalized_runtime:
+                self.failure_hook("runtime_written")
             for path in sorted(normalized):
                 target = self.candidate_root / path
                 if normalized[path] is None:
@@ -249,6 +303,7 @@ class TransactionManager:
                 raise TaskError("transaction_in_doubt")
             current_head = head(self.candidate_root)
             records = {record["path"]: record for record in journal["files"]}
+            runtime_records = {record["path"]: record for record in journal.get("runtimeFiles", [])}
             current: dict[str, bytes | None] = {}
             for path in records:
                 target = self.candidate_root / path
@@ -256,18 +311,33 @@ class TransactionManager:
                     self._write_doubt(transaction_id)
                     raise TaskError("transaction_in_doubt")
                 current[path] = target.read_bytes() if target.exists() else None
+            current_runtime: dict[str, bytes | None] = {}
+            for path in runtime_records:
+                target = self.runtime.root / path
+                if target.is_symlink() or (target.exists() and not target.is_file()):
+                    self._write_doubt(transaction_id)
+                    raise TaskError("transaction_in_doubt")
+                current_runtime[path] = target.read_bytes() if target.exists() else None
             pre = {path: _decode(record["preimage"]) for path, record in records.items()}
             post = {path: _decode(record["postimage"]) for path, record in records.items()}
-            if journal["status"] == "committed" and current_head == journal["committedHead"] and current == post:
+            runtime_pre = {path: _decode(record["preimage"]) for path, record in runtime_records.items()}
+            runtime_post = {path: _decode(record["postimage"]) for path, record in runtime_records.items()}
+            if journal["status"] == "committed" and current_head == journal["committedHead"] and current == post and current_runtime == runtime_post:
                 unlink_file(self.runtime.active_transaction_path(self.runtime_key))
                 return {"status": "recovered_committed", "head": current_head}
-            if current_head == journal["expectedHead"] and all(current[path] in {pre[path], post[path]} for path in records):
+            if current_head == journal["expectedHead"] and all(current[path] in {pre[path], post[path]} for path in records) and all(current_runtime[path] in {runtime_pre[path], runtime_post[path]} for path in runtime_records):
                 for path in sorted(records):
                     target = self.candidate_root / path
                     if pre[path] is None:
                         unlink_file(target)
                     else:
                         atomic_write(target, pre[path] or b"")
+                for path in sorted(runtime_records):
+                    target = self.runtime.root / path
+                    if runtime_pre[path] is None:
+                        unlink_file(target)
+                    else:
+                        atomic_write(target, runtime_pre[path] or b"", mode=0o600)
                 git(self.candidate_root, "restore", "--staged", "--", *sorted(records), code="TRANSACTION_RECOVERY_FAILED")
                 require_clean(self.candidate_root)
                 journal["status"] = "rolled_back"
@@ -275,7 +345,7 @@ class TransactionManager:
                 atomic_write(journal_path, canonical_bytes(journal), mode=0o600)
                 unlink_file(self.runtime.active_transaction_path(self.runtime_key))
                 return {"status": "recovered_rolled_back", "head": current_head}
-            if current == post and is_direct_child(self.candidate_root, journal["expectedHead"], current_head) and changed_paths(self.candidate_root, current_head) == sorted(records):
+            if current == post and current_runtime == runtime_post and is_direct_child(self.candidate_root, journal["expectedHead"], current_head) and changed_paths(self.candidate_root, current_head) == sorted(records):
                 journal["status"] = "committed"
                 journal["committedHead"] = current_head
                 journal = _finalize_journal(journal)

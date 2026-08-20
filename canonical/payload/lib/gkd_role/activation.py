@@ -20,15 +20,18 @@ def _instant(value: str, code: str) -> datetime:
 
 
 def validate_activation(value: dict[str, Any]) -> None:
+    keys = {
+        "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
+        "offerId", "envelopeId", "route", "agentId", "threadDigest", "roleName",
+        "roleDigest", "configDigest", "bundleDigest", "effectiveModel",
+        "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt",
+        "offerCreatedAt", "offerExpiresAt", "evidenceClass", "providerName", "providerDigest", "activationDigest",
+    }
+    if "routeDecisionDigest" in value:
+        keys.add("routeDecisionDigest")
     require_keys(
         value,
-        {
-            "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
-            "offerId", "envelopeId", "route", "agentId", "threadDigest", "roleName",
-            "roleDigest", "configDigest", "bundleDigest", "effectiveModel",
-            "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt",
-            "offerCreatedAt", "offerExpiresAt", "evidenceClass", "providerName", "providerDigest", "activationDigest",
-        },
+        keys,
         "INVALID_ACTIVATION",
     )
     if value["schemaVersion"] != 1 or value["kind"] != "role-activation" or value["evidenceClass"] != "host-runtime-event":
@@ -37,6 +40,8 @@ def validate_activation(value: dict[str, Any]) -> None:
         require_string(value[field], "INVALID_ACTIVATION")
     for field in ("activationId", "offerId", "envelopeId", "threadDigest", "roleDigest", "configDigest", "bundleDigest", "providerDigest", "activationDigest"):
         require_sha256(value[field], "INVALID_ACTIVATION")
+    if "routeDecisionDigest" in value:
+        require_sha256(value["routeDecisionDigest"], "INVALID_ACTIVATION")
     if value["runtimeSeconds"] not in {3600, 43200}:
         raise TaskError("INVALID_ACTIVATION")
     for field in ("offerCreatedAt", "offerExpiresAt", "activatedAt"):
@@ -72,8 +77,11 @@ def validate_activation_binding(activation: dict[str, Any], expected: dict[str, 
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
     if not _instant(activation["offerCreatedAt"], "RUNTIME_EVIDENCE_MISMATCH") <= _instant(activation["activatedAt"], "RUNTIME_EVIDENCE_MISMATCH") < _instant(activation["offerExpiresAt"], "RUNTIME_EVIDENCE_MISMATCH"):
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-    for name in ("taskId", "repository", "taskBranch", "route", "roleDigest", "configDigest", "roleName", "bundleDigest", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt"):
-        if expected.get(name) != activation[name]:
+    names = ["taskId", "repository", "taskBranch", "route", "roleDigest", "configDigest", "roleName", "bundleDigest", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt"]
+    if "routeDecisionDigest" in expected:
+        names.append("routeDecisionDigest")
+    for name in names:
+        if expected.get(name) != activation.get(name):
             raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
 
 
@@ -87,13 +95,17 @@ class TrustedMainActivationAuthority:
         self.provider_name = provider["name"]
         self.provider_digest = digest_object(provider)
 
-    def record(
+    def build(
         self,
         expected: dict[str, Any],
         host_facts: dict[str, Any],
         nonce: str,
     ) -> dict[str, Any]:
-        require_keys(expected, {"taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt"}, "INVALID_ACTIVATION_REQUEST")
+        expected_keys = {"taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt"}
+        if "routeDecisionDigest" in expected:
+            expected_keys.add("routeDecisionDigest")
+            require_sha256(expected["routeDecisionDigest"], "INVALID_ACTIVATION_REQUEST")
+        require_keys(expected, expected_keys, "INVALID_ACTIVATION_REQUEST")
         require_keys(host_facts, {"evidenceClass", "agentId", "threadDigest", "model", "reasoningEffort", "sandbox", "runtimeSeconds", "activatedAt"}, "INVALID_ACTIVATION_OBSERVATION")
         role = role_record(self.catalog, expected["roleName"])
         if (
@@ -132,11 +144,20 @@ class TrustedMainActivationAuthority:
         }
         value["activationDigest"] = digest_object(value)
         validate_activation(value)
-        atomic_write(self.runtime._path("activations", activation_id), canonical_bytes(value), mode=0o600)
-        return {"status": "activation_recorded", "activationId": activation_id, "activationDigest": value["activationDigest"]}
+        return value
 
-    def provider(self, activation_id: str) -> "TrustedActivationEvidenceProvider":
-        return TrustedActivationEvidenceProvider(self.runtime, activation_id, self.catalog)
+    def record(
+        self,
+        expected: dict[str, Any],
+        host_facts: dict[str, Any],
+        nonce: str,
+    ) -> dict[str, Any]:
+        value = self.build(expected, host_facts, nonce)
+        atomic_write(self.runtime._path("activations", value["activationId"]), canonical_bytes(value), mode=0o600)
+        return {"status": "activation_recorded", "activationId": value["activationId"], "activationDigest": value["activationDigest"]}
+
+    def provider(self, activation_id: str, pending_activation: dict[str, Any] | None = None) -> "TrustedActivationEvidenceProvider":
+        return TrustedActivationEvidenceProvider(self.runtime, activation_id, self.catalog, pending_activation)
 
 
 class TrustedActivationEvidenceProvider:
@@ -144,7 +165,7 @@ class TrustedActivationEvidenceProvider:
 
     trusted_main_owned = True
 
-    def __init__(self, runtime: Any, activation_id: str, catalog: dict[str, Any]) -> None:
+    def __init__(self, runtime: Any, activation_id: str, catalog: dict[str, Any], pending_activation: dict[str, Any] | None = None) -> None:
         require_sha256(activation_id, "INVALID_ACTIVATION")
         self.runtime = runtime
         self.activation_id = activation_id
@@ -152,6 +173,7 @@ class TrustedActivationEvidenceProvider:
         self.provider_name = provider["name"]
         self.provider_digest = digest_object(provider)
         self.activation: dict[str, Any] | None = None
+        self.pending_activation = deepcopy(pending_activation) if pending_activation is not None else None
 
     def observe(self, purpose: str, expected: dict[str, Any]) -> dict[str, Any]:
         if purpose != "claim":
@@ -163,7 +185,10 @@ class TrustedActivationEvidenceProvider:
                 raise
         else:
             raise TaskError("ACTIVATION_REPLAYED")
-        activation = self.runtime.read_activation(self.activation_id)
+        activation = self.pending_activation or self.runtime.read_activation(self.activation_id)
+        if activation["activationId"] != self.activation_id:
+            raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
+        validate_activation(activation)
         validate_activation_binding(activation, expected)
         self.activation = activation
         value = {
@@ -179,6 +204,13 @@ class TrustedActivationEvidenceProvider:
         }
         value["evidenceDigest"] = digest_object(value)
         return value
+
+    def transaction_files(self) -> dict[str, bytes]:
+        if self.pending_activation is None:
+            return {}
+        return {
+            f"activations/{self.activation_id}.json": canonical_bytes(self.pending_activation),
+        }
 
     def consume(self, claim_id: str, claim_commit: str, claim_receipt_digest: str, consumed_at: str) -> None:
         if self.activation is None:
@@ -225,6 +257,7 @@ class TrustedActivationEvidenceProvider:
                 "bundleDigest": offer["bundleDigest"],
                 "offerCreatedAt": offer["createdAt"],
                 "offerExpiresAt": offer["expiresAt"],
+                **({"routeDecisionDigest": offer["routeDecisionDigest"]} if offer.get("routeDecisionDigest") else {}),
             },
         )
         if activation["providerDigest"] != self.provider_digest or activation["providerName"] != self.provider_name or activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:

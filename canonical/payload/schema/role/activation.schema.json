@@ -1,1 +1,39 @@
-{"$id":"gkd://schema/role/activation-v1","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"activationDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"},"activationId":{"pattern":"^[0-9a-f]{64}$","type":"string"},"activatedAt":{"type":"string"},"agentId":{"type":"string"},"bundleDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"},"configDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"},"effectiveModel":{"type":"string"},"effectiveReasoningEffort":{"type":"string"},"effectiveSandbox":{"type":"string"},"envelopeId":{"pattern":"^[0-9a-f]{64}$","type":"string"},"evidenceClass":{"const":"host-runtime-event"},"kind":{"const":"role-activation"},"offerId":{"pattern":"^[0-9a-f]{64}$","type":"string"},"offerCreatedAt":{"type":"string"},"offerExpiresAt":{"type":"string"},"providerName":{"type":"string"},"providerDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"},"repository":{"type":"string"},"roleDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"},"roleName":{"type":"string"},"route":{"type":"string"},"runtimeSeconds":{"type":"integer"},"schemaVersion":{"const":1},"taskBranch":{"type":"string"},"taskId":{"type":"string"},"threadDigest":{"pattern":"^[0-9a-f]{64}$","type":"string"}},"required":["schemaVersion","kind","activationId","taskId","repository","taskBranch","offerId","envelopeId","offerCreatedAt","offerExpiresAt","route","agentId","threadDigest","roleName","roleDigest","configDigest","bundleDigest","effectiveModel","effectiveReasoningEffort","effectiveSandbox","runtimeSeconds","activatedAt","evidenceClass","providerName","providerDigest","activationDigest"],"type":"object"}
+{
+  "$id": "gkd://schema/role/activation-v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "kind": {"const": "role-activation"},
+    "activationId": {"$ref": "#/$defs/sha256"},
+    "taskId": {"type": "string"},
+    "repository": {"type": "string"},
+    "taskBranch": {"type": "string"},
+    "offerId": {"$ref": "#/$defs/sha256"},
+    "envelopeId": {"$ref": "#/$defs/sha256"},
+    "offerCreatedAt": {"type": "string"},
+    "offerExpiresAt": {"type": "string"},
+    "route": {"type": "string"},
+    "routeDecisionDigest": {"$ref": "#/$defs/sha256"},
+    "agentId": {"type": "string"},
+    "threadDigest": {"$ref": "#/$defs/sha256"},
+    "roleName": {"type": "string"},
+    "roleDigest": {"$ref": "#/$defs/sha256"},
+    "configDigest": {"$ref": "#/$defs/sha256"},
+    "bundleDigest": {"$ref": "#/$defs/sha256"},
+    "effectiveModel": {"type": "string"},
+    "effectiveReasoningEffort": {"type": "string"},
+    "effectiveSandbox": {"type": "string"},
+    "runtimeSeconds": {"type": "integer"},
+    "activatedAt": {"type": "string"},
+    "evidenceClass": {"const": "host-runtime-event"},
+    "providerName": {"type": "string"},
+    "providerDigest": {"$ref": "#/$defs/sha256"},
+    "activationDigest": {"$ref": "#/$defs/sha256"}
+  },
+  "required": ["schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt", "route", "agentId", "threadDigest", "roleName", "roleDigest", "configDigest", "bundleDigest", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt", "evidenceClass", "providerName", "providerDigest", "activationDigest"],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "type": "object"
+}

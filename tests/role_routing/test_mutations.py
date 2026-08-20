@@ -37,7 +37,7 @@ class MutationContracts(unittest.TestCase):
         self._killed("waiting.py", "WAIT_TIMEOUT_MS = 3_600_000\n", "WAIT_TIMEOUT_MS = 360_000\n", "tests.role_routing.test_routing_waiting.WaitingContracts.test_short_wait_and_early_timeout_are_rejected_not_rounded_up")
 
     def test_mutation_activation_task_binding_is_killed(self) -> None:
-        self._killed("activation.py", '    for name in ("taskId", "repository", "taskBranch", "route",', '    for name in ("repository", "taskBranch", "route",', "tests.role_routing.test_activation.ActivationContracts.test_cross_task_offer_envelope_route_and_bundle_bindings_fail_before_claim_commit")
+        self._killed("activation.py", '    names = ["taskId", "repository", "taskBranch", "route",', '    names = ["repository", "taskBranch", "route",', "tests.role_routing.test_activation.ActivationContracts.test_cross_task_offer_envelope_route_and_bundle_bindings_fail_before_claim_commit")
 
     def test_mutation_legacy_role_replacement_is_killed(self) -> None:
         self._killed("migration.py", "    for name in LEGACY_ROLES:\n        path = agents / name\n", "    for name in ():\n        path = agents / name\n", "tests.role_routing.test_migration.MigrationContracts.test_atomic_migration_installs_exact_roles_and_skills_and_removes_legacy_role")

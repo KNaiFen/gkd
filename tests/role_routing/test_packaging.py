@@ -20,7 +20,7 @@ class PackagingContracts(unittest.TestCase):
         lock = json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))
         names = {component["name"] for component in manifest["components"]}
         self.assertTrue({"role-routing-cli", "role-routing-library", "role-routing-source", "role-routing-schemas", "workflow-skills"}.issubset(names))
-        self.assertEqual(45, len(lock["installFiles"]))
+        self.assertEqual(52, len(lock["installFiles"]))
         self.assertEqual(bundle_digest(), lock["contentDigest"])
         payload_text = "\n".join(path.read_text(encoding="utf-8") for path in (BUNDLE_ROOT / "lib").rglob("*.py"))
         self.assertNotIn("FixtureEvidenceProvider", payload_text)
@@ -29,14 +29,14 @@ class PackagingContracts(unittest.TestCase):
 
     def test_role_and_task_schemas_are_versioned_and_strict(self) -> None:
         role_schemas = {path.name for path in (BUNDLE_ROOT / "schema" / "role").iterdir()}
-        self.assertEqual({"activation.schema.json", "context.schema.json", "migration.schema.json", "route.schema.json", "wait.schema.json"}, role_schemas)
+        self.assertEqual({"activation.schema.json", "context.schema.json", "migration.schema.json", "project.schema.json", "route-decision.schema.json", "route.schema.json", "spawn-result.schema.json", "wait.schema.json"}, role_schemas)
         for path in (BUNDLE_ROOT / "schema").rglob("*.schema.json"):
             value = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("https://json-schema.org/draft/2020-12/schema", value["$schema"])
             if value.get("type") == "object":
                 self.assertFalse(value["additionalProperties"])
         runtime = json.loads((BUNDLE_ROOT / "schema" / "task" / "runtime.schema.json").read_text(encoding="utf-8"))
-        self.assertTrue({"activation", "activationReceipt", "envelopeV2"}.issubset(runtime["$defs"]))
+        self.assertTrue({"activation", "activationReceipt", "envelopeV2", "envelopeV3"}.issubset(runtime["$defs"]))
 
     def test_install_exercises_role_cli_and_has_exact_inventory_modes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gkd-role-install-") as root_name:
@@ -49,7 +49,7 @@ class PackagingContracts(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(3, len(json.loads(result.stdout)["roles"]))
             self.assertEqual("0755", oct(executable.stat().st_mode & 0o777).removeprefix("0o").zfill(4))
-            self.assertEqual(49, installed["files"])
+            self.assertEqual(56, installed["files"])
             inventory = json.loads((target / "gkd" / ".bundle" / "install.json").read_text(encoding="utf-8"))
             inventory_text = json.dumps(inventory, sort_keys=True)
             self.assertNotIn("FixtureEvidenceProvider", inventory_text)
@@ -86,8 +86,8 @@ class PackagingContracts(unittest.TestCase):
 
     def test_legacy_offer_and_envelope_validators_remain_readable(self) -> None:
         offer_schema = json.loads((BUNDLE_ROOT / "schema" / "task" / "offer.schema.json").read_text(encoding="utf-8"))
-        self.assertEqual({"v1", "v2", "base"}, set(offer_schema["$defs"]))
-        self.assertEqual(2, len(offer_schema["oneOf"]))
+        self.assertEqual({"v1", "v2", "v3", "base", "sha1", "sha256", "gates"}, set(offer_schema["$defs"]))
+        self.assertEqual(3, len(offer_schema["oneOf"]))
 
 
 if __name__ == "__main__":

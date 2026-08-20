@@ -228,3 +228,19 @@
 - [2026-08-20] `GKD-M2-C` 使用一次性 bootstrap execution exception。
   - Why: 已生成的 manual offer 无法被公开 `gkd-task claim` 消费：CLI 固定使用 unavailable evidence provider，而 schema-v1/manual claim 仍无条件读取 runtime evidence，形成“先使用待实现桥，再实现桥”的自举死锁。执行 Session 正确返回 `RUNTIME_EVIDENCE_UNAVAILABLE` 且未修改文件或状态。
   - Impact: main 撤销旧 offer/envelope；M2-C 由固定requirements/plan/implementation/execution、独立worktree/branch/PR、人工顶层Session与fixed-head独立验收授权，不调用或伪造claim、receipt、activation、task delivery。执行者仍不得验收/合并/清理。该例外在M2-C合并后终止，M3及以后必须使用正式automatic bridge。
+
+- [2026-08-20] `GKD-M2-C` 候选达到 `automatic_runtime_bridge_ready`。
+  - Why: canonical payload 现已提供确定性非生产 project staging、六门 automatic decision 的 offer/envelope 绑定、唯一 direct `gkd_executor` spawn 校验、trusted-main activation/exact claim 与中断恢复；claim 中的 execution bundle 和 delivery 中的 candidate output bundle 分离并有状态不变量。17 项 M2-C 合同在两个独立临时根逐字节生成相同 evidence，全部保留回归通过。
+  - Impact: implementation/evidence commit 为 `958a313f48ea7fd5d190dfa5b200230d81d29fd4`；candidate output bundle/evidence digest 为 `2d8117b5ac8ecf9d30fa578424d208ff7795192a3396eb653ee641376955116a` / `5ffe2feef2646b39f5bf293e2365fcbf509fd5518d9a5885250716d1b9814e0e`。M2-C task state 按 bootstrap exception 保持 planning/revision 5/epoch 1 且无 claim/receipt；旧 offer 保持 revoked。PR #7 必须在新 fixed head 独立验收，验收前不视为 accepted runtime upgrade，不启动 fresh main、M3、生产安装或 AIO 修改。
+
+- [2026-08-20] `GKD-M2-C` 首轮独立验收四项阻塞已修复并重新取证。
+  - Why: fixed head `b512a2aa644992c88ae2a2012d1322573a9ead0b` 仍信任旧 bundle lock、接受 project/bundle 祖先 symlink、在 task lock/CAS 前写 activation 并向公开 `gkd-role automatic-claim` 暴露伪造 spawn 入口；原 17 项合同未覆盖这些反例。
+  - Impact: implementation/evidence commit `e72803783b2abbf453a90ee1ebc89c911cd12c57` 在任何项目写入前重验 bundle 实体与 manifest/lock，逐组件 lstat 两类根路径，把 automatic activation postimage 纳入 claim transaction，并将公开 automatic CLI 固定为 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`。24 项 M2-C 合同含真实并发、pre/post-commit 恢复和 5 项 mutation，两次 evidence 逐字节一致；candidate bundle/evidence digest 为 `c385b10ca631b94c8e26c4f1accfdd8a3c9208b0cacfc1e320b52bbe631c9650` / `5b8f824d7fb98b82c7db805e7cebea848c4185f8a4c078e969998a48f7d5ef13`。PR #7 仍须对新 fixed head 独立验收，本 session 不验收、不合并、不启动 fresh main/M3，也不修改生产或 AIO。
+
+- [2026-08-20] `GKD-M2-C` 第二轮验收缺口已按最小自动工作流范围修复。
+  - Why: fixed head `b97dce72a21a719b616f418b7e23638bce507f0c` 的 acceptance 只处理 schema v2，导致 v3 缺 receipt、receipt/claim 不匹配和 routeDecisionDigest 漂移仍可通过；普通 Python 又会在 source payload 生成未声明 `.pyc`，使官方 staging 自我拒绝，且 `source.toml` symlink 会被跟随读取。
+  - Impact: implementation/evidence commits 为 `d3d8ea7a6d594caac843be91f7f2e651906bfacd` / `bb1992998af62119fde4eef1b0e9972fe757b3d7`。v3 acceptance 现完整绑定 activation、双 receipt、claim receipt、active/consumed offer、envelope ID、role/config/bundle、route decision 和窗口；官方 Python 启动边界禁止 payload bytecode，manifest 仍严格声明 52 文件；`source.toml` 使用 lstat。`project-remove` 仅增加已缺失受管文件的幂等重试，不新增事务。30 项 M2-C 合同默认环境双次一致，git archive 副本 30/30，全部保留回归通过；bundle/evidence digest 为 `3a95bab5083bd2ff37e29ef4f367860bb3f80a63265ec8163334da310e3c556f` / `5e3a9b2efbafb75986c24f5f15f93c99f734bde1b716f23a58ca7c72ed11db13`。PR #7 仍须新 fixed-head 独立验收，本 session 不验收、不合并、不启动 M3 或修改生产/AIO。
+
+- [2026-08-20] `GKD-M2-C` AC7 in-flight execution bundle 复验缺口已修复。
+  - Why: fixed head `d0d24fcea80d926fb4b9d29cfb93a3e58e1eb516` 的 bridge 只在构造时生成并缓存 role catalog；prepare 后删除或替换执行 bundle，claim/recover 仍可沿用旧 catalog，违反执行 bundle 不可静默替换合同。
+  - Impact: implementation/evidence commits 为 `c5bf34c4f8623c1720cd4ddd990811cc29840295` / `0c2578ab4a6d98634dbc2ba13cf89ef1e6719bc3`。bridge 每次构造、prepare、claim、recover 都从当前 bundle 完整复验并重建 catalog；删除 bundle 的 claim 与 committed 中断后替换 bundle 的 recover 均在写前稳定拒绝，恢复原 bundle 后可确定性补齐 receipts。32 项 M2-C 双 evidence 与 archive 副本、全部保留回归通过；bundle/evidence digest 为 `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` / `ab6efbc3cded637edc1fd0acd155958a3949566d48282fa1c4bfa81b266bbb82`。Python 3.11+ 前提已写入 README；本轮使用 3.14.6。PR #7 必须在新 fixed head 独立验收，bootstrap 与停止边界不变。

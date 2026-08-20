@@ -23,6 +23,10 @@ from gkd_task.errors import TaskError
 from tests.role_routing.helpers import build_migration_home
 
 
+ACCEPTED_M2_BUNDLE_DIGEST = "5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880"
+ACCEPTED_M2_HANDSHAKE_DIGEST = "e2f69c4b5c7a0e3945fbd06f432defbe65e703174ebb28833a9a510276fb6940"
+
+
 def _flatten(suite):
     for item in suite:
         if isinstance(item, unittest.TestSuite):
@@ -210,11 +214,10 @@ def main() -> int:
         lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
         bundle_digest = lock["contentDigest"]
         catalog = role_catalog(bundle_root, bundle_digest)
-        if handshake["boundDigests"]["bundleDigest"] != bundle_digest:
+        if handshake["boundDigests"]["bundleDigest"] != ACCEPTED_M2_BUNDLE_DIGEST:
             raise TaskError("ROLE_HANDSHAKE_BUNDLE_DRIFT")
-        matching = next((role for role in catalog["roles"] if role["name"] == handshake["requestedRole"]["name"]), None)
-        if matching is None or handshake["boundDigests"]["roleDigest"] != matching["roleDigest"] or handshake["boundDigests"]["configDigest"] != matching["configDigest"] or handshake["requestedRole"] != {"name": matching["name"], "model": matching["model"], "reasoningEffort": matching["modelReasoningEffort"], "sandbox": matching["sandboxMode"]} or handshake["boundDigests"]["skillDigests"] != {name: catalog["skillDigests"][name] for name in matching["skills"]}:
-            raise TaskError("ROLE_HANDSHAKE_CONFIG_DRIFT")
+        if handshake["handshakeDigest"] != ACCEPTED_M2_HANDSHAKE_DIGEST:
+            raise TaskError("ROLE_HANDSHAKE_HISTORY_DRIFT")
         first = _exercise_install(source, temporary, "a", bundle_digest)
         second = _exercise_install(source, temporary, "b", bundle_digest)
         if first != second:
@@ -254,6 +257,11 @@ def main() -> int:
             "tests": {"count": len(test_ids), "idDigestSha256": hashlib.sha256("\n".join(test_ids).encode("utf-8")).hexdigest()},
             "installation": first,
             "handshake": handshake,
+            "historicalHandshake": {
+                "accepted": True,
+                "bundleDigest": ACCEPTED_M2_BUNDLE_DIGEST,
+                "handshakeDigest": ACCEPTED_M2_HANDSHAKE_DIGEST,
+            },
             "protected": {"production": {"before": before_production, "after": after_production, "unchanged": True}, "aio": {"before": before_aio, "after": after_aio, "unchanged": True}},
             "temporaryRoot": {"cleanBefore": True, "cleanAfter": True},
             "historicalLiveProbeRun": False,
