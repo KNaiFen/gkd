@@ -252,3 +252,7 @@
 - [2026-08-20] `GKD-M2-C` 收尾清理完成。
   - Why: 终态验收记录已进入 main；候选 worktree 删除前保持干净，head 为验收 fixed head，candidate tree 与 squash merge tree 一致。
   - Impact: `/Users/knaifen/Documents/Codex/gkd-worktrees/m2-automatic-runtime-bridge`、本地 `task/m2-automatic-runtime-bridge` 与远端同名分支均已删除。任务资料原位保留；当前 Session 继续因未发现 exact `gkd_executor` 而不启动 M3。
+
+- [2026-08-20] accepted M2-C bundle 的项目级自动运行环境已暂存并独立复核。
+  - Why: M3 自动路线必须从已验收 bundle 生成 project role/config/Skills，不能把 canonical source、生产安装或当前会话启动后的动态文件当作已加载运行时。暂存前后的生产 `~/.codex` 与 AIO 快照必须逐字节一致，Git 跟踪面必须保持干净。
+  - Impact: accepted execution bundle `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` 已安装到隔离的非生产临时根；本仓库机器本地 staging 固定 `gkd_executor` 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`，role/config/project-config/inventory digest 分别为 `08bfcea59c7be5ea03cd7958ac2195e6a0a5703823a739fd819aabd6c48427dd`、`10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e`、`9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0`、`7566f1ed3fbc10b12585a2ecb3639772f7cbbc31c5485a24ba318bf34ea6544a`。这些项目表面由 `.git/info/exclude` 机器本地排除，不提交、不构成生产安装。当前 Session 不启动 M3；fresh main 必须先重验全部绑定并实际发现 exact `gkd_executor`，否则继续 fail-closed。
