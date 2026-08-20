@@ -3,6 +3,32 @@ bundle_version = "0.0.0-dev.0"
 release_status = "development"
 
 [[components]]
+name = "ci-monitor-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-ci-monitor", target = "gkd/bin/gkd-ci-monitor", mode = "0755" },
+]
+
+[[components]]
+name = "ci-monitor-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_ci/__init__.py", target = "gkd/lib/gkd_ci/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/cli.py", target = "gkd/lib/gkd_ci/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/github.py", target = "gkd/lib/gkd_ci/github.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/monitor.py", target = "gkd/lib/gkd_ci/monitor.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/policy.py", target = "gkd/lib/gkd_ci/policy.py", mode = "0644" },
+]
+
+[[components]]
+name = "ci-monitor-schemas"
+kind = "library"
+files = [
+  { source = "payload/schema/ci/policy.schema.json", target = "gkd/schema/ci/policy.schema.json", mode = "0644" },
+  { source = "payload/schema/ci/terminal-result.schema.json", target = "gkd/schema/ci/terminal-result.schema.json", mode = "0644" },
+]
+
+[[components]]
 name = "foundation-cli"
 kind = "executable"
 files = [
