@@ -16,6 +16,9 @@ import tomllib
 from typing import Any
 
 
+sys.dont_write_bytecode = True
+
+
 SCHEMA_VERSION = 1
 DEVELOPMENT_VERSION = re.compile(r"^0\.0\.0-dev\.[0-9]+$")
 HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -264,9 +267,14 @@ def _load_schema(source_root: Path) -> bytes:
 
 
 def _load_source_declaration(source_root: Path) -> dict[str, Any]:
+    path = source_root / "source.toml"
     try:
-        with (source_root / "source.toml").open("rb") as stream:
+        if not stat.S_ISREG(path.lstat().st_mode):
+            raise BundleError("INVALID_SOURCE_DECLARATION")
+        with path.open("rb") as stream:
             declaration = tomllib.load(stream)
+    except BundleError:
+        raise
     except (OSError, tomllib.TOMLDecodeError):
         raise BundleError("INVALID_SOURCE_DECLARATION") from None
     if not isinstance(declaration, dict):

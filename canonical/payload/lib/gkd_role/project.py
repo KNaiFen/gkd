@@ -349,10 +349,12 @@ def remove_project(project_root: Path, production_root: Path) -> dict[str, Any]:
     inventory = read_canonical_json(project / PROJECT_INVENTORY, "INVALID_PROJECT_INVENTORY", _validate_inventory)
     _reject_symlink_chains(project, (record["path"] for record in inventory["files"]))
     expected_paths = {record["path"] for record in inventory["files"]} | {PROJECT_INVENTORY.as_posix()}
-    if _managed_files(project) != expected_paths:
+    if not _managed_files(project).issubset(expected_paths):
         raise TaskError("PROJECT_STAGE_DRIFT")
     for record in inventory["files"]:
         path = project / record["path"]
+        if not path.exists():
+            continue
         if (
             path.is_symlink()
             or not path.is_file()
@@ -362,7 +364,7 @@ def remove_project(project_root: Path, production_root: Path) -> dict[str, Any]:
             raise TaskError("PROJECT_STAGE_DRIFT")
     for record in reversed(inventory["files"]):
         path = project / record["path"]
-        path.unlink()
+        path.unlink(missing_ok=True)
     (project / PROJECT_INVENTORY).unlink()
     for relative in (
         ".codex/agents", ".codex/skills/gkd-ci-monitor/agents", ".codex/skills/gkd-ci-monitor",

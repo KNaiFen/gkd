@@ -228,6 +228,7 @@ def _validate_claim_receipt(
         or anchored_state["lifecycle"]["claim"]["claimId"] != claim["claimId"]
         or anchored_offer["offerId"] != claim["offerId"]
         or anchored_offer["status"] != "consumed"
+        or anchored_offer["consumedByDigest"] != digest_object(anchored_state["lifecycle"]["claim"])
     ):
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
     return receipt
@@ -285,33 +286,66 @@ def _validate_fixed_candidate(
     ):
         raise TaskError("authorization_mismatch")
     claim_receipt = _validate_claim_receipt(candidate_root, task_path, candidate_head, state, anchored_state["repository"]["identity"], runtime)
-    if anchored_offer["schemaVersion"] == 2:
+    claimed_state = _fixed_json(
+        candidate_root,
+        claim_receipt["claimCommit"],
+        f"{task_path}/task.json",
+        "CLAIM_RECEIPT_UNAVAILABLE",
+    )
+    claimed_offer = _fixed_json(
+        candidate_root,
+        claim_receipt["claimCommit"],
+        f"{task_path}/offer.json",
+        "CLAIM_RECEIPT_UNAVAILABLE",
+    )
+    expected_consumed_offer = deepcopy(anchored_offer)
+    expected_consumed_offer["status"] = "consumed"
+    expected_consumed_offer["consumedByDigest"] = digest_object(claim)
+    if claimed_state["lifecycle"]["claim"] != claim or claimed_offer != expected_consumed_offer:
+        raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    if anchored_offer["schemaVersion"] in {2, 3}:
         from gkd_role.activation import validate_activation, validate_activation_receipt
 
         activation_receipt = runtime.read_claim_activation_receipt(claim["claimId"])
         validate_activation_receipt(activation_receipt)
+        activation_indexed_receipt = runtime.read_activation_receipt(claim["activationId"])
+        validate_activation_receipt(activation_indexed_receipt)
         activation = runtime.read_activation(activation_receipt["activationId"])
         validate_activation(activation)
         if (
-            activation_receipt["claimId"] != claim["claimId"]
+            activation_receipt != activation_indexed_receipt
+            or activation_receipt["activationId"] != activation["activationId"]
+            or activation_receipt["claimId"] != claim["claimId"]
             or activation_receipt["claimCommit"] != claim_receipt["claimCommit"]
             or activation_receipt["claimReceiptDigest"] != claim_receipt["receiptDigest"]
             or activation_receipt["activationDigest"] != activation["activationDigest"]
             or activation["activationId"] != claim.get("activationId")
             or activation["envelopeId"] != claim.get("envelopeId")
             or activation["offerId"] != anchored_offer["offerId"]
+            or anchored_offer["epoch"] != claim["epoch"]
             or activation["taskId"] != state["taskId"]
+            or anchored_offer["taskId"] != state["taskId"]
             or activation["repository"] != state["repository"]["identity"]
+            or anchored_offer["repository"] != state["repository"]["identity"]
             or activation["taskBranch"] != state["repository"]["taskBranch"]
+            or anchored_offer["taskBranch"] != state["repository"]["taskBranch"]
             or activation["agentId"] != claim["writerId"]
             or activation["threadDigest"] != claim["sessionDigest"]
             or activation["roleName"] != anchored_offer["roleName"]
             or activation["roleDigest"] != anchored_offer["roleDigest"]
+            or activation["roleDigest"] != claim["roleDigest"]
             or activation["configDigest"] != anchored_offer["configDigest"]
+            or activation["configDigest"] != claim["configDigest"]
             or activation["bundleDigest"] != anchored_offer["bundleDigest"]
             or activation["route"] != anchored_offer["route"]
             or activation["offerCreatedAt"] != anchored_offer["createdAt"]
             or activation["offerExpiresAt"] != anchored_offer["expiresAt"]
+        ):
+            raise TaskError("INVALID_ACTIVATION_RECEIPT")
+        if anchored_offer["schemaVersion"] == 3 and (
+            claim.get("executionBundleDigest") != anchored_offer["bundleDigest"]
+            or claim.get("routeDecisionDigest") != anchored_offer["routeDecisionDigest"]
+            or activation.get("routeDecisionDigest") != anchored_offer["routeDecisionDigest"]
         ):
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
     return state, authorization

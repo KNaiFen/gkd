@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from copy import deepcopy
 import json
 import os
@@ -12,7 +13,7 @@ from gkd_role.bridge import validate_spawn_result
 from gkd_role.roles import role_catalog
 from gkd_role.routing import validate_route_decision
 from gkd_task.acceptance import _validate_fixed_candidate
-from gkd_task.canonical import canonical_bytes, digest_object
+from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
 from gkd_task.model import finalize_state, validate_offer, validate_state
 from gkd_task.runtime import RuntimeStore, validate_envelope
@@ -27,6 +28,18 @@ class AutomaticBridgeContracts(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.repo.close()
+
+    def _delivered_candidate(self):
+        bridge, prepared = ready_bridge(self.repo)
+        claimed = bridge.claim(
+            *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "acceptance-activation"
+        )
+        runtime = RuntimeStore(self.repo.runtime_root)
+        delivered = TaskService(
+            self.repo.candidate, self.repo.task_path, runtime
+        ).deliver(*self.repo.cas(), claimed["claimId"], "d" * 64)
+        claim = self.repo.state()["lifecycle"]["claim"]
+        return prepared, claim, runtime, delivered
 
     def test_route_offer_activation_claim_and_delivery_bind_both_bundle_identities(self) -> None:
         bridge, prepared = ready_bridge(self.repo)
@@ -97,6 +110,71 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             validate_envelope(envelope)
         self.assertEqual("INVALID_LAUNCH_ENVELOPE", raised.exception.code)
+
+    def test_fixed_head_acceptance_requires_automatic_activation_receipt(self) -> None:
+        _, claim, runtime, delivered = self._delivered_candidate()
+        runtime.delete_claim_activation_receipt(claim["claimId"])
+        with self.assertRaises(TaskError) as raised:
+            _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
+        self.assertEqual("ACTIVATION_RECEIPT_UNAVAILABLE", raised.exception.code)
+
+    def test_fixed_head_acceptance_rejects_receipt_claim_mismatch(self) -> None:
+        _, claim, runtime, delivered = self._delivered_candidate()
+        receipt = runtime.read_claim_activation_receipt(claim["claimId"])
+        receipt["claimId"] = "e" * 64
+        receipt["receiptDigest"] = digest_object(
+            {key: value for key, value in receipt.items() if key != "receiptDigest"}
+        )
+        atomic_write(
+            runtime._path("claim-activation-receipts", claim["claimId"]),
+            canonical_bytes(receipt),
+            mode=0o600,
+        )
+        with self.assertRaises(TaskError) as raised:
+            _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
+        self.assertEqual("INVALID_ACTIVATION_RECEIPT", raised.exception.code)
+
+    def test_fixed_head_acceptance_rejects_activation_route_decision_mismatch(self) -> None:
+        prepared, claim, runtime, delivered = self._delivered_candidate()
+        self.assertEqual(prepared["routeDecisionDigest"], claim["routeDecisionDigest"])
+        claim_receipt = runtime.read_claim_receipt(claim["claimId"])
+        journal = runtime.read_journal(claim_receipt["transactionId"])
+        activation = runtime.read_activation(claim["activationId"])
+        activation["routeDecisionDigest"] = "e" * 64
+        activation["activationDigest"] = digest_object(
+            {key: value for key, value in activation.items() if key != "activationDigest"}
+        )
+        atomic_write(
+            runtime._path("activations", claim["activationId"]),
+            canonical_bytes(activation),
+            mode=0o600,
+        )
+        journal["runtimeFiles"][0]["postimage"] = base64.b64encode(
+            canonical_bytes(activation)
+        ).decode("ascii")
+        journal["journalDigest"] = digest_object(
+            {key: value for key, value in journal.items() if key != "journalDigest"}
+        )
+        atomic_write(
+            runtime.journal_path(journal["transactionId"]),
+            canonical_bytes(journal),
+            mode=0o600,
+        )
+        claim_receipt["transactionDigest"] = journal["journalDigest"]
+        claim_receipt["receiptDigest"] = digest_object(
+            {key: value for key, value in claim_receipt.items() if key != "receiptDigest"}
+        )
+        runtime.write_claim_receipt(claim["claimId"], claim_receipt)
+        activation_receipt = runtime.read_claim_activation_receipt(claim["claimId"])
+        activation_receipt["activationDigest"] = activation["activationDigest"]
+        activation_receipt["claimReceiptDigest"] = claim_receipt["receiptDigest"]
+        activation_receipt["receiptDigest"] = digest_object(
+            {key: value for key, value in activation_receipt.items() if key != "receiptDigest"}
+        )
+        runtime.write_activation_receipt(activation_receipt)
+        with self.assertRaises(TaskError) as raised:
+            _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
+        self.assertEqual("INVALID_ACTIVATION_RECEIPT", raised.exception.code)
 
     def test_legacy_role_bound_offer_and_envelope_cannot_select_automatic(self) -> None:
         service = self.repo.ready_and_authorized()

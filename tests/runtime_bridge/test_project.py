@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -118,6 +121,63 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual("PROJECT_SOURCE_SYMLINK", raised.exception.code)
         self.assertFalse((bundle_target / ".gkd").exists())
 
+    def test_source_declaration_symlink_fails_before_project_write(self) -> None:
+        copied_source = self.root / "source-toml-symlink"
+        shutil.copytree(Path("canonical"), copied_source)
+        declaration = copied_source / "source.toml"
+        external = self.root / "external-source.toml"
+        external.write_bytes(declaration.read_bytes())
+        declaration.unlink()
+        declaration.symlink_to(external)
+        project = self._project("source-toml-target")
+        with self.assertRaises(TaskError) as raised:
+            stage_project(copied_source / "payload", bundle_digest(), project, self.production)
+        self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
+        self.assertFalse((project / ".codex").exists())
+        self.assertFalse((project / ".agents").exists())
+        self.assertFalse((project / ".gkd").exists())
+
+    def test_default_python_does_not_create_bundle_bytecode_before_staging(self) -> None:
+        copied_source = self.root / "default-python-canonical"
+        shutil.copytree(
+            Path("canonical"),
+            copied_source,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
+        project = self._project("default-python-project")
+        environment = dict(os.environ)
+        environment.pop("PYTHONDONTWRITEBYTECODE", None)
+        environment["PYTHONPATH"] = str(copied_source / "payload" / "lib")
+        imported = subprocess.run(
+            [sys.executable, "-c", "from gkd_role.bridge import TrustedMainRuntimeBridge; from gkd_role.project import stage_project"],
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(0, imported.returncode, imported.stderr)
+        staged = subprocess.run(
+            [
+                str(copied_source / "payload" / "bin" / "gkd-role"),
+                "project-stage",
+                "--bundle-root", str(copied_source / "payload"),
+                "--bundle-digest", json.loads(
+                    (copied_source / "manifest.lock.json").read_text(encoding="utf-8")
+                )["contentDigest"],
+                "--project-root", str(project),
+                "--production-root", str(self.production),
+            ],
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(0, staged.returncode, staged.stderr)
+        self.assertEqual([], list((copied_source / "payload").rglob("*.pyc")))
+        self.assertEqual([], list((copied_source / "payload").rglob("__pycache__")))
+
     def test_symlink_traversal_overlap_and_bundle_drift_fail_closed(self) -> None:
         project = self._project("project")
         link = self.root / "project-link"
@@ -166,6 +226,14 @@ class ProjectStagingContracts(unittest.TestCase):
             stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production, fail_after_second)
         self.assertEqual("PROJECT_STAGE_FAILED", raised.exception.code)
         self.assertEqual(["README.md"], sorted(path.name for path in project.iterdir() if path.name != ".git"))
+
+    def test_project_remove_retries_after_managed_file_was_deleted(self) -> None:
+        project = self._project("remove-retry")
+        stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production)
+        managed = project / ".codex" / "agents" / "gkd_executor.toml"
+        managed.unlink()
+        self.assertEqual("removed", remove_project(project, self.production)["status"])
+        self.assertFalse((project / ".gkd" / "runtime-project.json").exists())
 
     def test_project_cli_stages_verifies_and_removes_owned_files(self) -> None:
         project = self._project("cli-project")

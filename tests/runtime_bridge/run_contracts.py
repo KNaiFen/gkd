@@ -170,6 +170,10 @@ def main() -> int:
                 "mainOutputPathMinimized": True,
                 "runtimeIdentityCommittedAsEvidence": False,
                 "activationTransactionSingleWriter": True,
+                "schemaV3FixedHeadAcceptanceBound": True,
+                "defaultPythonBytecodeFree": True,
+                "sourceDeclarationSymlinkRejected": True,
+                "projectRemovalRetryable": True,
             },
             "protected": {
                 "production": {"before": before_production, "after": after_production, "unchanged": True},

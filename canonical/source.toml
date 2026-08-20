@@ -14,6 +14,8 @@ name = "foundation-library"
 kind = "library"
 files = [
   { source = "payload/lib/gkd_bundle.py", target = "gkd/lib/gkd_bundle.py", mode = "0644" },
+  { source = "payload/lib/sitecustomize.py", target = "gkd/lib/sitecustomize.py", mode = "0644" },
+  { source = "payload/lib/usercustomize.py", target = "gkd/lib/usercustomize.py", mode = "0644" },
 ]
 
 [[components]]
