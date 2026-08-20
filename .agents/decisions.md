@@ -256,3 +256,7 @@
 - [2026-08-20] accepted M2-C bundle 的项目级自动运行环境已暂存并独立复核。
   - Why: M3 自动路线必须从已验收 bundle 生成 project role/config/Skills，不能把 canonical source、生产安装或当前会话启动后的动态文件当作已加载运行时。暂存前后的生产 `~/.codex` 与 AIO 快照必须逐字节一致，Git 跟踪面必须保持干净。
   - Impact: accepted execution bundle `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` 已安装到隔离的非生产临时根；本仓库机器本地 staging 固定 `gkd_executor` 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`，role/config/project-config/inventory digest 分别为 `08bfcea59c7be5ea03cd7958ac2195e6a0a5703823a739fd819aabd6c48427dd`、`10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e`、`9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0`、`7566f1ed3fbc10b12585a2ecb3639772f7cbbc31c5485a24ba318bf34ea6544a`。这些项目表面由 `.git/info/exclude` 机器本地排除，不提交、不构成生产安装。当前 Session 不启动 M3；fresh main 必须先重验全部绑定并实际发现 exact `gkd_executor`，否则继续 fail-closed。
+
+- [2026-08-20] `GKD-M3-A` 候选建立版本化仓库 CI policy 与 GitHub fixed-head terminal monitor。
+  - Why: trusted acceptance 需要把仓库特有 required checks 留在 `.gkd/policy.json`，并由通用只读机制对显式 PR/full head 拥有 bounded polling 与单一终态，避免 Agent 手工轮询或把任意出现的 checks 当成 policy。
+  - Impact: candidate output bundle `92e218e9809e6147f3b04ec7f8fed79231c6e8b3a94480729b52b6fcdbafafe8` 新增严格 policy/origin parser、read-only GitHub adapter、deadline-bound monitor 和 terminal schema；本仓库标准 check 为 `GKD Verify`，本地与 Actions 共用版本化 verifier。候选经 333 项本地合同与 27 项双 evidence 证明，仍须 PR #8 最终 fixed-head CI 与 trusted-main 独立验收；不授权 M3-B/M3-C、生产/AIO 或 GitHub 设置变化。
