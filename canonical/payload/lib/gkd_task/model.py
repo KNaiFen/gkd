@@ -128,11 +128,20 @@ def _implementation_authorization(value: Any) -> None:
 
 def _delivery_record(value: dict[str, Any]) -> None:
     delivery_keys = {"implementationHead", "claimId", "deliveredAt"}
+    document_keys = {"deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"}
+    document_bound = any(field in value for field in document_keys)
+    if document_bound:
+        delivery_keys |= document_keys
     if "executionBundleDigest" in value:
         delivery_keys |= {"executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"}
+    require_keys(value, delivery_keys, "INVALID_TASK_STATE")
+    if document_bound:
+        require_sha1(value["deliveryDocumentCommit"], "INVALID_TASK_STATE")
+        relative_path(value["deliveryDocumentPath"], "INVALID_TASK_STATE")
+        require_sha256(value["deliveryDocumentDigest"], "INVALID_TASK_STATE")
+    if "executionBundleDigest" in value:
         for field in ("executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"):
             require_sha256(value[field], "INVALID_TASK_STATE")
-    require_keys(value, delivery_keys, "INVALID_TASK_STATE")
     require_sha1(value["implementationHead"], "INVALID_TASK_STATE")
     require_sha256(value["claimId"], "INVALID_TASK_STATE")
     require_utc(value["deliveredAt"], "INVALID_TASK_STATE")

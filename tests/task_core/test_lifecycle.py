@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ from unittest import mock
 from gkd_task.canonical import canonical_bytes
 from gkd_task.errors import TaskError
 from gkd_task.runtime import RuntimeStore
-from tests.task_core.helpers import CONFIG_DIGEST, FUTURE_TIME, ROLE_DIGEST, TaskRepo
+from tests.task_core.helpers import CONFIG_DIGEST, FUTURE_TIME, ROLE_DIGEST, TaskRepo, run
 
 
 class LifecycleContracts(unittest.TestCase):
@@ -167,7 +168,7 @@ class LifecycleContracts(unittest.TestCase):
         state = self.repo.state()
         self.assertEqual("implementing", state["lifecycle"]["phase"])
         claim_id = state["lifecycle"]["claim"]["claimId"]
-        result = service.deliver(*self.repo.cas(), claim_id)
+        result = self.repo.deliver(service, claim_id)
         self.assertEqual("delivered", result["status"])
         receipt = RuntimeStore(self.repo.runtime_root).read_claim_receipt(claim_id)
         self.assertEqual(claim_id, receipt["claimId"])
@@ -267,21 +268,108 @@ class LifecycleContracts(unittest.TestCase):
         service, claim_id = self.repo.offer_and_claim()
         with self.assertRaisesRegex(TaskError, "CLAIM_MISMATCH"):
             service.deliver(*self.repo.cas(), "0" * 64)
+        document_path, document_digest = self.repo.prepare_delivery_document()
         dirty = self.repo.candidate / "unrelated.txt"
         dirty.write_text("dirty\n", encoding="utf-8")
         with self.assertRaisesRegex(TaskError, "WORKTREE_NOT_CLEAN"):
-            service.deliver(*self.repo.cas(), claim_id)
+            service.deliver(*self.repo.cas(), claim_id, None, document_path, document_digest)
         dirty.unlink()
-        result = service.deliver(*self.repo.cas(), claim_id)
+        result = service.deliver(*self.repo.cas(), claim_id, None, document_path, document_digest)
         self.assertEqual("delivered", result["status"])
         self.assertIsNone(self.repo.state()["lifecycle"]["writer"])
+
+    def test_delivery_requires_precommitted_canonical_document_binding(self) -> None:
+        service, claim_id = self.repo.offer_and_claim()
+        before = self.repo.cas()
+        with self.assertRaisesRegex(TaskError, "DELIVERY_DOCUMENT_REQUIRED"):
+            service.deliver(*before, claim_id)
+        self.assertEqual(before, self.repo.cas())
+
+        document_path, document_digest = self.repo.prepare_delivery_document()
+        before = self.repo.cas()
+        with self.assertRaisesRegex(TaskError, "DELIVERY_DOCUMENT_MISMATCH"):
+            service.deliver(*before, claim_id, None, document_path, "0" * 64)
+        self.assertEqual(before, self.repo.cas())
+
+        result = service.deliver(*self.repo.cas(), claim_id, None, document_path, document_digest)
+        delivery = self.repo.state()["lifecycle"]["delivery"]
+        self.assertEqual("delivered", result["status"])
+        self.assertEqual(document_path, delivery["deliveryDocumentPath"])
+        self.assertEqual(document_digest, delivery["deliveryDocumentDigest"])
+        self.assertEqual(self.repo.head(), result["head"])
+        self.assertEqual(
+            delivery["implementationHead"],
+            run("git", "rev-parse", f"{delivery['deliveryDocumentCommit']}^", cwd=self.repo.candidate),
+        )
+        self.assertEqual(
+            delivery["deliveryDocumentCommit"],
+            run("git", "rev-parse", f"{self.repo.head()}^", cwd=self.repo.candidate),
+        )
+
+    def test_delivery_rejects_document_commit_with_extra_tracked_path(self) -> None:
+        service, claim_id = self.repo.offer_and_claim()
+        document_path = self.repo.task_root / "delivery.md"
+        document_path.write_text("# Fixture Delivery\n", encoding="utf-8")
+        extra = self.repo.candidate / "delivery-extra.txt"
+        extra.write_text("unexpected\n", encoding="utf-8")
+        relative_document = f"{self.repo.task_path}/delivery.md"
+        run("git", "add", relative_document, "delivery-extra.txt", cwd=self.repo.candidate)
+        run("git", "commit", "-m", "invalid delivery document commit", cwd=self.repo.candidate)
+        before = self.repo.cas()
+        with self.assertRaisesRegex(TaskError, "INVALID_DELIVERY_DOCUMENT"):
+            service.deliver(
+                *before,
+                claim_id,
+                None,
+                relative_document,
+                hashlib.sha256(document_path.read_bytes()).hexdigest(),
+            )
+        self.assertEqual(before, self.repo.cas())
+        self.assertEqual("implementing", self.repo.state()["lifecycle"]["phase"])
+
+    def test_delivery_rejects_path_traversal_before_any_write(self) -> None:
+        service, claim_id = self.repo.offer_and_claim()
+        before = self.repo.cas()
+        with self.assertRaisesRegex(TaskError, "INVALID_DELIVERY_DOCUMENT"):
+            service.deliver(
+                *before,
+                claim_id,
+                None,
+                f"{self.repo.task_path}/../delivery.md",
+                "0" * 64,
+            )
+        self.assertEqual(before, self.repo.cas())
+
+    def test_delivery_rejects_duplicate_document_on_fresh_attempt(self) -> None:
+        service, claim_id = self.repo.offer_and_claim()
+        document_path, document_digest = self.repo.prepare_delivery_document()
+        document = self.repo.task_root / "delivery.md"
+        document.write_text("# Duplicate\n", encoding="utf-8")
+        run("git", "add", document_path, cwd=self.repo.candidate)
+        run("git", "commit", "-m", "duplicate delivery document", "--", document_path, cwd=self.repo.candidate)
+        with self.assertRaisesRegex(TaskError, "DUPLICATE_DELIVERY_DOCUMENT"):
+            service.deliver(
+                *self.repo.cas(),
+                claim_id,
+                None,
+                document_path,
+                hashlib.sha256(document.read_bytes()).hexdigest(),
+            )
+        self.assertEqual("implementing", self.repo.state()["lifecycle"]["phase"])
 
     def test_delivery_freezes_future_execution_transitions(self) -> None:
         service, _ = self.repo.delivered()
         with self.assertRaisesRegex(TaskError, "INVALID_TRANSITION"):
             service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
+        delivery = self.repo.state()["lifecycle"]["delivery"]
         with self.assertRaisesRegex(TaskError, "INVALID_TRANSITION"):
-            service.deliver(*self.repo.cas(), self.repo.state()["lifecycle"]["delivery"]["claimId"])
+            service.deliver(
+                *self.repo.cas(),
+                delivery["claimId"],
+                None,
+                delivery["deliveryDocumentPath"],
+                delivery["deliveryDocumentDigest"],
+            )
 
     def test_status_never_exposes_runtime_path_or_capability(self) -> None:
         service = self.repo.ready_and_authorized()

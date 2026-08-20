@@ -43,7 +43,9 @@ repository identity, independent candidate path and reviewed three-document
 planning package. Runtime attachments, one-time capabilities, envelopes, claim
 receipts, locks and journals stay outside tracked task data. A claim receipt is
 bound to the exact claim commit and committed transaction postimages before
-delivery or trusted acceptance can proceed. Candidate-facing claim and
+delivery or trusted acceptance can proceed. Delivery first commits exactly one
+canonical `tasks/<task>/delivery.md`; `gkd-task deliver` then binds its path,
+content digest and document commit to the final state commit. Candidate-facing claim and
 activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 

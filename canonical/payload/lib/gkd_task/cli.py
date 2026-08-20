@@ -143,6 +143,8 @@ def _parser() -> MachineParser:
     _add_cas(deliver)
     deliver.add_argument("--claim-id", required=True)
     deliver.add_argument("--candidate-output-bundle-digest")
+    deliver.add_argument("--delivery-document-path", required=True)
+    deliver.add_argument("--delivery-document-digest", required=True)
 
     migrate = commands.add_parser("migrate-v1")
     _add_cas(migrate)
@@ -305,6 +307,8 @@ def _dispatch(args: Any) -> dict[str, Any]:
             args.expected_revision,
             args.claim_id,
             args.candidate_output_bundle_digest,
+            args.delivery_document_path,
+            args.delivery_document_digest,
         )
     raise TaskError("INVALID_ARGUMENTS")
 

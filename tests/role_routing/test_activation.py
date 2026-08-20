@@ -79,7 +79,7 @@ class ActivationContracts(unittest.TestCase):
         receipt = self.runtime.read_activation_receipt(activation["activationId"])
         self.assertEqual(claimed["claimId"], receipt["claimId"])
         self.assertEqual(claimed["head"], receipt["claimCommit"])
-        delivered = service.deliver(*self.repo.cas(), claimed["claimId"])
+        delivered = self.repo.deliver(service, claimed["claimId"])
         self.assertEqual("delivered", delivered["status"])
         self.assertEqual(claimed["claimId"], self.repo.state()["lifecycle"]["delivery"]["claimId"])
 
@@ -167,7 +167,7 @@ class ActivationContracts(unittest.TestCase):
         result = recovery.recover_activation()
         self.assertEqual("activation_consumption_recovered", result["status"])
         self.assertEqual(state["lifecycle"]["claim"]["claimId"], self.runtime.read_activation_receipt(activation["activationId"])["claimId"])
-        delivered = recovery.deliver(*self.repo.cas(), state["lifecycle"]["claim"]["claimId"])
+        delivered = self.repo.deliver(recovery, state["lifecycle"]["claim"]["claimId"])
         self.assertEqual("delivered", delivered["status"])
 
     def test_two_subprocesses_competing_for_one_activation_have_one_winner(self) -> None:
@@ -197,7 +197,7 @@ class ActivationContracts(unittest.TestCase):
         activation = self.record()
         claimed = self.claim(self.provider(activation["activationId"]))
         service = TaskService(self.repo.candidate, self.repo.task_path, self.runtime, FixedClock(FIXED_TIME))
-        delivered = service.deliver(*self.repo.cas(), claimed["claimId"])
+        delivered = self.repo.deliver(service, claimed["claimId"])
         _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], self.runtime)
         self.runtime.delete_claim_activation_receipt(claimed["claimId"])
         with self.assertRaisesRegex(TaskError, "ACTIVATION_RECEIPT_UNAVAILABLE"):
