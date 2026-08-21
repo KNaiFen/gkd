@@ -284,3 +284,7 @@
 - [2026-08-21] `GKD-M3-A` 候选已同步 accepted M2-D/M2-J/M2-I-R main 基线并重新取证。
   - Why: PR #8 与 trusted main `d669c11735f1468127ce4b7b4699a19ef0984753` 的冲突必须由当前 exact executor 解决；main 新增的 delivery/rework/runtime payload 会改变 candidate bundle，旧 manifest lock 与旧 evidence 不再是当前候选事实。
   - Impact: 合并保留 M2 delivered rework、delivery document sequencing 和 trusted-host bridge 合同，同时保留 M3-A policy-backed monitor；canonical generator 将 60 文件 candidate bundle digest 更新为 `22b935b0ec7ad1fb1da9222c5b30c4586fa1c55a68ec23f782928a5635e01120`。362 项 versioned verifier 通过，29 项 M3-A 双 evidence 逐字节一致，evidence digest/file SHA-256 为 `2bee04f714db90808587986b13be38df42d041aa36efc3e3889c53c73fea5b58` / `9e548f09fa0ed6a294dc283c9bf392932f094af6b8e6b90f4fc8afe8a063caa8`；生产与 AIO 摘要均保持不变。accepted execution bundle 不变，仍须按 M2-J 单独提交 delivery 文档并执行 final task transition。
+
+- [2026-08-21] `GKD-M3-A` 修复标准 GitHub-hosted Linux runner 的 fixed-head CI 失败。
+  - Why: macOS 本地的 `/tmp -> /private/tmp` 与 `/Users` 事实掩盖了两个 portable contract 缺口；Linux runner 在 payload bundle scanner 中看到了硬编码 `/tmp`，并把测试中的不存在 `/Users` 误报为 invalid migration home。
+  - Impact: `gkd_role.project` 使用构造式系统路径别名，retained migration test 使用当前平台存在的 `Path.home()`；M3-A evidence 重新绑定 candidate bundle `e49f6bf994a3dea405248535ffdd70473feacd13c27ae39a6ecfc1fabd9a7efd`，29 项双 evidence digest/file SHA-256 为 `a2ffc693a75780aa893538462bf6a1a2428f2d55d0c68d138b33f4a288cd1c5b` / `93b9e6b365f6fa832485183e0dcf83ab293e27804d5d087f1c438720474ba181`；本地 verifier 仍须绑定 repair head，GitHub monitor 的失败终态保留为历史证据，不重跑旧 head。

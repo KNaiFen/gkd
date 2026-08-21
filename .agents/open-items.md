@@ -32,7 +32,7 @@
 - [x] `GKD-M2-D` fixed head `e8729934f567d74ee19e7583b8f8433dacb9ac60` 已独立验收并由 PR #9 squash merge 为 `0976b4900346e972bd8e03f6e8fa4ab761fe8952`；accepted bundle/evidence digest 为 `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766` / `da884bc1efe152ed983deda4c04d02bf95eafad17b2f61bd2f2067b729a2324d`。隔离安装、project staging、worktree 与本地/远端分支清理均完成。
 - [x] `GKD-M2-J` fixed head `10427606bd71985f5115b0d4ef3d9c5d8609f0a2` 已独立验收并由 PR #15 squash merge 为 `c2ae190f96ca321b1b5fe83035f8c67b4c20a42c`；delivery document sequencing/binding、legacy explicit migration 与 fixed-head checks 已由独立 verifier/evidence 覆盖。
 - [x] `GKD-M2-I-R` fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 已独立验收并由 PR #16 squash merge 为 `faa49861e60ffd5b6b29732e4f769e7444b2dbf6`；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，隔离安装和 project staging 已复核。
-- [ ] `GKD-M3-A`：候选已同步 trusted main，362 项 verifier 与 29 项双 evidence 通过；待 implementation/evidence commit、M2-J delivery、fixed-head CI 与 trusted-main 独立验收。
+- [ ] `GKD-M3-A`：候选已同步 trusted main，修复首次 Linux CI 兼容性失败；repair head 待 362 项 verifier、policy-backed fixed-head CI、M2-J delivery 与 trusted-main 独立验收。
 - [ ] `GKD-M3-B`：产物分类、资源预设、GitHub runner/billing facts推荐与固定scanner wrapper。
 - [ ] `GKD-M3-C`：共享review core、`gkd-optimize-ci`、`gkd-review-remediation`和七Skill bundle收口。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
