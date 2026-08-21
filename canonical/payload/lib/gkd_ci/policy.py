@@ -11,7 +11,7 @@ import subprocess
 from typing import Any
 from urllib.parse import urlsplit
 
-from gkd_task.canonical import digest_object, read_canonical_json, require_keys
+from gkd_task.canonical import CHECK_NAME_RE, digest_object, read_canonical_json, require_keys
 from gkd_task.errors import TaskError
 
 
@@ -20,7 +20,7 @@ REPOSITORY_RE = re.compile(
     r"^github\.com/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$"
 )
 BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
-CHECK_RE = re.compile(r"^[^\x00-\x20\x7f]{1}[^\x00-\x1f\x7f]{0,126}[^\x00-\x20\x7f]$|^[^\x00-\x20\x7f]$")
+CHECK_RE = CHECK_NAME_RE
 
 
 @dataclass(frozen=True)
