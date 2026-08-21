@@ -5,7 +5,9 @@ from pathlib import Path
 import unittest
 
 from gkd_task.acceptance import MergeIndeterminate, accept_candidate, make_review
+from gkd_task.canonical import canonical_bytes, digest_object
 from gkd_task.errors import TaskError
+from gkd_task.model import finalize_state
 from gkd_task.runtime import RuntimeStore
 from tests.task_core.helpers import (
     CONFIG_DIGEST,
@@ -35,7 +37,7 @@ class AcceptanceContracts(unittest.TestCase):
         service.offer(*self.repo.cas(), "manual", ROLE_DIGEST, CONFIG_DIGEST, FUTURE_TIME)
         envelope = service.handoff()["envelopeId"]
         claim = service.claim(*self.repo.cas(), envelope)
-        service.deliver(*self.repo.cas(), claim["claimId"])
+        self.repo.deliver(service, claim["claimId"])
         return self.repo.head()
 
     def _review(self, candidate_head: str, **changes):
@@ -68,11 +70,46 @@ class AcceptanceContracts(unittest.TestCase):
 
     def test_exact_head_acceptance_performs_two_reads_and_one_merge(self) -> None:
         candidate_head = self._delivered()
+        delivery = self.repo.state()["lifecycle"]["delivery"]
+        self.assertEqual(
+            delivery["deliveryDocumentCommit"],
+            run("git", "rev-parse", f"{candidate_head}^", cwd=self.repo.candidate),
+        )
         adapter = FakeGitHub(github_snapshot(self.repo, candidate_head))
         result = self._accept(candidate_head, adapter)
         self.assertTrue(result["merged"])
         self.assertEqual(["snapshot", "snapshot", "merge"], [call[0] for call in adapter.calls])
         self.assertEqual(candidate_head, adapter.calls[-1][-1])
+
+    def test_legacy_delivery_without_document_binding_is_readable_but_not_acceptable(self) -> None:
+        candidate_head = self._delivered()
+        state = self.repo.state()
+        delivery = state["lifecycle"]["delivery"]
+        for field in ("deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"):
+            delivery.pop(field)
+        state["history"][-1]["recordDigest"] = digest_object(delivery)
+        state = finalize_state(state)
+        (self.repo.task_root / "task.json").write_bytes(canonical_bytes(state))
+        run("git", "add", f"{self.repo.task_path}/task.json", cwd=self.repo.candidate)
+        run("git", "commit", "-m", "legacy delivery state", cwd=self.repo.candidate)
+        legacy_head = self.repo.head()
+        adapter = FakeGitHub(github_snapshot(self.repo, legacy_head))
+        with self.assertRaisesRegex(TaskError, "DELIVERY_DOCUMENT_BINDING_REQUIRED"):
+            self._accept(legacy_head, adapter)
+        self.assertEqual([], adapter.calls)
+
+    def test_post_delivery_document_commit_is_not_a_fixed_candidate(self) -> None:
+        candidate_head = self._delivered()
+        path = self.repo.task_root / "delivery.md"
+        path.write_text(path.read_text(encoding="utf-8") + "late edit\n", encoding="utf-8")
+        run("git", "add", f"{self.repo.task_path}/delivery.md", cwd=self.repo.candidate)
+        run("git", "commit", "-m", "late delivery document edit", cwd=self.repo.candidate)
+        late_head = self.repo.head()
+        adapter = FakeGitHub(github_snapshot(self.repo, late_head))
+        with self.assertRaisesRegex(TaskError, "CANDIDATE_INVALID"):
+            self._accept(late_head, adapter)
+        self.assertNotEqual(candidate_head, late_head)
+        self.assertEqual([], adapter.calls)
 
     def test_acceptance_requires_external_claim_receipt(self) -> None:
         candidate_head = self._delivered()
@@ -190,7 +227,7 @@ class AcceptanceContracts(unittest.TestCase):
         malicious.write_text(f"from pathlib import Path\nPath({str(marker)!r}).write_text('bad')\nraise RuntimeError('candidate code executed')\n", encoding="utf-8")
         run("git", "add", "gkd_task/acceptance.py", cwd=self.repo.candidate)
         run("git", "commit", "-m", "candidate implementation", cwd=self.repo.candidate)
-        service.deliver(*self.repo.cas(), claim_id)
+        self.repo.deliver(service, claim_id)
         candidate_head = self.repo.head()
         adapter = FakeGitHub(github_snapshot(self.repo, candidate_head))
         self._accept(candidate_head, adapter)

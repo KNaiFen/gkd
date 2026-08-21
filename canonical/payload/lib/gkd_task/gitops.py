@@ -225,6 +225,15 @@ def read_tree_file(root: Path, commit: str, path: str) -> bytes:
     return content
 
 
+def require_regular_tree_file(root: Path, commit: str, path: str, code: str = "CANDIDATE_INVALID") -> None:
+    require_sha1(commit, "INVALID_GIT_HEAD")
+    relative_path(path, "INVALID_FIXED_TREE_PATH")
+    raw = git(root, "ls-tree", "-z", commit, "--", path, code=code)
+    entry = raw.rstrip(b"\x00")
+    if not entry or entry.split(b" ", 1)[0] != b"100644":
+        raise TaskError(code)
+
+
 def changed_paths(root: Path, commit: str) -> list[str]:
     require_sha1(commit, "INVALID_GIT_HEAD")
     try:

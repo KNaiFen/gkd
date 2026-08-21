@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from .acceptance import SubprocessGitHubAdapter, accept_candidate, validate_review
+from .acceptance import SubprocessGitHubAdapter, accept_candidate, rework_candidate, validate_review
 from .canonical import SystemClock, SystemNonce, canonical_bytes, read_canonical_json
 from .errors import TaskError
 from .gitops import common_dir, git_root
@@ -143,6 +143,8 @@ def _parser() -> MachineParser:
     _add_cas(deliver)
     deliver.add_argument("--claim-id", required=True)
     deliver.add_argument("--candidate-output-bundle-digest")
+    deliver.add_argument("--delivery-document-path", required=True)
+    deliver.add_argument("--delivery-document-digest", required=True)
 
     migrate = commands.add_parser("migrate-v1")
     _add_cas(migrate)
@@ -160,6 +162,18 @@ def _parser() -> MachineParser:
     accept.add_argument("--runtime-root", type=Path)
     accept.add_argument("--actor-role", choices=("executor", "acceptor", "main"), required=True)
     accept.add_argument("--merge", action="store_true")
+
+    rework = commands.add_parser("rework")
+    rework.add_argument("--trusted-root", type=Path, required=True)
+    rework.add_argument("--candidate-root", type=Path, required=True)
+    rework.add_argument("--task-path", required=True)
+    rework.add_argument("--repository", required=True)
+    rework.add_argument("--pr", type=int, required=True)
+    rework.add_argument("--candidate-head", required=True)
+    rework.add_argument("--review-file", type=Path, required=True)
+    rework.add_argument("--adapter-command", type=Path, required=True)
+    rework.add_argument("--runtime-root", type=Path, required=True)
+    rework.add_argument("--actor-role", choices=("executor", "acceptor", "main"), required=True)
     return parser
 
 
@@ -202,15 +216,28 @@ def _dispatch(args: Any) -> dict[str, Any]:
         )
         service = TaskService(candidate, args.task_path, runtime=runtime)
         return service.status() if args.command == "status" else service.doctor(args.mode)
-    if args.command == "accept":
+    if args.command in {"accept", "rework"}:
         candidate_root = args.candidate_root.resolve()
         for untrusted_path in (args.review_file.resolve(), args.adapter_command.resolve()):
             try:
                 untrusted_path.relative_to(candidate_root)
             except ValueError:
                 continue
-            raise TaskError("UNTRUSTED_ACCEPTANCE_INPUT")
+            raise TaskError("UNTRUSTED_ACCEPTANCE_INPUT" if args.command == "accept" else "UNTRUSTED_REWORK_INPUT")
         review = read_canonical_json(args.review_file, "INVALID_REVIEW", validate_review)
+        if args.command == "rework":
+            return rework_candidate(
+                args.trusted_root,
+                args.candidate_root,
+                args.task_path,
+                args.repository,
+                args.pr,
+                args.candidate_head,
+                review,
+                SubprocessGitHubAdapter(args.adapter_command),
+                args.actor_role,
+                runtime=_runtime(args.candidate_root, args.runtime_root),
+            )
         return accept_candidate(
             args.trusted_root,
             args.candidate_root,
@@ -280,6 +307,8 @@ def _dispatch(args: Any) -> dict[str, Any]:
             args.expected_revision,
             args.claim_id,
             args.candidate_output_bundle_digest,
+            args.delivery_document_path,
+            args.delivery_document_digest,
         )
     raise TaskError("INVALID_ARGUMENTS")
 

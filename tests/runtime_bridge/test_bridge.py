@@ -10,16 +10,16 @@ import subprocess
 import sys
 import unittest
 
-from gkd_role.bridge import validate_spawn_result
+from gkd_role.bridge import HOST_TASK_NAME_MAX, _task_name, validate_spawn_result
 from gkd_role.roles import role_catalog
 from gkd_role.routing import validate_route_decision
 from gkd_task.acceptance import _validate_fixed_candidate
-from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
+from gkd_task.canonical import FixedNonce, atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
 from gkd_task.model import finalize_state, validate_offer, validate_state
 from gkd_task.runtime import RuntimeStore, validate_envelope
 from gkd_task.service import TaskService
-from tests.runtime_bridge.helpers import BUNDLE_ROOT, SOURCE_ROOT, automatic_decision, bundle_digest, ready_bridge, spawn_result
+from tests.runtime_bridge.helpers import BUNDLE_ROOT, SOURCE_ROOT, automatic_decision, bundle_digest, ready_bridge, spawn_result, terminal_result
 from tests.task_core.helpers import FUTURE_TIME, TaskRepo
 
 
@@ -49,9 +49,15 @@ class AutomaticBridgeContracts(unittest.TestCase):
             *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "acceptance-activation"
         )
         runtime = RuntimeStore(self.repo.runtime_root)
-        delivered = TaskService(
-            self.repo.candidate, self.repo.task_path, runtime
-        ).deliver(*self.repo.cas(), claimed["claimId"], "d" * 64)
+        service = TaskService(self.repo.candidate, self.repo.task_path, runtime)
+        document_path, document_digest = self.repo.prepare_delivery_document()
+        delivered = service.deliver(
+            *self.repo.cas(),
+            claimed["claimId"],
+            "d" * 64,
+            document_path,
+            document_digest,
+        )
         claim = self.repo.state()["lifecycle"]["claim"]
         return prepared, claim, runtime, delivered
 
@@ -67,7 +73,14 @@ class AutomaticBridgeContracts(unittest.TestCase):
         self.assertEqual(prepared["routeDecisionDigest"], claim["routeDecisionDigest"])
         candidate_output = "d" * 64
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root))
-        delivered = service.deliver(*self.repo.cas(), claimed["claimId"], candidate_output)
+        document_path, document_digest = self.repo.prepare_delivery_document()
+        delivered = service.deliver(
+            *self.repo.cas(),
+            claimed["claimId"],
+            candidate_output,
+            document_path,
+            document_digest,
+        )
         self.assertEqual("delivered", delivered["status"])
         runtime = RuntimeStore(self.repo.runtime_root)
         _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
@@ -84,6 +97,63 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
         self.assertEqual("CLAIM_RECEIPT_UNAVAILABLE", raised.exception.code)
+
+    def test_task_names_are_ascii_bounded_and_attempt_aware(self) -> None:
+        first = _task_name("TASK-ALPHA", "a" * 64, 0)
+        same_attempt = _task_name("TASK-ALPHA", "a" * 64, 0)
+        other_offer = _task_name("TASK-ALPHA", "b" * 64, 0)
+        other_epoch = _task_name("TASK-ALPHA", "a" * 64, 1)
+        long_name = _task_name("A" * 128, "c" * 64, 0)
+        self.assertEqual(first, same_attempt)
+        self.assertNotEqual(first, other_offer)
+        self.assertNotEqual(first, other_epoch)
+        self.assertLessEqual(len(long_name), HOST_TASK_NAME_MAX)
+        self.assertRegex(long_name, r"^[a-z0-9_]+$")
+
+    def test_terminal_reclaim_binds_exact_claim_and_allows_fresh_epoch(self) -> None:
+        bridge, prepared = ready_bridge(self.repo)
+        claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "activation-nonce")
+        terminal = terminal_result(self.repo, prepared, self.repo.state()["lifecycle"]["claim"])
+        reclaimed = bridge.reclaim_terminal(*self.repo.cas(), terminal, "child-terminal")
+        self.assertEqual("reclaimed", reclaimed["status"])
+        self.assertEqual("planning", self.repo.state()["lifecycle"]["phase"])
+        self.assertEqual(1, self.repo.state()["lifecycle"]["epoch"])
+
+        bridge.nonce = FixedNonce(["d" * 48, "fresh-offer", "fresh-tx", "fresh-handoff", "fresh-context"])
+        prepared_again = bridge.prepare(*self.repo.cas(), automatic_decision(bundle_digest()), FUTURE_TIME)
+        self.assertNotEqual(prepared["spawnRequest"]["taskName"], prepared_again["spawnRequest"]["taskName"])
+        with self.assertRaises(TaskError):
+            bridge.claim(*self.repo.cas(), prepared_again["envelopeId"], spawn_result(prepared_again, taskName=prepared["spawnRequest"]["taskName"]), "fresh-activation")
+        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
+
+    def test_terminal_reclaim_rejects_mismatch_active_and_stale_without_writes(self) -> None:
+        bridge, prepared = ready_bridge(self.repo)
+        bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "activation-nonce")
+        claim = self.repo.state()["lifecycle"]["claim"]
+        baseline_task = (self.repo.task_root / "task.json").read_bytes()
+        baseline_runtime = self._runtime_snapshot()
+        mutations = {
+            "task-name": {"taskName": "other_task"},
+            "claim": {"claimId": "e" * 64},
+            "identity": {"sessionDigest": "e" * 64},
+            "route": {"route": "manual"},
+            "active": {"status": "active"},
+            "stale": {"terminalAt": "2026-01-02T03:04:04Z"},
+        }
+        for name, changes in mutations.items():
+            with self.subTest(name=name):
+                candidate = terminal_result(self.repo, prepared, claim, **changes)
+                with self.assertRaises(TaskError):
+                    bridge.reclaim_terminal(*self.repo.cas(), candidate, "child-terminal")
+                self.assertEqual(baseline_task, (self.repo.task_root / "task.json").read_bytes())
+                self.assertEqual(baseline_runtime, self._runtime_snapshot())
+
+        reclaimed = bridge.reclaim_terminal(
+            *self.repo.cas(), terminal_result(self.repo, prepared, claim), "child-terminal"
+        )
+        self.assertEqual("reclaimed", reclaimed["status"])
+        with self.assertRaises(TaskError):
+            bridge.reclaim_terminal(*self.repo.cas(), terminal_result(self.repo, prepared, claim), "replay")
 
     def test_automatic_offer_requires_exact_persisted_decision_and_six_gates(self) -> None:
         service = self.repo.ready_and_authorized()

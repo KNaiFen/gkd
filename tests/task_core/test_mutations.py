@@ -99,10 +99,40 @@ class MutationContracts(unittest.TestCase):
             "tests.task_core.test_acceptance.AcceptanceContracts.test_wrong_repo_base_pr_or_head_is_rejected",
         )
 
+    def test_mutation_delivery_document_digest_check_is_killed(self) -> None:
+        self._killed(
+            {"service.py": [("        if sha256_bytes(document_raw) != delivery_document_digest:\n", "        if False:\n")]},
+            "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_requires_precommitted_canonical_document_binding",
+        )
+
+    def test_mutation_delivery_document_commit_paths_check_is_killed(self) -> None:
+        self._killed(
+            {"service.py": [("        if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:\n", "        if False:\n")]},
+            "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_rejects_document_commit_with_extra_tracked_path",
+        )
+
     def test_mutation_no_retry_is_killed(self) -> None:
         self._killed(
             {"acceptance.py": [("    if result != {\"status\": \"merged\", \"mergedHead\": candidate_head}:\n        raise TaskError(\"MERGE_REJECTED\")\n", "    if result != {\"status\": \"merged\", \"mergedHead\": candidate_head}:\n        result = adapter.merge(repository, pr_number, candidate_head)\n        raise TaskError(\"MERGE_REJECTED\")\n")]},
             "tests.task_core.test_acceptance.AcceptanceContracts.test_merge_rejection_is_terminal_and_not_retried",
+        )
+
+    def test_mutation_rework_actor_gate_is_killed(self) -> None:
+        self._killed(
+            {"acceptance.py": [("    if actor_role not in {\"acceptor\", \"main\"}:\n        raise TaskError(\"EXECUTOR_REWORK_FORBIDDEN\")\n", "    if False and actor_role not in {\"acceptor\", \"main\"}:\n        raise TaskError(\"EXECUTOR_REWORK_FORBIDDEN\")\n")]},
+            "tests.task_core.test_rework.ReworkContracts.test_executor_and_non_repair_authorization_fail_before_external_or_tracked_write",
+        )
+
+    def test_mutation_rework_authorization_gate_is_killed(self) -> None:
+        self._killed(
+            {"acceptance.py": [("    _authorization_preflight(state, authorization, repository, candidate_head, \"ci_repair\")\n", "    # mutated rework authorization check removed\n")]},
+            "tests.task_core.test_rework.ReworkContracts.test_executor_and_non_repair_authorization_fail_before_external_or_tracked_write",
+        )
+
+    def test_mutation_rework_epoch_fence_is_killed(self) -> None:
+        self._killed(
+            {"acceptance.py": [("        updated[\"lifecycle\"][\"epoch\"] += 1\n", "        updated[\"lifecycle\"][\"epoch\"] += 0\n")]},
+            "tests.task_core.test_rework.ReworkContracts.test_rework_preserves_exact_attempt_and_only_commits_coordination_files",
         )
 
 

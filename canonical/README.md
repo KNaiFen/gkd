@@ -43,7 +43,9 @@ repository identity, independent candidate path and reviewed three-document
 planning package. Runtime attachments, one-time capabilities, envelopes, claim
 receipts, locks and journals stay outside tracked task data. A claim receipt is
 bound to the exact claim commit and committed transaction postimages before
-delivery or trusted acceptance can proceed. Candidate-facing claim and
+delivery or trusted acceptance can proceed. Delivery first commits exactly one
+canonical `tasks/<task>/delivery.md`; `gkd-task deliver` then binds its path,
+content digest and document commit to the final state commit. Candidate-facing claim and
 activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 
@@ -63,6 +65,22 @@ to offer, envelope, one exact direct `gkd_executor` spawn, activation, claim and
 recovery. It never exposes the capability or raw agent/thread identity in main
 output. The claim retains the immutable execution bundle digest, while delivery
 requires a separately generated candidate output bundle digest.
+
+The task state v2 extension adds trusted fixed-head rejection/rework without
+rewriting a delivered attempt. `gkd-task rework` requires a clean synchronized
+main context, an exact clean candidate and live PR snapshot, an independent
+rejected review with findings, and the original claim/activation receipts. It
+revokes the consumed offer, preserves the old claim, delivery, bundle and review
+digests, increments the epoch, and returns to authorized planning. Executors
+remain stopped after delivery and cannot reject, accept, or resume themselves.
+
+Automatic spawn names are bounded to 128 ASCII characters and combine a
+sanitized task prefix with a digest of the exact offer and epoch. The same offer
+reconstructs the same name; a later automatic attempt cannot reuse it. The
+trusted-main-only `TrustedMainRuntimeBridge.reclaim_terminal` method accepts one
+normalized terminal or missing result, validates the active claim and terminal
+time, and passes only an in-memory evidence projection to the existing atomic
+reclaim transaction. Candidate and public CLI reclaim paths remain unavailable.
 
 Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the

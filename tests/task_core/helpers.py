@@ -181,10 +181,27 @@ class TaskRepo:
         result = service.claim(head, revision, handoff["envelopeId"])
         return service, result["claimId"]
 
+    def prepare_delivery_document(self) -> tuple[str, str]:
+        path = self.task_root / "delivery.md"
+        path.write_text(f"# Fixture Delivery\n\nImplementation head: {self.head()}\n", encoding="utf-8")
+        relative = f"{self.task_path}/delivery.md"
+        run("git", "add", relative, cwd=self.candidate)
+        run("git", "commit", "-m", "prepare delivery document", "--", relative, cwd=self.candidate)
+        return relative, hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def deliver(self, service: TaskService, claim_id: str, candidate_output_bundle_digest: str | None = None):
+        document_path, document_digest = self.prepare_delivery_document()
+        return service.deliver(
+            *self.cas(),
+            claim_id,
+            candidate_output_bundle_digest,
+            document_path,
+            document_digest,
+        )
+
     def delivered(self) -> tuple[TaskService, str]:
         service, claim_id = self.offer_and_claim()
-        head, revision = self.cas()
-        service.deliver(head, revision, claim_id)
+        self.deliver(service, claim_id)
         return service, self.head()
 
 

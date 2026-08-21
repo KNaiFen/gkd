@@ -10,12 +10,13 @@ import stat
 import subprocess
 from typing import Any, Protocol
 
-from .canonical import canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
+from .canonical import CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
-from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, verify_identity
-from .model import validate_authorization, validate_offer, validate_state
+from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
+from .model import TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
 from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
+from .transaction import TransactionChange, TransactionManager
 
 
 class MergeIndeterminate(Exception):
@@ -80,7 +81,21 @@ def validate_review(value: dict[str, Any]) -> None:
     require_string(value["taskId"], "INVALID_REVIEW")
     require_sha1(value["candidateHead"], "INVALID_REVIEW")
     require_sha256(value["reviewerDigest"], "INVALID_REVIEW")
-    if not isinstance(value["findings"], list) or any(not isinstance(item, str) or not item for item in value["findings"]):
+    findings = value["findings"]
+    if (
+        not isinstance(findings, list)
+        or any(not isinstance(item, str) for item in findings)
+        or len(findings) != len(set(findings))
+        or any(
+            not isinstance(item, str)
+            or not item
+            or item != item.strip()
+            or len(item) > 512
+            or any(character in item for character in "\r\n\x00")
+            or CREDENTIAL_RE.search(item)
+            for item in findings
+        )
+    ):
         raise TaskError("INVALID_REVIEW")
     require_sha256(value["reviewDigest"], "INVALID_REVIEW")
     unsigned = deepcopy(value)
@@ -120,6 +135,58 @@ def _fixed_json(root: Path, commit: str, path: str, code: str) -> dict[str, Any]
     if not isinstance(value, dict) or raw != canonical_bytes(value):
         raise TaskError(code)
     return value
+
+
+def _tree_path_exists(root: Path, commit: str, path: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", f"{commit}:{path}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode not in {0, 1, 128}:
+        raise TaskError("CANDIDATE_INVALID")
+    return result.returncode == 0
+
+
+def _validate_delivery_sequence(
+    candidate_root: Path,
+    task_path: str,
+    candidate_head: str,
+    claim_base_head: str,
+    delivery: dict[str, Any],
+    allow_existing_document: bool,
+) -> None:
+    required = {"deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"}
+    if not required.issubset(delivery):
+        raise TaskError("DELIVERY_DOCUMENT_BINDING_REQUIRED")
+    expected_path = f"{task_path}/delivery.md"
+    if delivery["deliveryDocumentPath"] != expected_path:
+        raise TaskError("CANDIDATE_INVALID")
+    document_commit = delivery["deliveryDocumentCommit"]
+    implementation_head = delivery["implementationHead"]
+    try:
+        final_parent = git(candidate_root, "rev-parse", f"{candidate_head}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+        document_parent = git(candidate_root, "rev-parse", f"{document_commit}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+    except UnicodeDecodeError:
+        raise TaskError("CANDIDATE_INVALID") from None
+    if (
+        final_parent != document_commit
+        or document_parent != implementation_head
+        or not is_ancestor(candidate_root, claim_base_head, implementation_head)
+        or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
+        or changed_paths(candidate_root, document_commit) != [expected_path]
+    ):
+        raise TaskError("CANDIDATE_INVALID")
+    if _tree_path_exists(candidate_root, implementation_head, expected_path) and not allow_existing_document:
+        raise TaskError("DUPLICATE_DELIVERY_DOCUMENT")
+    try:
+        document_raw = read_tree_file(candidate_root, document_commit, expected_path)
+    except TaskError:
+        raise TaskError("CANDIDATE_INVALID") from None
+    require_regular_tree_file(candidate_root, document_commit, expected_path)
+    if sha256_bytes(document_raw) != delivery["deliveryDocumentDigest"]:
+        raise TaskError("CANDIDATE_INVALID")
 
 
 def _journal_image(record: dict[str, Any]) -> bytes | None:
@@ -239,11 +306,13 @@ def _validate_fixed_candidate(
     task_path: str,
     candidate_head: str,
     runtime: RuntimeStore,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, str | None]]:
     if head(candidate_root) != candidate_head or not is_clean(candidate_root):
         raise TaskError("candidate_head_changed")
     state = _fixed_json(candidate_root, candidate_head, f"{task_path}/task.json", "CANDIDATE_INVALID")
     validate_state(state)
+    if state["repository"]["taskPath"] != task_path:
+        raise TaskError("CANDIDATE_INVALID")
     authorization = _fixed_json(candidate_root, candidate_head, f"{task_path}/authorization.json", "INVALID_AUTHORIZATION")
     validate_authorization(authorization)
     requirements = read_tree_file(candidate_root, candidate_head, f"{task_path}/requirements.md")
@@ -265,12 +334,14 @@ def _validate_fixed_candidate(
     delivery = state["lifecycle"]["delivery"]
     if delivery is None:
         raise TaskError("CANDIDATE_INVALID")
-    try:
-        parent = git(candidate_root, "rev-parse", f"{candidate_head}^", code="CANDIDATE_INVALID").decode("ascii").strip()
-    except UnicodeDecodeError:
-        raise TaskError("CANDIDATE_INVALID") from None
-    if parent != delivery["implementationHead"] or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]:
-        raise TaskError("CANDIDATE_INVALID")
+    _validate_delivery_sequence(
+        candidate_root,
+        task_path,
+        candidate_head,
+        claim["claimBaseHead"],
+        delivery,
+        bool(state["lifecycle"].get("rejectedAttempts")),
+    )
     anchored_state = _fixed_json(candidate_root, claim["claimBaseHead"], f"{task_path}/task.json", "CANDIDATE_INVALID")
     validate_state(anchored_state)
     anchored_authorization_raw = read_tree_file(candidate_root, claim["claimBaseHead"], f"{task_path}/authorization.json")
@@ -301,8 +372,11 @@ def _validate_fixed_candidate(
     expected_consumed_offer = deepcopy(anchored_offer)
     expected_consumed_offer["status"] = "consumed"
     expected_consumed_offer["consumedByDigest"] = digest_object(claim)
-    if claimed_state["lifecycle"]["claim"] != claim or claimed_offer != expected_consumed_offer:
+    current_offer = _fixed_json(candidate_root, candidate_head, f"{task_path}/offer.json", "INVALID_OFFER")
+    validate_offer(current_offer)
+    if claimed_state["lifecycle"]["claim"] != claim or claimed_offer != expected_consumed_offer or current_offer != claimed_offer:
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
+    activation_receipt_digest: str | None = None
     if anchored_offer["schemaVersion"] in {2, 3}:
         from gkd_role.activation import validate_activation, validate_activation_receipt
 
@@ -348,7 +422,11 @@ def _validate_fixed_candidate(
             or activation.get("routeDecisionDigest") != anchored_offer["routeDecisionDigest"]
         ):
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
-    return state, authorization
+        activation_receipt_digest = activation_receipt["receiptDigest"]
+    return state, authorization, {
+        "claimReceiptDigest": claim_receipt["receiptDigest"],
+        "activationReceiptDigest": activation_receipt_digest,
+    }
 
 
 def _authorization_preflight(
@@ -405,6 +483,28 @@ def _check_snapshot(
         raise TaskError("REQUIRED_CHECK_FAILURE")
 
 
+def _check_rework_snapshot(
+    snapshot: dict[str, Any],
+    repository: str,
+    pr_number: int,
+    base_branch: str,
+    task_branch: str,
+    candidate_head: str,
+) -> None:
+    validate_snapshot(snapshot)
+    if (
+        snapshot["repository"] != repository
+        or snapshot["prNumber"] != pr_number
+        or snapshot["baseBranch"] != base_branch
+        or snapshot["headBranch"] != task_branch
+        or snapshot["headSha"] != candidate_head
+        or snapshot["state"] != "open"
+        or snapshot["draft"]
+        or snapshot["mergedHead"] is not None
+    ):
+        raise TaskError("PR_FACT_MISMATCH")
+
+
 def accept_candidate(
     trusted_root: Path,
     candidate_root: Path,
@@ -433,7 +533,7 @@ def accept_candidate(
     if trusted == candidate or common_dir(trusted) != common_dir(candidate):
         raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
     runtime = runtime or RuntimeStore(common_dir(candidate) / "gkd-runtime")
-    state, authorization = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    state, authorization, _ = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     repo = state["repository"]
     verify_identity(candidate, repository, repo["taskBranch"], common_dir(trusted))
     if repository_identity(trusted) != repository or branch(trusted) != repo["baseBranch"] or not is_clean(trusted):
@@ -469,7 +569,7 @@ def accept_candidate(
     if authorization["mode"] != "implement_and_merge_on_acceptance":
         raise TaskError("authorization_mismatch")
 
-    state_again, authorization_again = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    state_again, authorization_again, _ = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     _authorization_preflight(state_again, authorization_again, repository, candidate_head, "conditional_merge")
     second = adapter.snapshot(repository, pr_number)
     _check_snapshot(second, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head, required_checks)
@@ -490,6 +590,142 @@ def accept_candidate(
         "reviewDigest": review["reviewDigest"],
         "merged": True,
     }
+
+
+def rework_candidate(
+    trusted_root: Path,
+    candidate_root: Path,
+    task_path: str,
+    repository: str,
+    pr_number: int,
+    candidate_head: str,
+    review: dict[str, Any],
+    adapter: GitHubAdapter,
+    actor_role: str,
+    runtime: RuntimeStore | None = None,
+    clock: Any | None = None,
+    nonce: Any | None = None,
+    failure_hook: Any | None = None,
+) -> dict[str, Any]:
+    if actor_role not in {"acceptor", "main"}:
+        raise TaskError("EXECUTOR_REWORK_FORBIDDEN")
+    require_sha1(candidate_head, "CANDIDATE_INVALID")
+    if not isinstance(pr_number, int) or pr_number < 1:
+        raise TaskError("INVALID_PR")
+    if trusted_root.is_symlink() or candidate_root.is_symlink():
+        raise TaskError("CANDIDATE_SYMLINK")
+    trusted = trusted_root.resolve()
+    candidate = candidate_root.resolve()
+    if trusted == candidate or common_dir(trusted) != common_dir(candidate):
+        raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
+    runtime = runtime or RuntimeStore(common_dir(candidate) / "gkd-runtime")
+    state, authorization, receipt_facts = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    repo = state["repository"]
+    verify_identity(candidate, repository, repo["taskBranch"], common_dir(trusted))
+    if repository_identity(trusted) != repository or branch(trusted) != repo["baseBranch"] or not is_clean(trusted):
+        raise TaskError("TRUSTED_CONTEXT_INVALID")
+    try:
+        remote_head = git(trusted, "rev-parse", f"refs/remotes/origin/{repo['baseBranch']}", code="TRUSTED_CONTEXT_INVALID").decode("ascii").strip()
+    except UnicodeDecodeError:
+        raise TaskError("TRUSTED_CONTEXT_INVALID") from None
+    if head(trusted) != remote_head:
+        raise TaskError("TRUSTED_CONTEXT_INVALID")
+    _authorization_preflight(state, authorization, repository, candidate_head, "ci_repair")
+    validate_review(review)
+    claim = state["lifecycle"]["claim"]
+    if (
+        review["taskId"] != state["taskId"]
+        or review["candidateHead"] != candidate_head
+        or review["outcome"] != "rejected"
+        or not review["findings"]
+        or (claim is not None and review["reviewerDigest"] == claim["sessionDigest"])
+    ):
+        raise TaskError("INDEPENDENT_REJECTION_REQUIRED")
+
+    first = adapter.snapshot(repository, pr_number)
+    _check_rework_snapshot(first, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head)
+    state_again, authorization_again, receipt_facts_again = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    _authorization_preflight(state_again, authorization_again, repository, candidate_head, "ci_repair")
+    second = adapter.snapshot(repository, pr_number)
+    _check_rework_snapshot(second, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head)
+    if first != second or state_again != state or authorization_again != authorization or receipt_facts_again != receipt_facts:
+        raise TaskError("PR_FACT_MISMATCH")
+
+    current_offer = _fixed_json(candidate, candidate_head, f"{task_path}/offer.json", "INVALID_OFFER")
+    validate_offer(current_offer)
+    at_clock = clock or SystemClock()
+    rejected_at = at_clock.now()
+    attempt = {
+        "schemaVersion": 1,
+        "taskId": state["taskId"],
+        "repository": repository,
+        "prNumber": pr_number,
+        "baseBranch": repo["baseBranch"],
+        "taskBranch": repo["taskBranch"],
+        "candidateHead": candidate_head,
+        "epoch": state["lifecycle"]["epoch"],
+        "offer": deepcopy(current_offer),
+        "claim": deepcopy(claim),
+        "delivery": deepcopy(state["lifecycle"]["delivery"]),
+        "claimReceiptDigest": receipt_facts["claimReceiptDigest"],
+        "activationReceiptDigest": receipt_facts["activationReceiptDigest"],
+        "reviewDigest": review["reviewDigest"],
+        "findingsDigest": digest_object(review["findings"]),
+        "rejectedAt": rejected_at,
+    }
+    retired = {
+        "offerId": current_offer["offerId"],
+        "claim": deepcopy(claim),
+        "epoch": state["lifecycle"]["epoch"],
+        "reason": "rejected-review",
+        "retiredAt": rejected_at,
+    }
+    updated_offer = deepcopy(current_offer)
+    updated_offer["status"] = "revoked"
+
+    def builder(current: dict[str, Any]) -> TransactionChange:
+        if current != state or current["lifecycle"]["phase"] != "delivered" or current["lifecycle"]["blocked"] is not None:
+            raise TaskError("INVALID_TRANSITION")
+        updated = deepcopy(current)
+        updated["schemaVersion"] = TASK_STATE_REWORK_VERSION
+        updated["lifecycle"].setdefault("rejectedAttempts", []).append(attempt)
+        updated["lifecycle"]["phase"] = "planning"
+        updated["lifecycle"]["epoch"] += 1
+        updated["lifecycle"]["writer"] = None
+        updated["lifecycle"]["offer"] = None
+        updated["lifecycle"]["claim"] = None
+        updated["lifecycle"]["retiredClaims"].append(retired)
+        updated["lifecycle"]["delivery"] = None
+        updated["lifecycle"]["acceptance"] = None
+        updated["lifecycle"]["completion"] = None
+        updated = advance_state(updated, "reworked", rejected_at, candidate_head, attempt)
+        return TransactionChange(
+            {
+                f"{task_path}/task.json": canonical_bytes(updated),
+                f"{task_path}/offer.json": canonical_bytes(updated_offer),
+            },
+            "记录拒绝并返回返工",
+            {
+                "status": "reworked",
+                "taskId": current["taskId"],
+                "revision": updated["revision"],
+                "epoch": updated["lifecycle"]["epoch"],
+                "rejectedHead": candidate_head,
+                "reviewDigest": review["reviewDigest"],
+                "findingsDigest": attempt["findingsDigest"],
+            },
+        )
+
+    manager = TransactionManager(
+        candidate,
+        task_path,
+        runtime,
+        runtime_key(repository, state["taskId"], repo["taskBranch"]),
+        at_clock,
+        nonce or SystemNonce(),
+        failure_hook,
+    )
+    return manager.execute(candidate_head, state["revision"], builder)
 
 
 class SubprocessGitHubAdapter:
