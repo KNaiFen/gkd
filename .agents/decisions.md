@@ -288,3 +288,7 @@
 - [2026-08-21] `GKD-M3-A` 修复标准 GitHub-hosted Linux runner 的 fixed-head CI 失败。
   - Why: macOS 本地的 `/tmp -> /private/tmp` 与 `/Users` 事实掩盖了两个 portable contract 缺口；Linux runner 在 payload bundle scanner 中看到了硬编码 `/tmp`，并把测试中的不存在 `/Users` 误报为 invalid migration home。
   - Impact: `gkd_role.project` 使用构造式系统路径别名，retained migration test 使用当前平台存在的 `Path.home()`；M3-A evidence 重新绑定 candidate bundle `e49f6bf994a3dea405248535ffdd70473feacd13c27ae39a6ecfc1fabd9a7efd`，29 项双 evidence digest/file SHA-256 为 `a2ffc693a75780aa893538462bf6a1a2428f2d55d0c68d138b33f4a288cd1c5b` / `93b9e6b365f6fa832485183e0dcf83ab293e27804d5d087f1c438720474ba181`；本地 verifier 仍须绑定 repair head，GitHub monitor 的失败终态保留为历史证据，不重跑旧 head。
+
+- [2026-08-21] `GKD-M3-A` fixed-head acceptance 合同补齐合法 required-check name。
+  - Why: policy/workflow 正确声明 `GKD Verify`，但 task acceptance 的通用 identifier regex 拒绝空格，导致 live snapshot 在验收前失败；该缺口由 M3-A 范围内共享 check-name validator、回归和 mutation 测试修复。
+  - Impact: PR #8 fixed head `b7804f7caacafbf2d08e1539cac21d571078ef3b` 通过 `GKD Verify`、364 项 verifier、29 项双 evidence 和独立 review，squash merge 为 `d7348ab286d7dc0a56fc0b8b85247c8521901828`。accepted bundle 更新为 `4d12c9973ea9302162493a5a71e25a4948b1f23991d30873c4a11ad691647aed`；M3-B 现在可从该 fresh main 自动启动。
