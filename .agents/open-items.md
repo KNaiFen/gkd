@@ -33,7 +33,7 @@
 - [x] `GKD-M2-J` fixed head `10427606bd71985f5115b0d4ef3d9c5d8609f0a2` 已独立验收并由 PR #15 squash merge 为 `c2ae190f96ca321b1b5fe83035f8c67b4c20a42c`；delivery document sequencing/binding、legacy explicit migration 与 fixed-head checks 已由独立 verifier/evidence 覆盖。
 - [x] `GKD-M2-I-R` fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 已独立验收并由 PR #16 squash merge 为 `faa49861e60ffd5b6b29732e4f769e7444b2dbf6`；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，隔离安装和 project staging 已复核。
 - [x] `GKD-M3-A`：fixed head `b7804f7caacafbf2d08e1539cac21d571078ef3b` 已独立验收并由 PR #8 squash merge 为 `d7348ab286d7dc0a56fc0b8b85247c8521901828`；364 项 verifier、29 项双 evidence、合法空格 required-check acceptance 回归和 policy-backed `GKD Verify` monitor 均通过，accepted bundle 为 `4d12c9973ea9302162493a5a71e25a4948b1f23991d30873c4a11ad691647aed`。
-- [ ] `GKD-M3-B`：产物分类、资源预设、GitHub runner/billing facts推荐与固定scanner wrapper。
+- [ ] `GKD-M3-B`：产物分类、资源预设、GitHub runner/billing facts推荐与固定scanner wrapper（candidate implementation/evidence 已完成，等待固定 head verifier、delivery 与 trusted-main acceptance）。
 - [ ] `GKD-M3-C`：共享review core、`gkd-optimize-ci`、`gkd-review-remediation`和七Skill bundle收口。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。
