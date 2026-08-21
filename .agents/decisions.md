@@ -312,3 +312,7 @@
 - [2026-08-22] `GKD-M4-A` 候选实现通用 finalization/release mechanism，尚未 acceptance。
   - Why: closeout 与后续 release promotion 需要分离 executor/acceptor，且版本、lock、changelog、evidence、assets、provenance 与 tag/release target 必须可被同一个 exact SHA 验证；本任务不得产生真实发布副作用。
   - Impact: candidate payload 增加只读 `gkd-finalize` 与严格 finalization record，closeout-only 拒绝 product logic/release side effects，release mode 要求 bound adapter/authorization；promotion 只返回 same-SHA request，matching retry 仅报告 already-promoted。fixed-head acceptance 在两次 GitHub snapshot 间重验同步 trusted main。candidate bundle/evidence digest 为 `27470fc60cfa005a2784ac81f0aba07c4e50e2381bf057fe9b38aa8d016e1912` / `90e499d761517a65080eb46edcab588b07d275267d38c609274a6dab3e287170`；尚未创建 tag、Release 或生产安装。
+
+- [2026-08-22] `GKD-M4-A` fixed head 已独立验收、合并并刷新 project staging。
+  - Why: trusted main 对 PR #19 的完整 diff、requirements、delivery、finalization five-axis code review、独立 399 项 verifier、隔离 bundle install 和 live fixed-head `GKD Verify` 进行了终验，无阻塞 finding；M4 仅提供无副作用 release mechanism。
+  - Impact: fixed head `2b9dbfe5aa8003926eed2ef89e562e245859cdf0` 以 squash merge `44e413937df8e05045d907af2630185bc4fb9bcc` 进入 main；accepted bundle/evidence digest 为 `27470fc60cfa005a2784ac81f0aba07c4e50e2381bf057fe9b38aa8d016e1912` / `90e499d761517a65080eb46edcab588b07d275267d38c609274a6dab3e287170`。未创建 tag/Release；M5 将在完整 L0-L4 和独立终验后形成并精确推广最终 release candidate。
