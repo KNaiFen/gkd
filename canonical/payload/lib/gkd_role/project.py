@@ -18,7 +18,13 @@ from .roles import load_role_source, role_catalog, role_files, role_record
 
 
 PROJECT_INVENTORY = Path(".gkd/runtime-project.json")
-EXECUTOR_SKILLS = ("gkd-ci-monitor", "gkd-execute", "gkd-local-verify")
+EXECUTOR_SKILLS = (
+    "gkd-ci-monitor",
+    "gkd-execute",
+    "gkd-local-verify",
+    "gkd-optimize-ci",
+    "gkd-review-remediation",
+)
 PARENT_SKILLS = ("gkd-main",)
 
 

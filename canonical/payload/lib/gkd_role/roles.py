@@ -20,7 +20,15 @@ from gkd_task.errors import TaskError
 
 
 ROLE_NAMES = ("gkd_acceptor", "gkd_ci_reviewer", "gkd_executor")
-SKILL_NAMES = ("gkd-accept", "gkd-ci-monitor", "gkd-execute", "gkd-local-verify", "gkd-main")
+SKILL_NAMES = (
+    "gkd-accept",
+    "gkd-ci-monitor",
+    "gkd-execute",
+    "gkd-local-verify",
+    "gkd-main",
+    "gkd-optimize-ci",
+    "gkd-review-remediation",
+)
 SANDBOX_MODES = {"read-only", "workspace-write"}
 ACTIVATION_PROVIDER = {"contractVersion": 1, "name": "codex-host-runtime"}
 ROLE_CONTRACT = {

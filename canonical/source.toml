@@ -33,6 +33,41 @@ files = [
 ]
 
 [[components]]
+name = "review-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-review", target = "gkd/bin/gkd-review", mode = "0755" },
+]
+
+[[components]]
+name = "review-fixtures"
+kind = "library"
+files = [
+  { source = "payload/fixtures/review/multi-repository.json", target = "gkd/fixtures/review/multi-repository.json", mode = "0644" },
+]
+
+[[components]]
+name = "review-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_review/__init__.py", target = "gkd/lib/gkd_review/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_review/adapter.py", target = "gkd/lib/gkd_review/adapter.py", mode = "0644" },
+  { source = "payload/lib/gkd_review/cli.py", target = "gkd/lib/gkd_review/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_review/core.py", target = "gkd/lib/gkd_review/core.py", mode = "0644" },
+  { source = "payload/lib/gkd_review/remediation.py", target = "gkd/lib/gkd_review/remediation.py", mode = "0644" },
+]
+
+[[components]]
+name = "review-schemas"
+kind = "library"
+files = [
+  { source = "payload/schema/review/adapter.schema.json", target = "gkd/schema/review/adapter.schema.json", mode = "0644" },
+  { source = "payload/schema/review/recommendation.schema.json", target = "gkd/schema/review/recommendation.schema.json", mode = "0644" },
+  { source = "payload/schema/review/remediation.schema.json", target = "gkd/schema/review/remediation.schema.json", mode = "0644" },
+  { source = "payload/schema/review/review-state.schema.json", target = "gkd/schema/review/review-state.schema.json", mode = "0644" },
+]
+
+[[components]]
 name = "resource-scanner-cli"
 kind = "executable"
 files = [
@@ -159,4 +194,8 @@ files = [
   { source = "payload/skills/gkd-local-verify/agents/openai.yaml", target = "gkd/skills/gkd-local-verify/agents/openai.yaml", mode = "0644" },
   { source = "payload/skills/gkd-main/SKILL.md", target = "gkd/skills/gkd-main/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-main/agents/openai.yaml", target = "gkd/skills/gkd-main/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-optimize-ci/SKILL.md", target = "gkd/skills/gkd-optimize-ci/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-optimize-ci/agents/openai.yaml", target = "gkd/skills/gkd-optimize-ci/agents/openai.yaml", mode = "0644" },
+  { source = "payload/skills/gkd-review-remediation/SKILL.md", target = "gkd/skills/gkd-review-remediation/SKILL.md", mode = "0644" },
+  { source = "payload/skills/gkd-review-remediation/agents/openai.yaml", target = "gkd/skills/gkd-review-remediation/agents/openai.yaml", mode = "0644" },
 ]
