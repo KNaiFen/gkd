@@ -43,7 +43,7 @@ class ProjectStagingContracts(unittest.TestCase):
         )
         self.assertTrue((first / ".codex" / "agents" / "gkd_executor.toml").is_file())
         self.assertTrue((first / ".agents" / "skills" / "gkd-main" / "SKILL.md").is_file())
-        for name in ("gkd-execute", "gkd-local-verify", "gkd-ci-monitor"):
+        for name in ("gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"):
             self.assertTrue((first / ".codex" / "skills" / name / "SKILL.md").is_file())
         self.assertEqual(before, run("git", "status", "--porcelain=v1", cwd=candidate))
         self.assertEqual("verified", verify_project(BUNDLE_ROOT, bundle_digest(), first, self.production)["status"])

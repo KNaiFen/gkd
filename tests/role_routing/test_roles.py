@@ -47,14 +47,14 @@ class RoleContracts(unittest.TestCase):
             parsed = tomllib.loads(raw.decode("utf-8"))
             self.assertEqual(name.removesuffix(".toml"), parsed["name"])
             self.assertEqual(False, parsed["agents"]["enabled"])
-            self.assertEqual(5, len(parsed["skills"]["config"]))
+            self.assertEqual(7, len(parsed["skills"]["config"]))
             self.assertEqual({"name", "description", "model", "model_reasoning_effort", "sandbox_mode", "developer_instructions", "agents", "skills"}, set(parsed))
 
     def test_context_manifests_are_minimal_and_explicit_about_omissions(self) -> None:
         expected = {
-            "gkd_executor": {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor"},
+            "gkd_executor": {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"},
             "gkd_acceptor": {"gkd-accept", "gkd-local-verify", "gkd-ci-monitor"},
-            "gkd_ci_reviewer": {"gkd-ci-monitor"},
+            "gkd_ci_reviewer": {"gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"},
         }
         for role, skills in expected.items():
             manifest = context_manifest(BUNDLE_ROOT, self.digest, role)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "GKD Optimize CI"
+  short_description: "Recommend bounded CI plans from verified facts"
+  default_prompt: "Use $gkd-optimize-ci to produce a policy- and resource-bound CI recommendation."

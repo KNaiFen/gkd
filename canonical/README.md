@@ -50,7 +50,7 @@ activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 
 The M2-A payload additionally defines three fixed custom-agent role TOMLs,
-minimal role context manifests, hard-rule subsets, five progressive-disclosure
+minimal role context manifests, hard-rule subsets, seven progressive-disclosure
 workflow Skills, route and wait schemas, and a trusted-main workflow activation
 provider. This is not same-user process isolation and does not add signing,
 daemon, IPC, or key infrastructure.
@@ -86,7 +86,7 @@ Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the
 trusted-main bridge after the accepted M2-B one-hour wait gate. This development
 surface does not install production `~/.codex`, modify a consumer repository,
-or imply completion of M3-B or M3-C.
+or imply completion of M4 or M5.
 
 The M3-A payload adds a repository-neutral `gkd-ci-monitor`. It accepts only the
 versioned `.gkd/policy.json` in an explicit Git checkout, binds its GitHub
@@ -96,3 +96,12 @@ report success, required-check failure, head drift, timeout, or a stable error;
 it never changes GitHub state or treats check success as acceptance. Repository
 identity and check names remain in repository policy and workflow files, not in
 the reusable payload.
+
+The M3-C payload adds a repository-neutral review core with targeted, guided,
+and recon entry points, explicit partial approval, resume, and recovery state.
+The review adapter binds redacted facts for multiple repositories. The
+`gkd-optimize-ci` and `gkd-review-remediation` Skills stop at recommendations
+or remediation plans; they do not write runner, workflow, merge, rerun, or
+repository settings state. The canonical bundle contains seven workflow
+Skills, with role inventory, project staging, manifest, lock, and digests
+bound to the same source declaration.

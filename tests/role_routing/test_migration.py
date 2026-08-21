@@ -29,7 +29,7 @@ class MigrationContracts(unittest.TestCase):
         agents = self.home / ".codex" / "agents"
         self.assertEqual({"gkd_acceptor.toml", "gkd_ci_reviewer.toml", "gkd_executor.toml"}, {path.name for path in agents.iterdir()})
         self.assertFalse((agents / "ci-reviewer.toml").exists())
-        for name in ("gkd-main", "gkd-execute", "gkd-accept", "gkd-local-verify", "gkd-ci-monitor"):
+        for name in ("gkd-main", "gkd-execute", "gkd-accept", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"):
             self.assertTrue((self.home / ".codex" / "skills" / name / "SKILL.md").is_file())
         self.assertEqual("migration_applied", result["status"])
 
