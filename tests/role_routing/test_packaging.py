@@ -20,7 +20,10 @@ class PackagingContracts(unittest.TestCase):
         lock = json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))
         names = {component["name"] for component in manifest["components"]}
         self.assertTrue({"role-routing-cli", "role-routing-library", "role-routing-source", "role-routing-schemas", "workflow-skills"}.issubset(names))
-        self.assertEqual(60, len(lock["installFiles"]))
+        self.assertEqual(
+            len([path for path in (SOURCE_ROOT / "payload").rglob("*") if path.is_file()]),
+            len(lock["installFiles"]),
+        )
         self.assertEqual(bundle_digest(), lock["contentDigest"])
         payload_text = "\n".join(path.read_text(encoding="utf-8") for path in (BUNDLE_ROOT / "lib").rglob("*.py"))
         self.assertNotIn("FixtureEvidenceProvider", payload_text)
@@ -44,12 +47,13 @@ class PackagingContracts(unittest.TestCase):
             target = temporary / "target"
             target.mkdir()
             installed = gkd_bundle.install(SOURCE_ROOT, temporary, target)
+            lock = json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))
             executable = target / "gkd" / "bin" / "gkd-role"
             result = subprocess.run([str(executable), "roles", "--bundle-root", str(target / "gkd"), "--bundle-digest", bundle_digest()], cwd=target, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(3, len(json.loads(result.stdout)["roles"]))
             self.assertEqual("0755", oct(executable.stat().st_mode & 0o777).removeprefix("0o").zfill(4))
-            self.assertEqual(64, installed["files"])
+            self.assertEqual(len(lock["installFiles"]) + 4, installed["files"])
             inventory = json.loads((target / "gkd" / ".bundle" / "install.json").read_text(encoding="utf-8"))
             inventory_text = json.dumps(inventory, sort_keys=True)
             self.assertNotIn("FixtureEvidenceProvider", inventory_text)

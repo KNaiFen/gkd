@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "src"))
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SCOPES = (
     ("m3-ci-policy", "tests/ci_policy"),
+    ("m3-resource-scanner", "tests/resource_scanner"),
     ("task-core", "tests/task_core"),
     ("role-routing", "tests/role_routing"),
     ("runtime-bridge", "tests/runtime_bridge"),

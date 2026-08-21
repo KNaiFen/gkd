@@ -24,8 +24,29 @@ files = [
 name = "ci-monitor-schemas"
 kind = "library"
 files = [
+  { source = "payload/schema/ci/artifact-plan.schema.json", target = "gkd/schema/ci/artifact-plan.schema.json", mode = "0644" },
   { source = "payload/schema/ci/policy.schema.json", target = "gkd/schema/ci/policy.schema.json", mode = "0644" },
+  { source = "payload/schema/ci/recommendation.schema.json", target = "gkd/schema/ci/recommendation.schema.json", mode = "0644" },
+  { source = "payload/schema/ci/resource-facts.schema.json", target = "gkd/schema/ci/resource-facts.schema.json", mode = "0644" },
+  { source = "payload/schema/ci/scanner-result.schema.json", target = "gkd/schema/ci/scanner-result.schema.json", mode = "0644" },
   { source = "payload/schema/ci/terminal-result.schema.json", target = "gkd/schema/ci/terminal-result.schema.json", mode = "0644" },
+]
+
+[[components]]
+name = "resource-scanner-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-resource-scanner", target = "gkd/bin/gkd-resource-scanner", mode = "0755" },
+]
+
+[[components]]
+name = "resource-scanner-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_ci/recommendations.py", target = "gkd/lib/gkd_ci/recommendations.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/resource_cli.py", target = "gkd/lib/gkd_ci/resource_cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/resources.py", target = "gkd/lib/gkd_ci/resources.py", mode = "0644" },
+  { source = "payload/lib/gkd_ci/scanner.py", target = "gkd/lib/gkd_ci/scanner.py", mode = "0644" },
 ]
 
 [[components]]
