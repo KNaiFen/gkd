@@ -280,3 +280,7 @@
 - [2026-08-20] M2-I trusted-host bridge 已按 M2-J 合同 redelivery、独立验收并合并。
   - Why: 为保留已验证的 M2-I bridge 功能，同时满足新的 implementation -> delivery-document -> final-state fixed sequence，注册窄范围 `GKD-M2-I-R`，仅移植原 implementation commit，不重用旧 task state/claim/delivery commits。
   - Impact: PR #16 fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 以 squash merge `faa49861e60ffd5b6b29732e4f769e7444b2dbf6` 进入 main；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，两次 focused evidence 逐字节一致，local verifier 全部通过。accepted bundle 已隔离安装并刷新 project staging；M3-A 现在只能从该 exact fresh main/role/bundle 开始。
+
+- [2026-08-21] `GKD-M3-A` 候选已同步 accepted M2-D/M2-J/M2-I-R main 基线并重新取证。
+  - Why: PR #8 与 trusted main `d669c11735f1468127ce4b7b4699a19ef0984753` 的冲突必须由当前 exact executor 解决；main 新增的 delivery/rework/runtime payload 会改变 candidate bundle，旧 manifest lock 与旧 evidence 不再是当前候选事实。
+  - Impact: 合并保留 M2 delivered rework、delivery document sequencing 和 trusted-host bridge 合同，同时保留 M3-A policy-backed monitor；canonical generator 将 60 文件 candidate bundle digest 更新为 `22b935b0ec7ad1fb1da9222c5b30c4586fa1c55a68ec23f782928a5635e01120`。362 项 versioned verifier 通过，29 项 M3-A 双 evidence 逐字节一致，evidence digest/file SHA-256 为 `2bee04f714db90808587986b13be38df42d041aa36efc3e3889c53c73fea5b58` / `9e548f09fa0ed6a294dc283c9bf392932f094af6b8e6b90f4fc8afe8a063caa8`；生产与 AIO 摘要均保持不变。accepted execution bundle 不变，仍须按 M2-J 单独提交 delivery 文档并执行 final task transition。
