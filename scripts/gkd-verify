@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SCOPES = (
+    ("m4-finalization", "tests/finalization"),
     ("m3-ci-policy", "tests/ci_policy"),
     ("m3-resource-scanner", "tests/resource_scanner"),
     ("m3-review-core", "tests/review_core"),
