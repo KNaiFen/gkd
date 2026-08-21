@@ -101,6 +101,36 @@ files = [
 ]
 
 [[components]]
+name = "finalization-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-finalize", target = "gkd/bin/gkd-finalize", mode = "0755" },
+]
+
+[[components]]
+name = "finalization-fixtures"
+kind = "library"
+files = [
+  { source = "payload/fixtures/finalization/generic-input.json", target = "gkd/fixtures/finalization/generic-input.json", mode = "0644" },
+]
+
+[[components]]
+name = "finalization-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_finalization/__init__.py", target = "gkd/lib/gkd_finalization/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_finalization/cli.py", target = "gkd/lib/gkd_finalization/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_finalization/core.py", target = "gkd/lib/gkd_finalization/core.py", mode = "0644" },
+]
+
+[[components]]
+name = "finalization-schemas"
+kind = "library"
+files = [
+  { source = "payload/schema/finalization/finalization-record.schema.json", target = "gkd/schema/finalization/finalization-record.schema.json", mode = "0644" },
+]
+
+[[components]]
 name = "task-cli"
 kind = "executable"
 files = [

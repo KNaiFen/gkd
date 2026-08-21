@@ -483,6 +483,17 @@ def _check_snapshot(
         raise TaskError("REQUIRED_CHECK_FAILURE")
 
 
+def _validate_trusted_context(trusted: Path, repository: str, base_branch: str) -> None:
+    if repository_identity(trusted) != repository or branch(trusted) != base_branch or not is_clean(trusted):
+        raise TaskError("TRUSTED_CONTEXT_INVALID")
+    try:
+        remote_head = git(trusted, "rev-parse", f"refs/remotes/origin/{base_branch}", code="TRUSTED_CONTEXT_INVALID").decode("ascii").strip()
+    except UnicodeDecodeError:
+        raise TaskError("TRUSTED_CONTEXT_INVALID") from None
+    if head(trusted) != remote_head:
+        raise TaskError("TRUSTED_CONTEXT_INVALID")
+
+
 def _check_rework_snapshot(
     snapshot: dict[str, Any],
     repository: str,
@@ -536,14 +547,7 @@ def accept_candidate(
     state, authorization, _ = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     repo = state["repository"]
     verify_identity(candidate, repository, repo["taskBranch"], common_dir(trusted))
-    if repository_identity(trusted) != repository or branch(trusted) != repo["baseBranch"] or not is_clean(trusted):
-        raise TaskError("TRUSTED_CONTEXT_INVALID")
-    try:
-        remote_head = git(trusted, "rev-parse", f"refs/remotes/origin/{repo['baseBranch']}", code="TRUSTED_CONTEXT_INVALID").decode("ascii").strip()
-    except UnicodeDecodeError:
-        raise TaskError("TRUSTED_CONTEXT_INVALID") from None
-    if head(trusted) != remote_head:
-        raise TaskError("TRUSTED_CONTEXT_INVALID")
+    _validate_trusted_context(trusted, repository, repo["baseBranch"])
     _authorization_preflight(state, authorization, repository, candidate_head, "conditional_merge" if merge else "ready_for_review")
     validate_review(review)
     claim = state["lifecycle"]["claim"]
@@ -570,6 +574,7 @@ def accept_candidate(
         raise TaskError("authorization_mismatch")
 
     state_again, authorization_again, _ = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    _validate_trusted_context(trusted, repository, repo["baseBranch"])
     _authorization_preflight(state_again, authorization_again, repository, candidate_head, "conditional_merge")
     second = adapter.snapshot(repository, pr_number)
     _check_snapshot(second, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head, required_checks)
@@ -622,14 +627,7 @@ def rework_candidate(
     state, authorization, receipt_facts = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
     repo = state["repository"]
     verify_identity(candidate, repository, repo["taskBranch"], common_dir(trusted))
-    if repository_identity(trusted) != repository or branch(trusted) != repo["baseBranch"] or not is_clean(trusted):
-        raise TaskError("TRUSTED_CONTEXT_INVALID")
-    try:
-        remote_head = git(trusted, "rev-parse", f"refs/remotes/origin/{repo['baseBranch']}", code="TRUSTED_CONTEXT_INVALID").decode("ascii").strip()
-    except UnicodeDecodeError:
-        raise TaskError("TRUSTED_CONTEXT_INVALID") from None
-    if head(trusted) != remote_head:
-        raise TaskError("TRUSTED_CONTEXT_INVALID")
+    _validate_trusted_context(trusted, repository, repo["baseBranch"])
     _authorization_preflight(state, authorization, repository, candidate_head, "ci_repair")
     validate_review(review)
     claim = state["lifecycle"]["claim"]
@@ -645,6 +643,7 @@ def rework_candidate(
     first = adapter.snapshot(repository, pr_number)
     _check_rework_snapshot(first, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head)
     state_again, authorization_again, receipt_facts_again = _validate_fixed_candidate(candidate, task_path, candidate_head, runtime)
+    _validate_trusted_context(trusted, repository, repo["baseBranch"])
     _authorization_preflight(state_again, authorization_again, repository, candidate_head, "ci_repair")
     second = adapter.snapshot(repository, pr_number)
     _check_rework_snapshot(second, repository, pr_number, repo["baseBranch"], repo["taskBranch"], candidate_head)

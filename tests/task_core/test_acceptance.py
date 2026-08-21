@@ -278,6 +278,25 @@ class AcceptanceContracts(unittest.TestCase):
             self._accept(candidate_head, adapter)
         self.assertEqual([], adapter.calls)
 
+    def test_trusted_main_drift_between_snapshots_blocks_merge(self) -> None:
+        candidate_head = self._delivered()
+        repo = self.repo
+
+        class MainDriftAdapter(FakeGitHub):
+            def snapshot(self, repository: str, pr_number: int):
+                result = super().snapshot(repository, pr_number)
+                if len(self.calls) == 1:
+                    path = repo.main / "late-main-drift.txt"
+                    path.write_text("drift\n", encoding="utf-8")
+                    run("git", "add", "late-main-drift.txt", cwd=repo.main)
+                    run("git", "commit", "-m", "late main drift", cwd=repo.main)
+                return result
+
+        adapter = MainDriftAdapter(github_snapshot(self.repo, candidate_head))
+        with self.assertRaisesRegex(TaskError, "TRUSTED_CONTEXT_INVALID"):
+            self._accept(candidate_head, adapter)
+        self.assertNotIn("merge", [call[0] for call in adapter.calls])
+
     def test_delivery_commit_with_extra_path_is_rejected_before_external_call(self) -> None:
         candidate_head = self._delivered()
         extra = self.repo.candidate / "extra-delivery-path.txt"

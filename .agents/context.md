@@ -6,3 +6,4 @@
 - Constraints: 完整 GKD 测试只在开发 GKD 或形成 GKD release candidate 时运行；消费项目的普通产品代码和文档变更不运行该测试套件。
 - Useful paths: 审查事实源位于 `/Users/knaifen/Documents/Codex/aio-coding-hub/main/.trellis/tasks/08-17-gkd-workflow-remediation/`。
 - M3 closeout: policy/monitor、resource/scanner、review core/Skills 已按三项依赖任务验收合并；下一步为 M4 finalization/release mechanism。
+- M4 candidate: `GKD-M4-A` 在正式 automatic claim 后实现无副作用 finalization/release records、same-SHA promotion request 与 fixed-head synchronized-main revalidation。当前 candidate bundle/evidence digest 为 `27470fc60cfa005a2784ac81f0aba07c4e50e2381bf057fe9b38aa8d016e1912` / `90e499d761517a65080eb46edcab588b07d275267d38c609274a6dab3e287170`；等待 final fixed-head delivery、PR CI 和 trusted-main acceptance，未创建 tag 或 Release。
