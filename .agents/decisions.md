@@ -304,3 +304,7 @@
 - [2026-08-22] `GKD-M3-C` 候选实现达到本地交付门，尚未 acceptance。
   - Why: 共享 review core 已实现 targeted/guided/recon、模糊推荐、partial approval、resume/recovery 与 remediation；新增两个 Skill、七 Skill manifest/role inventory、通用多仓库 adapter schema/脱敏 fixture，并保留 M3-A/M3-B 既有语义。
   - Impact: candidate output bundle digest 为 `b93568270185a44d5a39855a50e354eb22624ad9d7e4a896e87b0aff99d98487`，M3-C evidence digest 为 `816c9cb9bac95f31472fb84e821d13229ff54346830255a5a19c4430c069c2f9`；固定 base `6b3f28aa8f1f1308fbb45064f5b96128837e4c4f` 的 verifier 389 项通过，review evidence 两次字节一致。accepted execution bundle `5f68703a...` 保持 claim 不变；delivery、PR CI 与 trusted-main acceptance 仍未完成，M4/M5、生产/AIO 仍未授权。
+
+- [2026-08-22] `GKD-M3-C` fixed head 已独立验收、合并并刷新 seven-Skill project staging。
+  - Why: trusted main 对 PR #18 的完整 diff、requirements、delivery、candidate bundle/evidence、review core 五轴代码审查、独立 389 项 verifier、隔离 bundle install 和 live fixed-head `GKD Verify` 进行了终验，无阻塞 finding。
+  - Impact: fixed head `05eae98d2c5d1c0e16e16a09c958cb9d2c6480b4` 以 squash merge `6f265e1626ddb4255051a35cd6065afdf9ef48a5` 进入 main；accepted bundle/evidence digest 为 `b93568270185a44d5a39855a50e354eb22624ad9d7e4a896e87b0aff99d98487` / `816c9cb9bac95f31472fb84e821d13229ff54346830255a5a19c4430c069c2f9`。M3 完成，M4 只能从当前 fresh main 与更新后的 role/config/staging digest 通过完整 automatic bridge 启动。

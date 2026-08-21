@@ -34,6 +34,8 @@
 - [x] `GKD-M2-I-R` fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 已独立验收并由 PR #16 squash merge 为 `faa49861e60ffd5b6b29732e4f769e7444b2dbf6`；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，隔离安装和 project staging 已复核。
 - [x] `GKD-M3-A`：fixed head `b7804f7caacafbf2d08e1539cac21d571078ef3b` 已独立验收并由 PR #8 squash merge 为 `d7348ab286d7dc0a56fc0b8b85247c8521901828`；364 项 verifier、29 项双 evidence、合法空格 required-check acceptance 回归和 policy-backed `GKD Verify` monitor 均通过，accepted bundle 为 `4d12c9973ea9302162493a5a71e25a4948b1f23991d30873c4a11ad691647aed`。
 - [x] `GKD-M3-B`：fixed head `efc59ecd84398247818e14ab0de98bd966178262` 已独立验收并由 PR #17 squash merge 为 `f7c5a05094590abd5db0a207dccda5e8f0b91388`；candidate bundle/evidence digest 为 `5f68703a42df613125814d78a491cb1991620afcb915d5a486c6ea6334604129` / `f32b33b8f53d10f018107452fdb5de2860587abc64d5ada1bb0b4453c77d674b`，378 项 verifier、14 项双 evidence 与 `GKD Verify` fixed-head monitor 通过，accepted bundle 已刷新 project staging。
-- [ ] `GKD-M3-C`：共享review core、`gkd-optimize-ci`、`gkd-review-remediation`和七Skill bundle收口；候选本地 verifier/evidence 已通过，等待 delivery、CI 与 trusted-main acceptance。
+- [x] `GKD-M3-C`：fixed head `05eae98d2c5d1c0e16e16a09c958cb9d2c6480b4` 已独立验收并由 PR #18 squash merge 为 `6f265e1626ddb4255051a35cd6065afdf9ef48a5`；candidate bundle/evidence digest 为 `b93568270185a44d5a39855a50e354eb22624ad9d7e4a896e87b0aff99d98487` / `816c9cb9bac95f31472fb84e821d13229ff54346830255a5a19c4430c069c2f9`，389 项 verifier、11 项双 evidence 与 `GKD Verify` fixed-head monitor 通过，七 Skill staging 已刷新。
+- [ ] `GKD-M4-A`：task PR/finalization PR、版本/lock/changelog/release intent、同 SHA tag/Release/provenance 的确定性机制。
+- [ ] `GKD-M5-A`：L0-L4 专属验证、traceability 和最终 release candidate。
 - [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
 - [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。
