@@ -296,3 +296,7 @@
 - [2026-08-22] `GKD-M3-B` candidate resource/scanner layer follows fail-closed and source-boundary rules。
   - Why: resource-constrained must remain the conservative default; unknown build bounds and peak-disk violations cannot be repaired by later cleanup, and billing recommendations must not claim unverified runtime prices.
   - Impact: candidate payload adds deterministic artifact classes/presets, visibility/runner/policy/billing recommendations, and diff/PR/artifact scanner surfaces with redacted terminal findings. M3-A policy/monitor and M3-C review/Skills remain untouched; delivery and acceptance are still pending.
+
+- [2026-08-22] `GKD-M3-B` fixed head 已独立验收、合并并刷新 project staging。
+  - Why: trusted main 对 PR #17 的完整 diff、requirements、delivery、candidate bundle/evidence、独立 review 与 live fixed-head `GKD Verify` 进行了终验，无阻塞 finding；378 项版本化 verifier 和 14 项双 evidence 逐字节一致。
+  - Impact: fixed head `efc59ecd84398247818e14ab0de98bd966178262` 以 squash merge `f7c5a05094590abd5db0a207dccda5e8f0b91388` 进入 main；accepted bundle/evidence digest 为 `5f68703a42df613125814d78a491cb1991620afcb915d5a486c6ea6334604129` / `f32b33b8f53d10f018107452fdb5de2860587abc64d5ada1bb0b4453c77d674b`。M3-B worktree/分支随后清理；M3-C 只能从当前 fresh main 和新 staging 通过完整 automatic bridge 启动。
