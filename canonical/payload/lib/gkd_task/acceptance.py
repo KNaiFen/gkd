@@ -10,7 +10,7 @@ import stat
 import subprocess
 from typing import Any, Protocol
 
-from .canonical import CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
+from .canonical import CHECK_NAME_RE, CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
@@ -62,7 +62,7 @@ def validate_snapshot(value: dict[str, Any]) -> None:
         if not isinstance(check, dict):
             raise TaskError("INVALID_GITHUB_RESPONSE")
         require_keys(check, {"name", "status"}, "INVALID_GITHUB_RESPONSE")
-        require_string(check["name"], "INVALID_GITHUB_RESPONSE")
+        require_string(check["name"], "INVALID_GITHUB_RESPONSE", CHECK_NAME_RE)
         if check["status"] not in {"success", "failure", "pending", "skipped"}:
             raise TaskError("INVALID_GITHUB_RESPONSE")
         names.append(check["name"])

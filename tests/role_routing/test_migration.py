@@ -127,7 +127,7 @@ class MigrationContracts(unittest.TestCase):
 
     def test_production_home_symlink_invalid_config_and_legacy_ambiguity_fail_closed(self) -> None:
         with self.assertRaisesRegex(TaskError, "MIGRATION_PRODUCTION_FORBIDDEN"):
-            migration_plan(BUNDLE_ROOT, Path("/Users"), self.bundle)
+            migration_plan(BUNDLE_ROOT, Path.home(), self.bundle)
         (self.home / ".codex" / "config.toml").write_text("[broken\n", encoding="utf-8")
         with self.assertRaisesRegex(TaskError, "INVALID_CODEX_CONFIG"):
             apply_migration(BUNDLE_ROOT, self.home, self.bundle)

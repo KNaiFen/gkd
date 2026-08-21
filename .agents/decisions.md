@@ -257,6 +257,14 @@
   - Why: M3 自动路线必须从已验收 bundle 生成 project role/config/Skills，不能把 canonical source、生产安装或当前会话启动后的动态文件当作已加载运行时。暂存前后的生产 `~/.codex` 与 AIO 快照必须逐字节一致，Git 跟踪面必须保持干净。
   - Impact: accepted execution bundle `05288d5b09bdd8b4703a45d8a300d9466ad59f6b414d8eb5684c4a214ecfaaad` 已安装到隔离的非生产临时根；本仓库机器本地 staging 固定 `gkd_executor` 为 `gpt-5.6-sol` / `xhigh` / `workspace-write`，role/config/project-config/inventory digest 分别为 `08bfcea59c7be5ea03cd7958ac2195e6a0a5703823a739fd819aabd6c48427dd`、`10c0675808974609242280367f2e7aea07e61dd839a1ec2e244d53a9b6c74e3e`、`9a9bc7db827ea68cf4ba6761902e91ce4982fbaec25b8d68b70c4c790cef35d0`、`7566f1ed3fbc10b12585a2ecb3639772f7cbbc31c5485a24ba318bf34ea6544a`。这些项目表面由 `.git/info/exclude` 机器本地排除，不提交、不构成生产安装。当前 Session 不启动 M3；fresh main 必须先重验全部绑定并实际发现 exact `gkd_executor`，否则继续 fail-closed。
 
+- [2026-08-20] `GKD-M3-A` 候选建立版本化仓库 CI policy 与 GitHub fixed-head terminal monitor。
+  - Why: trusted acceptance 需要把仓库特有 required checks 留在 `.gkd/policy.json`，并由通用只读机制对显式 PR/full head 拥有 bounded polling 与单一终态，避免 Agent 手工轮询或把任意出现的 checks 当成 policy。
+  - Impact: candidate output bundle `92e218e9809e6147f3b04ec7f8fed79231c6e8b3a94480729b52b6fcdbafafe8` 新增严格 policy/origin parser、read-only GitHub adapter、deadline-bound monitor 和 terminal schema；本仓库标准 check 为 `GKD Verify`，本地与 Actions 共用版本化 verifier。候选经 333 项本地合同与 27 项双 evidence 证明，仍须 PR #8 最终 fixed-head CI 与 trusted-main 独立验收；不授权 M3-B/M3-C、生产/AIO 或 GitHub 设置变化。
+
+- [2026-08-21] `GKD-M3-A` 修复 PR #8 暴露的 shallow checkout 与 schema/parser 契约缺口。
+  - Why: Actions 默认 `fetch-depth: 1` 无法证明显式 base SHA ancestry；标准 checkout 也不保证创建 `refs/remotes/origin/HEAD`；旧 schema 与 terminal parser 对 branch/check 约束及早期错误结果的可空身份形状不一致。
+  - Impact: workflow 使用完整历史，policy 只校验 `origin/<baseBranch>`，schema/parser 共享严格约束并覆盖早期 error terminal；候选 bundle digest 更新为 `0484095704599750df655bc6c92cf0b5829bc2c1ebb877aa3f3cd132cc29998f`，335 项版本化本地验证与 29 项双 evidence 通过。仍只实现 M3-A，不授权 M3-B/M3-C、生产/AIO 或 GitHub 设置变化。
+
 - [2026-08-20] `GKD-M2-D` delivered rejection/rework core 达到候选交付门。
   - Why: M3-A 暴露了 delivery 后 executor 已停止、但 CI/独立审查只能在 delivered PR head 上得出最终拒绝结论的生命周期缺口。task state v2 现由 trusted main/acceptor 在固定 candidate/PR/review/receipt/authorization 全部匹配时原子保存旧 attempt、撤销 offer、递增 epoch 并返回 planning；executor 与旧 capability/envelope/claim 均不可自行恢复执行。
   - Impact: implementation/evidence commits 为 `c0ee720cce21500faf5ef396c5e5a985498caeff` / `c41e35e420e3bc05b7fd23149a956403a0a5732c`，candidate output bundle/evidence digest 为 `71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766` / `da884bc1efe152ed983deda4c04d02bf95eafad17b2f61bd2f2067b729a2324d`。118 项 task-core 在两个独立临时根逐字节生成相同 evidence，完整 versioned verifier 的 118/32/70/53/47/15 项通过；生产/AIO 摘要不变，唯一任务 PR #9 已 Ready，PR #8/M3-A 未修改。候选仍须 fixed-head 独立验收，本 session 不验收、不合并、不清理或启动 M3-A 返工。
@@ -272,3 +280,11 @@
 - [2026-08-20] M2-I trusted-host bridge 已按 M2-J 合同 redelivery、独立验收并合并。
   - Why: 为保留已验证的 M2-I bridge 功能，同时满足新的 implementation -> delivery-document -> final-state fixed sequence，注册窄范围 `GKD-M2-I-R`，仅移植原 implementation commit，不重用旧 task state/claim/delivery commits。
   - Impact: PR #16 fixed head `57c259ebfa39e0cf1da8197a28e9827df1328c15` 以 squash merge `faa49861e60ffd5b6b29732e4f769e7444b2dbf6` 进入 main；candidate bundle/evidence digest 为 `1983f05b64860510bfb1af661e5458a6c7b660632479a33af46c27d35ff188d4` / `be0a8b80229d832bf21d1d27e243a57a9832170940fbf28dfcb959b1816c29ea`，两次 focused evidence 逐字节一致，local verifier 全部通过。accepted bundle 已隔离安装并刷新 project staging；M3-A 现在只能从该 exact fresh main/role/bundle 开始。
+
+- [2026-08-21] `GKD-M3-A` 候选已同步 accepted M2-D/M2-J/M2-I-R main 基线并重新取证。
+  - Why: PR #8 与 trusted main `d669c11735f1468127ce4b7b4699a19ef0984753` 的冲突必须由当前 exact executor 解决；main 新增的 delivery/rework/runtime payload 会改变 candidate bundle，旧 manifest lock 与旧 evidence 不再是当前候选事实。
+  - Impact: 合并保留 M2 delivered rework、delivery document sequencing 和 trusted-host bridge 合同，同时保留 M3-A policy-backed monitor；canonical generator 将 60 文件 candidate bundle digest 更新为 `22b935b0ec7ad1fb1da9222c5b30c4586fa1c55a68ec23f782928a5635e01120`。362 项 versioned verifier 通过，29 项 M3-A 双 evidence 逐字节一致，evidence digest/file SHA-256 为 `2bee04f714db90808587986b13be38df42d041aa36efc3e3889c53c73fea5b58` / `9e548f09fa0ed6a294dc283c9bf392932f094af6b8e6b90f4fc8afe8a063caa8`；生产与 AIO 摘要均保持不变。accepted execution bundle 不变，仍须按 M2-J 单独提交 delivery 文档并执行 final task transition。
+
+- [2026-08-21] `GKD-M3-A` 修复标准 GitHub-hosted Linux runner 的 fixed-head CI 失败。
+  - Why: macOS 本地的 `/tmp -> /private/tmp` 与 `/Users` 事实掩盖了两个 portable contract 缺口；Linux runner 在 payload bundle scanner 中看到了硬编码 `/tmp`，并把测试中的不存在 `/Users` 误报为 invalid migration home。
+  - Impact: `gkd_role.project` 使用构造式系统路径别名，retained migration test 使用当前平台存在的 `Path.home()`；M3-A evidence 重新绑定 candidate bundle `e49f6bf994a3dea405248535ffdd70473feacd13c27ae39a6ecfc1fabd9a7efd`，29 项双 evidence digest/file SHA-256 为 `a2ffc693a75780aa893538462bf6a1a2428f2d55d0c68d138b33f4a288cd1c5b` / `93b9e6b365f6fa832485183e0dcf83ab293e27804d5d087f1c438720474ba181`；本地 verifier 仍须绑定 repair head，GitHub monitor 的失败终态保留为历史证据，不重跑旧 head。

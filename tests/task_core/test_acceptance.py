@@ -329,6 +329,13 @@ class AcceptanceContracts(unittest.TestCase):
         result = self._accept(candidate_head, adapter, checks=["alpha", "beta"])
         self.assertTrue(result["merged"])
 
+    def test_required_check_name_allows_spaces(self) -> None:
+        candidate_head = self._delivered()
+        checks = [{"name": "GKD Verify", "status": "success"}]
+        adapter = FakeGitHub(github_snapshot(self.repo, candidate_head, checks))
+        result = self._accept(candidate_head, adapter, checks=["GKD Verify"])
+        self.assertTrue(result["merged"])
+
 
 if __name__ == "__main__":
     unittest.main()

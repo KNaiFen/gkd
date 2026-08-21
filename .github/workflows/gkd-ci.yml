@@ -1,0 +1,19 @@
+name: GKD CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: GKD Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run repository verification
+        run: scripts/gkd-verify --base-sha "${{ github.event.pull_request.base.sha }}"

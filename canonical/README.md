@@ -86,4 +86,13 @@ Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the
 trusted-main bridge after the accepted M2-B one-hour wait gate. This development
 surface does not install production `~/.codex`, modify a consumer repository,
-or imply M3 completion.
+or imply completion of M3-B or M3-C.
+
+The M3-A payload adds a repository-neutral `gkd-ci-monitor`. It accepts only the
+versioned `.gkd/policy.json` in an explicit Git checkout, binds its GitHub
+repository and base branch to `origin`, then owns bounded read-only polling of
+one explicit pull request and full expected head. Its single terminal JSON can
+report success, required-check failure, head drift, timeout, or a stable error;
+it never changes GitHub state or treats check success as acceptance. Repository
+identity and check names remain in repository policy and workflow files, not in
+the reusable payload.

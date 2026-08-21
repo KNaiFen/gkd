@@ -99,6 +99,19 @@ class MutationContracts(unittest.TestCase):
             "tests.task_core.test_acceptance.AcceptanceContracts.test_wrong_repo_base_pr_or_head_is_rejected",
         )
 
+    def test_mutation_required_check_name_validator_is_killed(self) -> None:
+        self._killed(
+            {
+                "acceptance.py": [
+                    (
+                        '        require_string(check["name"], "INVALID_GITHUB_RESPONSE", CHECK_NAME_RE)\n',
+                        '        require_string(check["name"], "INVALID_GITHUB_RESPONSE")\n',
+                    )
+                ]
+            },
+            "tests.task_core.test_acceptance.AcceptanceContracts.test_required_check_name_allows_spaces",
+        )
+
     def test_mutation_delivery_document_digest_check_is_killed(self) -> None:
         self._killed(
             {"service.py": [("        if sha256_bytes(document_raw) != delivery_document_digest:\n", "        if False:\n")]},

@@ -50,7 +50,8 @@ def _root_without_symlink_ancestors(value: Path, code: str) -> Path:
     # macOS exposes these temporary roots as stable system aliases; inspect
     # their physical targets while retaining lexical checks for project paths.
     parts = absolute.parts
-    if len(parts) > 1 and Path(parts[0], parts[1]) in {Path("/var"), Path("/tmp")}:
+    temporary_aliases = {Path(os.sep, "var"), Path(os.sep, "tmp")}
+    if len(parts) > 1 and Path(parts[0], parts[1]) in temporary_aliases:
         system_root = Path(parts[0], parts[1]).resolve()
         absolute = system_root.joinpath(*parts[2:])
     current = Path(absolute.anchor)
