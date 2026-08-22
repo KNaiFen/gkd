@@ -2,8 +2,9 @@
 
 `canonical/` is the only bundle source root. `source.toml` is the reviewed
 developer declaration; `manifest.json` and `manifest.lock.json` are generated
-outputs and must never be edited by hand. The current version is deliberately a
-development version and carries no release or compatibility promise.
+outputs and must never be edited by hand. The current `0.1.0` bundle is a stable
+release candidate whose exact source, bundle, evidence, assets, and provenance
+remain bound until trusted-main promotion.
 
 The canonical CLI, project staging, and automatic runtime bridge require
 Python 3.11 or newer.
@@ -17,10 +18,9 @@ Canonical metadata is required to be a regular `0644` file before generation;
 installed schema, manifest, lock and install metadata are checked against their
 actual type and mode during verification.
 
-An incompatible manifest shape increments `schema_version`. A development
-bundle content change regenerates the manifest and lock without implying a
-release. Release versioning and compatibility policy belong to a later
-milestone.
+An incompatible manifest shape increments `schema_version`. Every bundle
+content change regenerates the manifest and lock; release promotion only accepts
+one already-built asset set bound to one exact source SHA.
 
 The bootstrap installer has no production or user-home mode. Installation
 requires an explicit existing system-temporary root and an explicit existing
@@ -105,3 +105,10 @@ or remediation plans; they do not write runner, workflow, merge, rerun, or
 repository settings state. The canonical bundle contains seven workflow
 Skills, with role inventory, project staging, manifest, lock, and digests
 bound to the same source declaration.
+
+The M5 release-candidate surface provides deterministic L1 property evidence,
+L2 read-only fake-GitHub subprocess evidence, and schema-bound L3 fresh-agent
+forward-eval plus L4 sandbox-canary fixtures. `gkd-release canary-plan` only
+emits the exact-SHA request for the release record's designated sandbox; it has
+no GitHub writer. Trusted main alone runs the applicable live L3/L4 pass after
+acceptance and validates the returned redacted result before promotion.

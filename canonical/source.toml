@@ -44,10 +44,12 @@ name = "release-candidate"
 kind = "library"
 files = [
   { source = "payload/bin/gkd-release", target = "gkd/bin/gkd-release", mode = "0755" },
+  { source = "payload/fixtures/release/forward-eval-trace.json", target = "gkd/fixtures/release/forward-eval-trace.json", mode = "0644" },
   { source = "payload/fixtures/release/traceability.json", target = "gkd/fixtures/release/traceability.json", mode = "0644" },
   { source = "payload/lib/gkd_release/__init__.py", target = "gkd/lib/gkd_release/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_release/cli.py", target = "gkd/lib/gkd_release/cli.py", mode = "0644" },
   { source = "payload/lib/gkd_release/core.py", target = "gkd/lib/gkd_release/core.py", mode = "0644" },
+  { source = "payload/lib/gkd_release/verification.py", target = "gkd/lib/gkd_release/verification.py", mode = "0644" },
 ]
 
 [[components]]

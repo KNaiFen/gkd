@@ -320,3 +320,7 @@
 - [2026-08-22] `GKD-M5-A` 将 bundle 声明提升为稳定 `0.1.0` release candidate。
   - Why: 最终候选需要可安装的稳定版本、全量可追溯验证和同 SHA promotion 输入，同时 executor 不得创建 tag 或 Release。
   - Impact: `gkd_release` 只验证 L0-L4、sandbox binding、16 项 decision traceability 与 provenance，并生成只读 promotion request；真实 L3/L4 与 promotion 继续由 merge 后 trusted main 完成。
+
+- [2026-08-22] `GKD-M5-A` epoch 5 将 release traceability 返工为可执行分层证据。
+  - Why: 首轮候选只验证 16 项矩阵字段齐全，全部条目复用同一测试，不能证明 L1 property、L2 subprocess/fake-GitHub、L3 fresh-agent 或 L4 sandbox canary 的实际合同。
+  - Impact: 候选的 `gkd_release` 新增 L1 property evidence、L2 只读 fake-GitHub probe、L3 脱敏 forward-eval trace 与 L4 exact-SHA canary request/result contract。可复用 bundle 只接受 release record 中的 sandbox 身份；本任务将 `github.com/KNaiFen/gkd-sandbox` 作为受测 release input 绑定，避免把仓库专有 identity 写入通用 payload。真实 L3/L4 和 promotion 仍只由 trusted main 在 merge 后执行。
