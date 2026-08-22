@@ -93,7 +93,7 @@ def main() -> int:
         "machinePathsRetained": False,
         "outcome": "release_candidate_verification_ready",
         "schemaVersion": 1,
-        "task": "GKD-M5-C",
+        "task": "GKD-R1",
         "traceabilityDigest": digest_object(traceability),
     }
     evidence["evidenceDigest"] = digest_object(evidence)

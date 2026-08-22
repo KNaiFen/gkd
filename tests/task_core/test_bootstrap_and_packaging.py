@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 
 import gkd_bundle
@@ -123,7 +124,8 @@ class PackagingContracts(unittest.TestCase):
         second_verify = gkd_bundle.verify(temporary_root, second)
         self.assertEqual(first_install["contentDigest"], second_install["contentDigest"])
         self.assertEqual(first_verify, second_verify)
-        self.assertEqual("0.1.1", first_install["bundleVersion"])
+        declared = tomllib.loads((self.source / "source.toml").read_text(encoding="utf-8"))
+        self.assertEqual(declared["bundle_version"], first_install["bundleVersion"])
         self.assertGreaterEqual(first_install["files"], 24)
 
     def test_installed_gkd_task_is_executable_and_imports_installed_library(self) -> None:
