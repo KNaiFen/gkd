@@ -379,3 +379,7 @@
 - [2026-08-23] `GKD-R2` 将最终 L3 收敛为 trusted-main 可观察的 release evaluation，并发布 `v0.1.2`。
   - Why: R1 仍要求宿主不能提供的 fresh executor role/child lifecycle/effective runtime 字段；用 schema 形状填充这些字段会把发布建立在伪造事实之上。
   - Impact: L3 schema v3 只绑定 accepted release candidate 的 source SHA、candidate record digest、traceability digest 与 no-write boundary；legacy L3 形状不再作为新记录入口。PR #26 fixed head `28387943cec3492c86d0f283d6207b008b63db99` 以 squash `dd7ec7a9d0b81acffc2730236a29f8fad128d5a9` 合并；new L3、sandbox PR #5 `GKD Canary`、asset 和 final provenance 全部同 source 绑定后，`v0.1.2` tag/Release 发布。production/AIO 未写入。
+
+- [2026-08-23] R2 release closeout 已完成。
+  - Why: 发布后的事实已写入 main；继续保留 candidate worktree、task branches、sandbox canary branches 或临时 artifact 根会制造过期的可写事实面。
+  - Impact: R1/R2 本地和远端 task branches、两份 candidate worktree、sandbox PR #2-#5 的 canary branches 及 release 临时根均已删除；GitHub PR 历史、`v0.1.0`、`v0.1.1`、`v0.1.2` tag/Release 与 main records 保留。下一步只能从已发布 `v0.1.2` asset restage。

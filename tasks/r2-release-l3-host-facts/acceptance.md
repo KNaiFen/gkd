@@ -51,7 +51,7 @@ delivery。普通 `gkd-task accept` 要求这些不存在且禁止补造的 life
 ## 后续与清理
 
 - 生产安装、AIO 修改和其余 GitHub 设置不属于 R2，均未在本任务写入。
-- R2 worktree、task branch、sandbox canary branch/PR 与临时验证根将在本 main 收尾提交
-  推送后清理；发布 tag 和 Release 保留。
+- R1/R2 worktree、本地/远端 task branch、sandbox PR #2-#5 及其 canary branches 与所有
+  R2/R1 release 临时根均已清理；发布 tag 和 Release 保留。
 - 后续只能从已发布 asset 进行 isolated project restage，再开始独立的 AIO adoption
   inventory/mapping；不得 pin 未发布 canonical source。
