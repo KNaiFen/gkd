@@ -20,8 +20,8 @@ from .verification import (
     build_l4_canary_request,
     run_l1_properties,
     run_l2_probe,
-    validate_l3_eval_only_record,
-    validate_l3_eval_only_trace,
+    validate_l3_trusted_main_evaluation,
+    validate_l3_trusted_main_record,
     validate_l4_canary_request,
     validate_l4_canary_result,
 )
@@ -47,10 +47,8 @@ def main(argv: list[str] | None = None) -> int:
             "validate-traceability",
             "l1-properties",
             "l2-probe",
-            "validate-l3-eval-only",
-            "validate-l3-eval-record",
-            "validate-l3-trace",
-            "validate-l3-record",
+            "validate-l3-trusted-main-evaluation",
+            "validate-l3-trusted-main-record",
             "canary-plan",
             "validate-canary-request",
             "validate-canary-result",
@@ -70,15 +68,15 @@ def main(argv: list[str] | None = None) -> int:
             result = run_l1_properties(value)
         elif args.command == "l2-probe":
             result = run_l2_probe(value)
-        elif args.command in {"validate-l3-eval-only", "validate-l3-trace"}:
+        elif args.command == "validate-l3-trusted-main-evaluation":
             result = {
                 "status": "valid",
-                "releaseSourceSha": validate_l3_eval_only_trace(value)["releaseSourceSha"],
+                "releaseSourceSha": validate_l3_trusted_main_evaluation(value)["releaseSourceSha"],
             }
-        elif args.command in {"validate-l3-eval-record", "validate-l3-record"}:
+        elif args.command == "validate-l3-trusted-main-record":
             result = {
                 "status": "valid",
-                "releaseSourceSha": validate_l3_eval_only_record(value)[
+                "releaseSourceSha": validate_l3_trusted_main_record(value)[
                     "releaseSourceSha"
                 ],
             }

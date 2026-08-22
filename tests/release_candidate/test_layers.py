@@ -18,11 +18,12 @@ from gkd_release.core import (
 from gkd_release.verification import (
     CANARY_CHECK,
     CANARY_MARKER_PATH,
+    L3_EFFECT_BOUNDARY,
     TrustedMainFinalGate,
     build_l4_canary_request,
     run_l1_properties,
-    validate_l3_eval_only_record,
-    validate_l3_eval_only_trace,
+    validate_l3_trusted_main_evaluation,
+    validate_l3_trusted_main_record,
     validate_l4_canary_request,
     validate_l4_canary_result,
     validate_canary_marker,
@@ -42,7 +43,7 @@ from tests.ci_policy.helpers import (
 
 ROOT = Path(__file__).resolve().parents[2]
 TRACEABILITY = ROOT / "canonical/payload/fixtures/release/traceability.json"
-FORWARD_EVAL = ROOT / "canonical/payload/fixtures/release/forward-eval-trace.json"
+TRUSTED_MAIN_EVALUATION = ROOT / "canonical/payload/fixtures/release/trusted-main-evaluation.json"
 SANDBOX_REPOSITORY = "github.com/KNaiFen/gkd-sandbox"
 
 
@@ -95,20 +96,13 @@ class LayeredVerificationContracts(unittest.TestCase):
             self.assertEqual(first.stdout, second.stdout)
             self.assertEqual(SANDBOX_REPOSITORY, json.loads(first.stdout)["repository"])
 
-    def test_l3_eval_only_fixture_is_exact_sha_redacted_and_write_free(self) -> None:
-        trace = json.loads(FORWARD_EVAL.read_text(encoding="utf-8"))
-        self.assertEqual(trace, validate_l3_eval_only_trace(trace, "a" * 40))
-        self.assertEqual(
-            {
-                "pullRequestWrite": False,
-                "sourceMutation": False,
-                "taskLifecycleWrite": False,
-            },
-            trace["effectBoundary"],
+    def test_l3_trusted_main_fixture_is_redacted_and_write_free(self) -> None:
+        evaluation = json.loads(TRUSTED_MAIN_EVALUATION.read_text(encoding="utf-8"))
+        self.assertEqual(evaluation, validate_l3_trusted_main_evaluation(evaluation))
+        self.assertEqual(L3_EFFECT_BOUNDARY, evaluation["effectBoundary"])
+        self.assertTrue(
+            {"roleName", "agentId", "threadDigest", "events", "effectiveModel"}.isdisjoint(evaluation)
         )
-        trace["releaseSourceSha"] = "b" * 40
-        with self.assertRaisesRegex(TaskError, "L3_SOURCE_SHA_MISMATCH"):
-            validate_l3_eval_only_trace(trace, "a" * 40)
 
     def test_l4_sandbox_canary_plan_and_result_are_bound_to_one_sha(self) -> None:
         record = build_release_candidate(release_input())
@@ -127,10 +121,22 @@ class LayeredVerificationContracts(unittest.TestCase):
         self.assertEqual(result, validate_l4_canary_result(request, result))
 
     def test_critical_l3_and_l4_mutations_are_killed(self) -> None:
-        trace = json.loads(FORWARD_EVAL.read_text(encoding="utf-8"))
-        trace["roleName"] = "worker"
-        with self.assertRaisesRegex(TaskError, "L3_EVAL_ONLY_INVALID"):
-            validate_l3_eval_only_trace(trace)
+        legacy_trace = {
+            "contextDigest": "d" * 64,
+            "effectBoundary": L3_EFFECT_BOUNDARY,
+            "evalOnly": True,
+            "events": [],
+            "promptDigest": "e" * 64,
+            "releaseSourceSha": "a" * 40,
+            "roleName": "gkd_executor",
+            "schemaVersion": 2,
+        }
+        with self.assertRaisesRegex(TaskError, "L3_TRUSTED_MAIN_EVALUATION_INVALID"):
+            validate_l3_trusted_main_evaluation(legacy_trace)
+        evaluation = json.loads(TRUSTED_MAIN_EVALUATION.read_text(encoding="utf-8"))
+        evaluation["effectBoundary"]["sourceMutation"] = True
+        with self.assertRaisesRegex(TaskError, "L3_TRUSTED_MAIN_EVALUATION_INVALID"):
+            validate_l3_trusted_main_evaluation(evaluation)
         request = build_l4_canary_request(
             build_release_candidate(release_input()), "b" * 40
         )
@@ -164,8 +170,7 @@ class LayeredVerificationContracts(unittest.TestCase):
             source_sha, SANDBOX_REPOSITORY, sandbox_head_sha
         )
         candidate = build_release_candidate(release_input())
-        trace = json.loads(FORWARD_EVAL.read_text(encoding="utf-8"))
-        l3_record = gate.l3_eval_only(trace)
+        l3_record = gate.l3_trusted_main_evaluation(candidate)
         request = gate.l4_canary_request(candidate)
         marker = {
             "bundleDigest": candidate["bundleDigest"],
@@ -209,8 +214,14 @@ class LayeredVerificationContracts(unittest.TestCase):
         return gate, l3_record, request, observed_check, record, assets
 
     def test_trusted_main_final_gate_binds_distinct_source_and_sandbox_heads(self) -> None:
-        _, l3_record, request, observed_check, record, assets = self._trusted_main_final_gate()
-        self.assertEqual(l3_record, validate_l3_eval_only_record(l3_record, "a" * 40))
+        gate, l3_record, request, observed_check, record, assets = self._trusted_main_final_gate()
+        candidate = build_release_candidate(release_input())
+        self.assertEqual(l3_record, validate_l3_trusted_main_record(l3_record, candidate))
+        self.assertEqual(candidate["recordDigest"], l3_record["evaluation"]["releaseCandidateDigest"])
+        self.assertEqual(candidate["provenance"]["traceabilityDigest"], l3_record["evaluation"]["traceabilityDigest"])
+        wrong_source = dict(release_input(), sourceSha="c" * 40)
+        with self.assertRaisesRegex(TaskError, "L3_SOURCE_SHA_MISMATCH"):
+            gate.l3_trusted_main_evaluation(build_release_candidate(wrong_source))
         self.assertEqual(
             request,
             validate_post_merge_l4_canary_request(
@@ -238,13 +249,31 @@ class LayeredVerificationContracts(unittest.TestCase):
         gate, l3_record, request, observed_check, _, assets = self._trusted_main_final_gate()
         l3_mutation = deepcopy(l3_record)
         l3_mutation["releaseSourceSha"] = "b" * 40
-        l3_mutation["trace"]["releaseSourceSha"] = "b" * 40
-        l3_mutation["traceDigest"] = digest_object(l3_mutation["trace"])
+        l3_mutation["evaluation"]["releaseSourceSha"] = "b" * 40
+        l3_mutation["evaluationDigest"] = digest_object(l3_mutation["evaluation"])
         unsigned_l3 = dict(l3_mutation)
         unsigned_l3.pop("recordDigest")
         l3_mutation["recordDigest"] = digest_object(unsigned_l3)
         with self.assertRaisesRegex(TaskError, "L3_SOURCE_SHA_MISMATCH"):
-            validate_l3_eval_only_record(l3_mutation, "a" * 40)
+            validate_l3_trusted_main_record(l3_mutation, build_release_candidate(release_input()))
+
+        candidate_mutation = deepcopy(l3_record)
+        candidate_mutation["evaluation"]["releaseCandidateDigest"] = "d" * 64
+        candidate_mutation["evaluationDigest"] = digest_object(candidate_mutation["evaluation"])
+        unsigned_l3 = dict(candidate_mutation)
+        unsigned_l3.pop("recordDigest")
+        candidate_mutation["recordDigest"] = digest_object(unsigned_l3)
+        with self.assertRaisesRegex(TaskError, "L3_CANDIDATE_MISMATCH"):
+            validate_l3_trusted_main_record(candidate_mutation, build_release_candidate(release_input()))
+
+        traceability_mutation = deepcopy(l3_record)
+        traceability_mutation["evaluation"]["traceabilityDigest"] = "d" * 64
+        traceability_mutation["evaluationDigest"] = digest_object(traceability_mutation["evaluation"])
+        unsigned_l3 = dict(traceability_mutation)
+        unsigned_l3.pop("recordDigest")
+        traceability_mutation["recordDigest"] = digest_object(unsigned_l3)
+        with self.assertRaisesRegex(TaskError, "L3_TRACEABILITY_MISMATCH"):
+            validate_l3_trusted_main_record(traceability_mutation, build_release_candidate(release_input()))
 
         request_mutation = deepcopy(request)
         request_mutation["releaseSourceSha"] = "b" * 40

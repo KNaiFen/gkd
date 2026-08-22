@@ -23,12 +23,12 @@ from .core import DECISIONS, validate_traceability
 CANARY_CHECK = "GKD Canary"
 CANARY_MARKER_PATH = "canary.json"
 SANDBOX_REPOSITORY_RE = re.compile(r"github\.com/[A-Za-z0-9_.-]+/gkd-sandbox")
-L3_STAGES = (
-    ("fresh-agent", "started"),
-    ("approved-scope", "read"),
-    ("authorization-boundary", "reported"),
-    ("terminal", "complete"),
-)
+L3_EVALUATION_KIND = "trusted-main-post-merge-release-gate"
+L3_EFFECT_BOUNDARY = {
+    "pullRequestWrite": False,
+    "sourceMutation": False,
+    "taskLifecycleWrite": False,
+}
 
 
 def _is_sha256(value: Any) -> bool:
@@ -143,109 +143,102 @@ def run_l2_probe(value: Any, github: GitHubClient | None = None) -> dict[str, An
     return {**evidence, "evidenceDigest": digest_object(evidence)}
 
 
-def validate_l3_eval_only_trace(
-    value: Any, expected_release_source_sha: str | None = None
+def _l3_evaluation(release_record: dict[str, Any]) -> dict[str, Any]:
+    from .core import promotion_request
+
+    promotion_request(release_record)
+    return {
+        "effectBoundary": L3_EFFECT_BOUNDARY,
+        "evaluationKind": L3_EVALUATION_KIND,
+        "releaseCandidateDigest": release_record["recordDigest"],
+        "releaseSourceSha": release_record["sourceSha"],
+        "schemaVersion": 3,
+        "traceabilityDigest": release_record["provenance"]["traceabilityDigest"],
+    }
+
+
+def validate_l3_trusted_main_evaluation(
+    value: Any, release_record: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
-        raise TaskError("L3_EVAL_ONLY_INVALID")
+        raise TaskError("L3_TRUSTED_MAIN_EVALUATION_INVALID")
     require_keys(
         value,
         {
-            "contextDigest",
             "effectBoundary",
-            "events",
-            "evalOnly",
-            "promptDigest",
+            "evaluationKind",
+            "releaseCandidateDigest",
             "releaseSourceSha",
-            "roleName",
             "schemaVersion",
+            "traceabilityDigest",
         },
-        "L3_EVAL_ONLY_INVALID",
+        "L3_TRUSTED_MAIN_EVALUATION_INVALID",
     )
     if (
-        value["schemaVersion"] != 2
-        or value["roleName"] != "gkd_executor"
-        or value["evalOnly"] is not True
-        or value["effectBoundary"]
-        != {
-            "pullRequestWrite": False,
-            "sourceMutation": False,
-            "taskLifecycleWrite": False,
-        }
-        or not isinstance(value["events"], list)
+        value["schemaVersion"] != 3
+        or value["evaluationKind"] != L3_EVALUATION_KIND
+        or value["effectBoundary"] != L3_EFFECT_BOUNDARY
     ):
-        raise TaskError("L3_EVAL_ONLY_INVALID")
-    require_sha1(value["releaseSourceSha"], "L3_EVAL_ONLY_INVALID")
-    if (
-        expected_release_source_sha is not None
-        and value["releaseSourceSha"] != expected_release_source_sha
-    ):
-        raise TaskError("L3_SOURCE_SHA_MISMATCH")
-    if not _is_sha256(value["contextDigest"]) or not _is_sha256(value["promptDigest"]):
-        raise TaskError("L3_EVAL_ONLY_INVALID")
-    expected_events = []
-    for stage, result in L3_STAGES:
-        expected_events.append({"result": result, "stage": stage})
-    if value["events"] != expected_events:
-        raise TaskError("L3_EVAL_ONLY_INVALID")
+        raise TaskError("L3_TRUSTED_MAIN_EVALUATION_INVALID")
+    require_sha1(value["releaseSourceSha"], "L3_TRUSTED_MAIN_EVALUATION_INVALID")
+    for key in ("releaseCandidateDigest", "traceabilityDigest"):
+        require_sha256(value[key], "L3_TRUSTED_MAIN_EVALUATION_INVALID")
+    if release_record is not None:
+        expected = _l3_evaluation(release_record)
+        if value["releaseSourceSha"] != expected["releaseSourceSha"]:
+            raise TaskError("L3_SOURCE_SHA_MISMATCH")
+        if value["releaseCandidateDigest"] != expected["releaseCandidateDigest"]:
+            raise TaskError("L3_CANDIDATE_MISMATCH")
+        if value["traceabilityDigest"] != expected["traceabilityDigest"]:
+            raise TaskError("L3_TRACEABILITY_MISMATCH")
+        if value != expected:
+            raise TaskError("L3_TRUSTED_MAIN_EVALUATION_INVALID")
     return value
 
 
-def build_l3_eval_only_record(
-    trace: Any, expected_release_source_sha: str
-) -> dict[str, Any]:
-    """Canonicalize redacted, read-only L3 facts observed after merge."""
+def build_l3_trusted_main_record(release_record: dict[str, Any]) -> dict[str, Any]:
+    """Canonicalize trusted-main's observable, read-only post-merge inputs."""
 
-    trace = validate_l3_eval_only_trace(trace, expected_release_source_sha)
+    evaluation = _l3_evaluation(release_record)
     record = {
-        "schemaVersion": 2,
-        "releaseSourceSha": expected_release_source_sha,
-        "trace": trace,
-        "traceDigest": digest_object(trace),
+        "schemaVersion": 3,
+        "releaseSourceSha": evaluation["releaseSourceSha"],
+        "evaluation": evaluation,
+        "evaluationDigest": digest_object(evaluation),
     }
     record["recordDigest"] = digest_object(record)
     return record
 
 
-def validate_l3_eval_only_record(
-    value: Any, expected_release_source_sha: str | None = None
+def validate_l3_trusted_main_record(
+    value: Any, release_record: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
-        raise TaskError("L3_EVAL_ONLY_RECORD_INVALID")
+        raise TaskError("L3_TRUSTED_MAIN_RECORD_INVALID")
     require_keys(
         value,
         {
             "schemaVersion",
             "releaseSourceSha",
-            "trace",
-            "traceDigest",
+            "evaluation",
+            "evaluationDigest",
             "recordDigest",
         },
-        "L3_EVAL_ONLY_RECORD_INVALID",
+        "L3_TRUSTED_MAIN_RECORD_INVALID",
     )
-    if value["schemaVersion"] != 2:
-        raise TaskError("L3_EVAL_ONLY_RECORD_INVALID")
-    require_sha1(value["releaseSourceSha"], "L3_EVAL_ONLY_RECORD_INVALID")
-    if (
-        expected_release_source_sha is not None
-        and value["releaseSourceSha"] != expected_release_source_sha
-    ):
+    if value["schemaVersion"] != 3:
+        raise TaskError("L3_TRUSTED_MAIN_RECORD_INVALID")
+    require_sha1(value["releaseSourceSha"], "L3_TRUSTED_MAIN_RECORD_INVALID")
+    evaluation = validate_l3_trusted_main_evaluation(value["evaluation"], release_record)
+    if value["releaseSourceSha"] != evaluation["releaseSourceSha"]:
         raise TaskError("L3_SOURCE_SHA_MISMATCH")
-    trace = validate_l3_eval_only_trace(
-        value["trace"], value["releaseSourceSha"]
-    )
-    if value["traceDigest"] != digest_object(trace):
-        raise TaskError("L3_EVAL_ONLY_RECORD_TAMPERED")
+    if value["evaluationDigest"] != digest_object(evaluation):
+        raise TaskError("L3_TRUSTED_MAIN_RECORD_TAMPERED")
     unsigned = dict(value)
     actual = unsigned.pop("recordDigest")
     if actual != digest_object(unsigned):
-        raise TaskError("L3_EVAL_ONLY_RECORD_TAMPERED")
+        raise TaskError("L3_TRUSTED_MAIN_RECORD_TAMPERED")
     return value
-
-
-validate_forward_eval_trace = validate_l3_eval_only_trace
-build_l3_forward_eval_record = build_l3_eval_only_record
-validate_l3_forward_eval_record = validate_l3_eval_only_record
 
 
 def build_l4_canary_request(
@@ -499,11 +492,11 @@ class TrustedMainFinalGate:
         self.sandbox_repository = sandbox_repository
         self.sandbox_head_sha = sandbox_head_sha
 
-    def l3_eval_only(self, trace: Any) -> dict[str, Any]:
-        return build_l3_eval_only_record(trace, self.source_sha)
-
-    def l3_forward_eval(self, trace: Any) -> dict[str, Any]:
-        return self.l3_eval_only(trace)
+    def l3_trusted_main_evaluation(self, release_record: dict[str, Any]) -> dict[str, Any]:
+        record = build_l3_trusted_main_record(release_record)
+        if record["releaseSourceSha"] != self.source_sha:
+            raise TaskError("L3_SOURCE_SHA_MISMATCH")
+        return validate_l3_trusted_main_record(record, release_record)
 
     def l4_canary_request(self, release_record: dict[str, Any]) -> dict[str, Any]:
         return build_post_merge_l4_canary_request(
@@ -531,7 +524,7 @@ class TrustedMainFinalGate:
     def release_record(
         self,
         release_candidate: dict[str, Any],
-        l3_eval_only: dict[str, Any],
+        l3_trusted_main_evaluation: dict[str, Any],
         l4_canary_request: dict[str, Any],
         l4_observed_check: dict[str, Any],
         assets: list[dict[str, Any]],
@@ -544,7 +537,7 @@ class TrustedMainFinalGate:
                 "releaseSourceSha": self.source_sha,
                 "sandboxHeadSha": self.sandbox_head_sha,
                 "sandboxRepository": self.sandbox_repository,
-                "l3EvalOnly": l3_eval_only,
+                "l3TrustedMainEvaluation": l3_trusted_main_evaluation,
                 "l4CanaryRequest": l4_canary_request,
                 "l4ObservedCheck": l4_observed_check,
                 "assets": assets,
