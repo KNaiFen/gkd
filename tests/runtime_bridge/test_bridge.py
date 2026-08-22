@@ -71,6 +71,16 @@ class AutomaticBridgeContracts(unittest.TestCase):
         claim = state["lifecycle"]["claim"]
         self.assertEqual(prepared["executionBundleDigest"], claim["executionBundleDigest"])
         self.assertEqual(prepared["routeDecisionDigest"], claim["routeDecisionDigest"])
+        self.assertEqual(prepared["spawnRequest"]["taskName"], claim["executorTaskName"])
+        self.assertNotIn("agentId", claim)
+        self.assertNotIn("threadDigest", claim)
+        activation = RuntimeStore(self.repo.runtime_root).read_activation(claim["activationId"])
+        self.assertEqual(2, activation["schemaVersion"])
+        self.assertEqual("host-spawn-acknowledgement", activation["evidenceClass"])
+        self.assertEqual(prepared["spawnRequest"]["taskName"], activation["executorTaskName"])
+        self.assertEqual(claim["executorAttemptDigest"], activation["executorAttemptDigest"])
+        for unavailable in ("agentId", "threadDigest", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox"):
+            self.assertNotIn(unavailable, activation)
         candidate_output = "d" * 64
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root))
         document_path, document_digest = self.repo.prepare_delivery_document()
@@ -110,50 +120,23 @@ class AutomaticBridgeContracts(unittest.TestCase):
         self.assertLessEqual(len(long_name), HOST_TASK_NAME_MAX)
         self.assertRegex(long_name, r"^[a-z0-9_]+$")
 
-    def test_terminal_reclaim_binds_exact_claim_and_allows_fresh_epoch(self) -> None:
-        bridge, prepared = ready_bridge(self.repo)
-        claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "activation-nonce")
-        terminal = terminal_result(self.repo, prepared, self.repo.state()["lifecycle"]["claim"])
-        reclaimed = bridge.reclaim_terminal(*self.repo.cas(), terminal, "child-terminal")
-        self.assertEqual("reclaimed", reclaimed["status"])
-        self.assertEqual("planning", self.repo.state()["lifecycle"]["phase"])
-        self.assertEqual(1, self.repo.state()["lifecycle"]["epoch"])
-
-        bridge.nonce = FixedNonce(["d" * 48, "fresh-offer", "fresh-tx", "fresh-handoff", "fresh-context"])
-        prepared_again = bridge.prepare(*self.repo.cas(), automatic_decision(bundle_digest()), FUTURE_TIME)
-        self.assertNotEqual(prepared["spawnRequest"]["taskName"], prepared_again["spawnRequest"]["taskName"])
-        with self.assertRaises(TaskError):
-            bridge.claim(*self.repo.cas(), prepared_again["envelopeId"], spawn_result(prepared_again, taskName=prepared["spawnRequest"]["taskName"]), "fresh-activation")
-        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
-
-    def test_terminal_reclaim_rejects_mismatch_active_and_stale_without_writes(self) -> None:
+    def test_host_acknowledgement_attempt_cannot_reclaim_unbound_terminal(self) -> None:
         bridge, prepared = ready_bridge(self.repo)
         bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "activation-nonce")
         claim = self.repo.state()["lifecycle"]["claim"]
+        terminal = terminal_result(
+            self.repo,
+            prepared,
+            claim,
+            agentId=claim["writerId"],
+            sessionDigest=claim["sessionDigest"],
+        )
         baseline_task = (self.repo.task_root / "task.json").read_bytes()
         baseline_runtime = self._runtime_snapshot()
-        mutations = {
-            "task-name": {"taskName": "other_task"},
-            "claim": {"claimId": "e" * 64},
-            "identity": {"sessionDigest": "e" * 64},
-            "route": {"route": "manual"},
-            "active": {"status": "active"},
-            "stale": {"terminalAt": "2026-01-02T03:04:04Z"},
-        }
-        for name, changes in mutations.items():
-            with self.subTest(name=name):
-                candidate = terminal_result(self.repo, prepared, claim, **changes)
-                with self.assertRaises(TaskError):
-                    bridge.reclaim_terminal(*self.repo.cas(), candidate, "child-terminal")
-                self.assertEqual(baseline_task, (self.repo.task_root / "task.json").read_bytes())
-                self.assertEqual(baseline_runtime, self._runtime_snapshot())
-
-        reclaimed = bridge.reclaim_terminal(
-            *self.repo.cas(), terminal_result(self.repo, prepared, claim), "child-terminal"
-        )
-        self.assertEqual("reclaimed", reclaimed["status"])
-        with self.assertRaises(TaskError):
-            bridge.reclaim_terminal(*self.repo.cas(), terminal_result(self.repo, prepared, claim), "replay")
+        with self.assertRaisesRegex(TaskError, "HOST_TERMINAL_BINDING_UNAVAILABLE"):
+            bridge.reclaim_terminal(*self.repo.cas(), terminal, "child-terminal")
+        self.assertEqual(baseline_task, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(baseline_runtime, self._runtime_snapshot())
 
     def test_automatic_offer_requires_exact_persisted_decision_and_six_gates(self) -> None:
         service = self.repo.ready_and_authorized()
@@ -288,15 +271,15 @@ class AutomaticBridgeContracts(unittest.TestCase):
         tracked_before = (self.repo.task_root / "task.json").read_bytes()
         runtime_before = sorted(path.relative_to(self.repo.runtime_root).as_posix() for path in self.repo.runtime_root.rglob("*") if path.is_file())
         mutations = {
-            "missing": {key: value for key, value in spawn_result(prepared).items() if key != "agentId"},
+            "missing": {key: value for key, value in spawn_result(prepared).items() if key != "taskName"},
             "duplicate": spawn_result(prepared, spawnCount=2),
             "task": spawn_result(prepared, taskName="other_task"),
             "role": spawn_result(prepared, agentType="worker"),
             "fork": spawn_result(prepared, forkTurns="all"),
             "fallback": spawn_result(prepared, fallbackAttempted=True),
-            "bundle": spawn_result(prepared, executionBundleDigest="e" * 64),
-            "decision": spawn_result(prepared, routeDecisionDigest="e" * 64),
-            "identity": spawn_result(prepared, threadDigest="not-a-digest"),
+            "legacy-bundle": spawn_result(prepared, executionBundleDigest="e" * 64),
+            "legacy-decision": spawn_result(prepared, routeDecisionDigest="e" * 64),
+            "legacy-identity": spawn_result(prepared, threadDigest="not-a-digest"),
         }
         for name, facts in mutations.items():
             with self.subTest(name=name), self.assertRaises(TaskError):
@@ -516,6 +499,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
             if path.is_file()
         }
         command = [
+            sys.executable,
             str(Path("canonical/payload/bin/gkd-task").resolve()),
             "claim",
             "--candidate-root", str(self.repo.candidate),
@@ -550,6 +534,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
         }
         result = subprocess.run(
             [
+                sys.executable,
                 str(Path("canonical/payload/bin/gkd-role").resolve()),
                 "automatic-claim",
                 "--candidate-root", str(self.repo.candidate),
@@ -586,7 +571,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
             *self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "activation-nonce"
         )
         encoded = json.dumps({"prepared": prepared, "claimed": claimed}, sort_keys=True)
-        for forbidden in (str(self.repo.root), "capability", "agentId", "threadDigest", "prompt", "transcript"):
+        for forbidden in (str(self.repo.root), "capability", "agentId", "threadDigest", "effectiveModel", "prompt", "transcript"):
             self.assertNotIn(forbidden, encoded)
         validate_spawn_result(spawn_result(prepared), prepared)
 

@@ -23,17 +23,20 @@ def _time(value: str) -> datetime:
 
 
 def validate_wait_state(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {"schemaVersion", "taskId", "repository", "head", "claimId", "agentId", "sessionDigest", "bundleDigest", "startedAt", "deadlineAt", "completedIntervals", "interruptIssued", "terminal", "stateDigest"},
-        "INVALID_WAIT_STATE",
-    )
-    if value["schemaVersion"] != 1:
+    legacy_keys = {"schemaVersion", "taskId", "repository", "head", "claimId", "agentId", "sessionDigest", "bundleDigest", "startedAt", "deadlineAt", "completedIntervals", "interruptIssued", "terminal", "stateDigest"}
+    acknowledgement_keys = {"schemaVersion", "taskId", "repository", "head", "claimId", "executorTaskName", "executorAttemptDigest", "bundleDigest", "startedAt", "deadlineAt", "completedIntervals", "interruptIssued", "terminal", "stateDigest"}
+    if value.get("schemaVersion") == 1:
+        require_keys(value, legacy_keys, "INVALID_WAIT_STATE")
+        identity_names = ("agentId", "sessionDigest")
+    elif value.get("schemaVersion") == 2:
+        require_keys(value, acknowledgement_keys, "INVALID_WAIT_STATE")
+        identity_names = ("executorTaskName", "executorAttemptDigest")
+    else:
         raise TaskError("INVALID_WAIT_STATE")
-    for field in ("taskId", "repository", "agentId"):
+    for field in ("taskId", "repository", identity_names[0]):
         require_string(value[field], "INVALID_WAIT_STATE")
     require_sha1(value["head"], "INVALID_WAIT_STATE")
-    for field in ("claimId", "sessionDigest", "bundleDigest", "stateDigest"):
+    for field in ("claimId", identity_names[1], "bundleDigest", "stateDigest"):
         require_sha256(value[field], "INVALID_WAIT_STATE")
     started = _time(value["startedAt"])
     deadline = _time(value["deadlineAt"])
@@ -50,9 +53,16 @@ def validate_wait_state(value: dict[str, Any]) -> None:
 
 
 def new_wait_state(facts: dict[str, Any], started_at: str) -> dict[str, Any]:
-    require_keys(facts, {"taskId", "repository", "head", "claimId", "agentId", "sessionDigest", "bundleDigest"}, "INVALID_WAIT_STATE")
+    acknowledgement_keys = {"taskId", "repository", "head", "claimId", "executorTaskName", "executorAttemptDigest", "bundleDigest"}
+    legacy_keys = {"taskId", "repository", "head", "claimId", "agentId", "sessionDigest", "bundleDigest"}
+    if set(facts) == acknowledgement_keys:
+        schema_version = 2
+    elif set(facts) == legacy_keys:
+        schema_version = 1
+    else:
+        raise TaskError("INVALID_WAIT_STATE")
     started = _time(started_at)
-    value = {"schemaVersion": 1, **facts, "startedAt": started_at, "deadlineAt": (started + timedelta(hours=MAX_INTERVALS)).strftime("%Y-%m-%dT%H:%M:%SZ"), "completedIntervals": 0, "interruptIssued": False, "terminal": None}
+    value = {"schemaVersion": schema_version, **facts, "startedAt": started_at, "deadlineAt": (started + timedelta(hours=MAX_INTERVALS)).strftime("%Y-%m-%dT%H:%M:%SZ"), "completedIntervals": 0, "interruptIssued": False, "terminal": None}
     value["stateDigest"] = digest_object(value)
     validate_wait_state(value)
     return value
@@ -65,7 +75,8 @@ def transition(state: dict[str, Any], observation: dict[str, Any]) -> dict[str, 
         raise TaskError("INVALID_WAIT_OBSERVATION")
     observed = _time(observation["observedAt"])
     identity = observation["identity"]
-    expected_identity = {name: state[name] for name in ("taskId", "repository", "head", "claimId", "agentId", "sessionDigest", "bundleDigest")}
+    identity_names = ("executorTaskName", "executorAttemptDigest") if state["schemaVersion"] == 2 else ("agentId", "sessionDigest")
+    expected_identity = {name: state[name] for name in ("taskId", "repository", "head", "claimId", *identity_names, "bundleDigest")}
     drift = not isinstance(identity, dict) or identity != expected_identity
     if state["terminal"] is not None:
         raise TaskError("WAIT_ALREADY_TERMINAL")
@@ -102,7 +113,7 @@ def transition(state: dict[str, Any], observation: dict[str, Any]) -> dict[str, 
         "sameAgentRequired": outcome == "wait_again",
         "voluntaryOutputAllowed": False if outcome == "wait_again" else True,
         "inspectionAllowed": False if outcome == "wait_again" else True,
-        "interrupt": {"agentId": state["agentId"], "once": True} if outcome == "deadline_timeout" else None,
+        "interrupt": ({"executorTaskName": state["executorTaskName"], "once": True} if state["schemaVersion"] == 2 else {"agentId": state["agentId"], "once": True}) if outcome == "deadline_timeout" else None,
         "state": updated,
     }
     decision["decisionDigest"] = digest_object(decision)

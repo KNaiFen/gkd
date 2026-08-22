@@ -1,9 +1,9 @@
 {
-  "$id": "gkd://schema/role/activation-v2",
+  "$id": "gkd://schema/role/activation-v3",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {"const": 2},
     "kind": {"const": "role-activation"},
     "activationId": {"$ref": "#/$defs/sha256"},
     "taskId": {"type": "string"},
@@ -15,25 +15,23 @@
     "offerExpiresAt": {"type": "string"},
     "route": {"type": "string"},
     "routeDecisionDigest": {"$ref": "#/$defs/sha256"},
-    "agentId": {"type": "string"},
-    "threadDigest": {"$ref": "#/$defs/sha256"},
+    "executorTaskName": {"type": "string"},
+    "executorAttemptDigest": {"$ref": "#/$defs/sha256"},
     "roleName": {"type": "string"},
     "roleDigest": {"$ref": "#/$defs/sha256"},
     "configDigest": {"$ref": "#/$defs/sha256"},
     "bundleDigest": {"$ref": "#/$defs/sha256"},
-    "effectiveModel": {"type": "string"},
-    "effectiveReasoningEffort": {"type": "string"},
-    "effectiveSandbox": {"type": "string"},
+    "configuredModel": {"type": "string"},
+    "configuredReasoningEffort": {"type": "string"},
+    "configuredSandbox": {"type": "string"},
     "runtimeSeconds": {"type": "integer"},
-    "activatedAt": {"type": "string"},
-    "evidenceClass": {"const": "host-runtime-event"},
+    "acknowledgedAt": {"type": "string"},
+    "evidenceClass": {"const": "host-spawn-acknowledgement"},
     "providerName": {"type": "string"},
     "providerDigest": {"$ref": "#/$defs/sha256"},
     "activationDigest": {"$ref": "#/$defs/sha256"}
   },
-  "required": ["schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt", "route", "agentId", "threadDigest", "roleName", "roleDigest", "configDigest", "bundleDigest", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt", "evidenceClass", "providerName", "providerDigest", "activationDigest"],
-  "$defs": {
-    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-  },
+  "required": ["schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt", "route", "executorTaskName", "executorAttemptDigest", "roleName", "roleDigest", "configDigest", "bundleDigest", "configuredModel", "configuredReasoningEffort", "configuredSandbox", "runtimeSeconds", "acknowledgedAt", "evidenceClass", "providerName", "providerDigest", "activationDigest"],
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
   "type": "object"
 }

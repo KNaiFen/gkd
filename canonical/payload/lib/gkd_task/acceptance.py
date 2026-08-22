@@ -403,8 +403,6 @@ def _validate_fixed_candidate(
             or anchored_offer["repository"] != state["repository"]["identity"]
             or activation["taskBranch"] != state["repository"]["taskBranch"]
             or anchored_offer["taskBranch"] != state["repository"]["taskBranch"]
-            or activation["agentId"] != claim["writerId"]
-            or activation["threadDigest"] != claim["sessionDigest"]
             or activation["roleName"] != anchored_offer["roleName"]
             or activation["roleDigest"] != anchored_offer["roleDigest"]
             or activation["roleDigest"] != claim["roleDigest"]
@@ -415,6 +413,17 @@ def _validate_fixed_candidate(
             or activation["offerCreatedAt"] != anchored_offer["createdAt"]
             or activation["offerExpiresAt"] != anchored_offer["expiresAt"]
         ):
+            raise TaskError("INVALID_ACTIVATION_RECEIPT")
+        if activation["schemaVersion"] == 2:
+            if (
+                anchored_offer.get("hostContract") is None
+                or activation["executorTaskName"] != claim["writerId"]
+                or activation["executorAttemptDigest"] != claim["sessionDigest"]
+                or activation["executorTaskName"] != claim.get("executorTaskName")
+                or activation["executorAttemptDigest"] != claim.get("executorAttemptDigest")
+            ):
+                raise TaskError("INVALID_ACTIVATION_RECEIPT")
+        elif activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
         if anchored_offer["schemaVersion"] == 3 and (
             claim.get("executionBundleDigest") != anchored_offer["bundleDigest"]

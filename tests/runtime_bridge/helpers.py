@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 from gkd_role.bridge import TrustedMainRuntimeBridge
 from gkd_role.roles import role_catalog
@@ -18,7 +19,8 @@ SOURCE_ROOT = Path("canonical")
 
 
 def run(*args: str, cwd: Path) -> str:
-    result = subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    command = (sys.executable, *args) if Path(args[0]).is_file() else args
+    result = subprocess.run(command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if result.returncode != 0:
         raise AssertionError(result.stderr)
     return result.stdout.strip()
@@ -73,27 +75,13 @@ def ready_bridge(repo: TaskRepo, bundle_root: Path = BUNDLE_ROOT) -> tuple[Trust
 
 
 def spawn_result(prepared: dict[str, object], **overrides: object) -> dict[str, object]:
-    catalog = role_catalog(BUNDLE_ROOT, str(prepared["executionBundleDigest"]))
-    role = next(item for item in catalog["roles"] if item["name"] == "gkd_executor")
     value: dict[str, object] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "spawned",
         "spawnCount": 1,
         "taskName": prepared["spawnRequest"]["taskName"],
         "agentType": "gkd_executor",
         "forkTurns": "none",
-        "agentId": "agent-runtime-one",
-        "threadDigest": "a" * 64,
-        "roleName": "gkd_executor",
-        "roleDigest": role["roleDigest"],
-        "configDigest": role["configDigest"],
-        "executionBundleDigest": prepared["executionBundleDigest"],
-        "routeDecisionDigest": prepared["routeDecisionDigest"],
-        "model": role["model"],
-        "reasoningEffort": role["modelReasoningEffort"],
-        "sandbox": role["sandboxMode"],
-        "runtimeSeconds": role["runtimeSeconds"],
-        "activatedAt": FIXED_TIME,
         "fallbackAttempted": False,
     }
     value.update(overrides)
@@ -106,7 +94,6 @@ def terminal_result(
     claim: dict[str, object],
     **overrides: object,
 ) -> dict[str, object]:
-    spawned = spawn_result(prepared)
     value: dict[str, object] = {
         "schemaVersion": 1,
         "status": "terminal",
@@ -116,8 +103,8 @@ def terminal_result(
         "offerId": prepared["offerId"],
         "claimId": claim["claimId"],
         "taskName": prepared["spawnRequest"]["taskName"],
-        "agentId": spawned["agentId"],
-        "sessionDigest": spawned["threadDigest"],
+        "agentId": "legacy-terminal-agent",
+        "sessionDigest": "a" * 64,
         "roleName": prepared["roleName"],
         "roleDigest": prepared["roleDigest"],
         "configDigest": prepared["configDigest"],

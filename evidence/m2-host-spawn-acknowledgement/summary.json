@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "task": "GKD-M2-K",
+  "outcome": "host_acknowledgement_bridge_ready",
+  "fixedBase": "d093113f2252a322956cc4f9dae2067be51d33a2",
+  "candidateBundleDigest": "883528f72ce915f089643f8f249fbdda471fc50a4bf87006703c5bbb0d54a2b3",
+  "evidenceDigest": "6ea2a927b28a42b15603878aecd4783b7d567a8096a31b0f8ce270a6c110ce04",
+  "evidenceFileSha256": "08f9ca00d8fd9b009926161e348f51be43a2cfdbba4e9259c62a3c004a209a38",
+  "determinism": {
+    "disjointTemporaryRoots": 2,
+    "byteIdentical": true
+  },
+  "verification": {
+    "runtimeBridgeContracts": 35,
+    "fullVerifierContracts": 417
+  },
+  "automaticContract": {
+    "hostContract": "host-spawn-acknowledgement-v1",
+    "automaticTerminalReclaimAvailable": false,
+    "missingTerminalBinding": "manual_recovery_required"
+  },
+  "protected": {
+    "productionUnchanged": true,
+    "aioUnchanged": true
+  }
+}

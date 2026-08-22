@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run M2-C bridge contracts and emit path-minimized canonical evidence."""
+"""Run M2-K host-acknowledgement bridge contracts and emit canonical evidence."""
 
 from __future__ import annotations
 
@@ -24,7 +24,8 @@ from tests.runtime_bridge.helpers import BUNDLE_ROOT, bundle_digest, init_repo, 
 from tests.task_core.helpers import TaskRepo
 
 
-LEGACY_GATE_BUNDLE_DIGEST = "5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880"
+LEGACY_BRIDGE_CONTRACT = "host-runtime-event-v1"
+HOST_ACKNOWLEDGEMENT_CONTRACT = "host-spawn-acknowledgement-v1"
 SYNTHETIC_OUTPUT_BUNDLE_DIGEST = "d" * 64
 
 
@@ -127,11 +128,14 @@ def main() -> int:
             delivery = repo.state()["lifecycle"]["delivery"]
             flow = {
                 "routeDecisionDigest": prepared["routeDecisionDigest"],
+                "hostContract": prepared["hostContract"],
                 "offerBound": True,
                 "handoffBound": True,
                 "activationBound": True,
                 "claimBound": True,
                 "deliveryBound": True,
+                "executorAttemptHandleBound": True,
+                "automaticTerminalReclaimAvailable": False,
                 "executionBundleDigest": delivery["executionBundleDigest"],
                 "candidateOutputBundleDigest": delivery["candidateOutputBundleDigest"],
                 "executionIdentityPreserved": delivery["executionBundleDigest"] == prepared["executionBundleDigest"],
@@ -151,10 +155,11 @@ def main() -> int:
             groups.setdefault(_group(identifier), []).append(identifier)
         evidence = {
             "schemaVersion": 1,
-            "task": "GKD-M2-C",
-            "outcome": "automatic_runtime_bridge_ready",
+            "task": "GKD-M2-K",
+            "outcome": "host_acknowledgement_bridge_ready",
             "bundleVersion": lock["bundleVersion"],
-            "legacyGateBundleDigest": LEGACY_GATE_BUNDLE_DIGEST,
+            "legacyBridgeContract": LEGACY_BRIDGE_CONTRACT,
+            "hostAcknowledgementContract": HOST_ACKNOWLEDGEMENT_CONTRACT,
             "candidateOutputBundleDigest": lock["contentDigest"],
             "contracts": {
                 "count": len(test_ids),
@@ -175,6 +180,8 @@ def main() -> int:
                 "genericWorkerFallback": False,
                 "mainOutputPathMinimized": True,
                 "runtimeIdentityCommittedAsEvidence": False,
+                "hostEffectiveRuntimeClaimed": False,
+                "unboundTerminalReclaim": False,
                 "activationTransactionSingleWriter": True,
                 "schemaV3FixedHeadAcceptanceBound": True,
                 "defaultPythonBytecodeFree": True,

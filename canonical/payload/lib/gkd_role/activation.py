@@ -11,6 +11,9 @@ from gkd_task.errors import TaskError
 from .roles import ACTIVATION_PROVIDER, activation_provider, role_record
 
 
+HOST_ACKNOWLEDGEMENT_EVIDENCE = "host-spawn-acknowledgement"
+
+
 def _instant(value: str, code: str) -> datetime:
     require_utc(value, code)
     try:
@@ -20,35 +23,60 @@ def _instant(value: str, code: str) -> datetime:
 
 
 def validate_activation(value: dict[str, Any]) -> None:
-    keys = {
+    legacy_keys = {
         "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
         "offerId", "envelopeId", "route", "agentId", "threadDigest", "roleName",
         "roleDigest", "configDigest", "bundleDigest", "effectiveModel",
         "effectiveReasoningEffort", "effectiveSandbox", "runtimeSeconds", "activatedAt",
         "offerCreatedAt", "offerExpiresAt", "evidenceClass", "providerName", "providerDigest", "activationDigest",
     }
+    acknowledgement_keys = {
+        "schemaVersion", "kind", "activationId", "taskId", "repository", "taskBranch",
+        "offerId", "envelopeId", "route", "executorTaskName", "executorAttemptDigest", "roleName",
+        "roleDigest", "configDigest", "bundleDigest", "configuredModel", "configuredReasoningEffort",
+        "configuredSandbox", "runtimeSeconds", "acknowledgedAt", "offerCreatedAt", "offerExpiresAt",
+        "evidenceClass", "providerName", "providerDigest", "activationDigest",
+    }
     if "routeDecisionDigest" in value:
-        keys.add("routeDecisionDigest")
-    require_keys(
-        value,
-        keys,
-        "INVALID_ACTIVATION",
-    )
-    if value["schemaVersion"] != 1 or value["kind"] != "role-activation" or value["evidenceClass"] != "host-runtime-event":
+        legacy_keys.add("routeDecisionDigest")
+        acknowledgement_keys.add("routeDecisionDigest")
+    if value.get("schemaVersion") == 1:
+        require_keys(value, legacy_keys, "INVALID_ACTIVATION")
+        if value["kind"] != "role-activation" or value["evidenceClass"] != "host-runtime-event":
+            raise TaskError("INVALID_ACTIVATION")
+        for field in ("taskId", "repository", "taskBranch", "route", "agentId", "roleName", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "providerName"):
+            require_string(value[field], "INVALID_ACTIVATION")
+        for field in ("activationId", "offerId", "envelopeId", "threadDigest", "roleDigest", "configDigest", "bundleDigest", "providerDigest", "activationDigest"):
+            require_sha256(value[field], "INVALID_ACTIVATION")
+        for field in ("offerCreatedAt", "offerExpiresAt", "activatedAt"):
+            _instant(value[field], "INVALID_ACTIVATION")
+        observed_at = value["activatedAt"]
+    elif value.get("schemaVersion") == 2:
+        require_keys(value, acknowledgement_keys, "INVALID_ACTIVATION")
+        if value["kind"] != "role-activation" or value["evidenceClass"] != HOST_ACKNOWLEDGEMENT_EVIDENCE:
+            raise TaskError("INVALID_ACTIVATION")
+        for field in (
+            "taskId", "repository", "taskBranch", "route", "executorTaskName", "roleName",
+            "configuredModel", "configuredReasoningEffort", "configuredSandbox", "providerName",
+        ):
+            require_string(value[field], "INVALID_ACTIVATION")
+        for field in (
+            "activationId", "offerId", "envelopeId", "executorAttemptDigest", "roleDigest", "configDigest",
+            "bundleDigest", "providerDigest", "activationDigest",
+        ):
+            require_sha256(value[field], "INVALID_ACTIVATION")
+        for field in ("offerCreatedAt", "offerExpiresAt", "acknowledgedAt"):
+            _instant(value[field], "INVALID_ACTIVATION")
+        observed_at = value["acknowledgedAt"]
+    else:
         raise TaskError("INVALID_ACTIVATION")
-    for field in ("taskId", "repository", "taskBranch", "route", "agentId", "roleName", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox", "providerName"):
-        require_string(value[field], "INVALID_ACTIVATION")
-    for field in ("activationId", "offerId", "envelopeId", "threadDigest", "roleDigest", "configDigest", "bundleDigest", "providerDigest", "activationDigest"):
-        require_sha256(value[field], "INVALID_ACTIVATION")
     if "routeDecisionDigest" in value:
         require_sha256(value["routeDecisionDigest"], "INVALID_ACTIVATION")
     if value["runtimeSeconds"] not in {3600, 43200}:
         raise TaskError("INVALID_ACTIVATION")
-    for field in ("offerCreatedAt", "offerExpiresAt", "activatedAt"):
-        _instant(value[field], "INVALID_ACTIVATION")
     if value["providerName"] != ACTIVATION_PROVIDER["name"] or value["providerDigest"] != digest_object(ACTIVATION_PROVIDER):
         raise TaskError("INVALID_ACTIVATION")
-    if not _instant(value["offerCreatedAt"], "INVALID_ACTIVATION") <= _instant(value["activatedAt"], "INVALID_ACTIVATION") < _instant(value["offerExpiresAt"], "INVALID_ACTIVATION"):
+    if not _instant(value["offerCreatedAt"], "INVALID_ACTIVATION") <= _instant(observed_at, "INVALID_ACTIVATION") < _instant(value["offerExpiresAt"], "INVALID_ACTIVATION"):
         raise TaskError("INVALID_ACTIVATION")
     unsigned = deepcopy(value)
     actual = unsigned.pop("activationDigest")
@@ -75,7 +103,8 @@ def validate_activation_binding(activation: dict[str, Any], expected: dict[str, 
 
     if activation["providerName"] != ACTIVATION_PROVIDER["name"] or activation["providerDigest"] != digest_object(ACTIVATION_PROVIDER):
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
-    if not _instant(activation["offerCreatedAt"], "RUNTIME_EVIDENCE_MISMATCH") <= _instant(activation["activatedAt"], "RUNTIME_EVIDENCE_MISMATCH") < _instant(activation["offerExpiresAt"], "RUNTIME_EVIDENCE_MISMATCH"):
+    observed_at = activation["acknowledgedAt"] if activation["schemaVersion"] == 2 else activation["activatedAt"]
+    if not _instant(activation["offerCreatedAt"], "RUNTIME_EVIDENCE_MISMATCH") <= _instant(observed_at, "RUNTIME_EVIDENCE_MISMATCH") < _instant(activation["offerExpiresAt"], "RUNTIME_EVIDENCE_MISMATCH"):
         raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
     names = ["taskId", "repository", "taskBranch", "route", "roleDigest", "configDigest", "roleName", "bundleDigest", "offerId", "envelopeId", "offerCreatedAt", "offerExpiresAt"]
     if "routeDecisionDigest" in expected:
@@ -101,6 +130,8 @@ class TrustedMainActivationAuthority:
         host_facts: dict[str, Any],
         nonce: str,
     ) -> dict[str, Any]:
+        if host_facts.get("evidenceClass") == HOST_ACKNOWLEDGEMENT_EVIDENCE:
+            return self._build_acknowledgement(expected, host_facts, nonce)
         expected_keys = {"taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName", "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt"}
         if "routeDecisionDigest" in expected:
             expected_keys.add("routeDecisionDigest")
@@ -139,6 +170,66 @@ class TrustedMainActivationAuthority:
             "runtimeSeconds": host_facts["runtimeSeconds"],
             "activatedAt": host_facts["activatedAt"],
             "evidenceClass": host_facts["evidenceClass"],
+            "providerName": self.provider_name,
+            "providerDigest": self.provider_digest,
+        }
+        value["activationDigest"] = digest_object(value)
+        validate_activation(value)
+        return value
+
+    def _build_acknowledgement(
+        self,
+        expected: dict[str, Any],
+        host_facts: dict[str, Any],
+        nonce: str,
+    ) -> dict[str, Any]:
+        expected_keys = {
+            "taskId", "repository", "taskBranch", "offerId", "envelopeId", "route", "roleName",
+            "roleDigest", "configDigest", "bundleDigest", "offerCreatedAt", "offerExpiresAt", "executorTaskName",
+        }
+        if "routeDecisionDigest" in expected:
+            expected_keys.add("routeDecisionDigest")
+            require_sha256(expected["routeDecisionDigest"], "INVALID_ACTIVATION_REQUEST")
+        require_keys(expected, expected_keys, "INVALID_ACTIVATION_REQUEST")
+        require_keys(host_facts, {"evidenceClass", "taskName", "acknowledgedAt"}, "INVALID_ACTIVATION_OBSERVATION")
+        role = role_record(self.catalog, expected["roleName"])
+        if (
+            host_facts["evidenceClass"] != HOST_ACKNOWLEDGEMENT_EVIDENCE
+            or expected["bundleDigest"] != self.catalog["bundleDigest"]
+            or expected["roleDigest"] != role["roleDigest"]
+            or expected["configDigest"] != role["configDigest"]
+            or host_facts["taskName"] != expected["executorTaskName"]
+        ):
+            raise TaskError("ACTIVATION_OBSERVATION_MISMATCH")
+        require_string(host_facts["taskName"], "INVALID_ACTIVATION_OBSERVATION")
+        if not _instant(expected["offerCreatedAt"], "INVALID_ACTIVATION_REQUEST") < _instant(expected["offerExpiresAt"], "INVALID_ACTIVATION_REQUEST"):
+            raise TaskError("INVALID_ACTIVATION_REQUEST")
+        if not _instant(expected["offerCreatedAt"], "INVALID_ACTIVATION_REQUEST") <= _instant(host_facts["acknowledgedAt"], "INVALID_ACTIVATION_OBSERVATION") < _instant(expected["offerExpiresAt"], "INVALID_ACTIVATION_REQUEST"):
+            raise TaskError("ACTIVATION_OUTSIDE_OFFER_WINDOW")
+        attempt = digest_object(
+            {
+                "contract": "host-spawn-acknowledgement-v1",
+                "taskId": expected["taskId"],
+                "offerId": expected["offerId"],
+                "envelopeId": expected["envelopeId"],
+                "taskName": host_facts["taskName"],
+                "bundleDigest": expected["bundleDigest"],
+                "routeDecisionDigest": expected.get("routeDecisionDigest"),
+            }
+        )
+        activation_id = digest_object({"expected": expected, "hostFacts": host_facts, "nonce": require_string(nonce, "INVALID_ACTIVATION_REQUEST")})
+        value = {
+            "schemaVersion": 2,
+            "kind": "role-activation",
+            "activationId": activation_id,
+            **expected,
+            "executorAttemptDigest": attempt,
+            "configuredModel": role["model"],
+            "configuredReasoningEffort": role["modelReasoningEffort"],
+            "configuredSandbox": role["sandboxMode"],
+            "runtimeSeconds": role["runtimeSeconds"],
+            "acknowledgedAt": host_facts["acknowledgedAt"],
+            "evidenceClass": HOST_ACKNOWLEDGEMENT_EVIDENCE,
             "providerName": self.provider_name,
             "providerDigest": self.provider_digest,
         }
@@ -191,16 +282,24 @@ class TrustedActivationEvidenceProvider:
         validate_activation(activation)
         validate_activation_binding(activation, expected)
         self.activation = activation
+        if activation["schemaVersion"] == 2:
+            writer_id = activation["executorTaskName"]
+            session_digest = activation["executorAttemptDigest"]
+            observed_at = activation["acknowledgedAt"]
+        else:
+            writer_id = activation["agentId"]
+            session_digest = activation["threadDigest"]
+            observed_at = activation["activatedAt"]
         value = {
             "schemaVersion": 1,
             "provider": activation["providerName"],
-            "writerId": activation["agentId"],
-            "sessionDigest": activation["threadDigest"],
+            "writerId": writer_id,
+            "sessionDigest": session_digest,
             "roleDigest": activation["roleDigest"],
             "configDigest": activation["configDigest"],
             "route": activation["route"],
             "status": "active",
-            "observedAt": activation["activatedAt"],
+            "observedAt": observed_at,
         }
         value["evidenceDigest"] = digest_object(value)
         return value
@@ -260,7 +359,16 @@ class TrustedActivationEvidenceProvider:
                 **({"routeDecisionDigest": offer["routeDecisionDigest"]} if offer.get("routeDecisionDigest") else {}),
             },
         )
-        if activation["providerDigest"] != self.provider_digest or activation["providerName"] != self.provider_name or activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:
+        if activation["schemaVersion"] == 2:
+            identity_matches = (
+                activation["executorTaskName"] == claim["writerId"]
+                and activation["executorAttemptDigest"] == claim["sessionDigest"]
+                and claim.get("executorTaskName") == activation["executorTaskName"]
+                and claim.get("executorAttemptDigest") == activation["executorAttemptDigest"]
+            )
+        else:
+            identity_matches = activation["agentId"] == claim["writerId"] and activation["threadDigest"] == claim["sessionDigest"]
+        if activation["providerDigest"] != self.provider_digest or activation["providerName"] != self.provider_name or not identity_matches:
             raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
         self.activation = activation
         self.consume(claim["claimId"], receipt["claimCommit"], receipt["receiptDigest"], consumed_at)

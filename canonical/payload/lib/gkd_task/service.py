@@ -668,6 +668,7 @@ class TaskService:
         role_name: str | None = None,
         bundle_digest: str | None = None,
         route_decision: dict[str, Any] | None = None,
+        host_contract: str | None = None,
     ) -> dict[str, Any]:
         require_string(route, "INVALID_ROUTE")
         require_sha256(role_digest, "INVALID_ROLE_DIGEST")
@@ -687,7 +688,12 @@ class TaskService:
                 or route_decision["selectedRole"] != role_name
             ):
                 raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
-        elif route_decision is not None or (role_name is None) != (bundle_digest is None):
+            if host_contract is not None:
+                from .model import HOST_ACKNOWLEDGEMENT_CONTRACT
+
+                if host_contract != HOST_ACKNOWLEDGEMENT_CONTRACT:
+                    raise TaskError("INVALID_OFFER")
+        elif route_decision is not None or host_contract is not None or (role_name is None) != (bundle_digest is None):
             raise TaskError("INVALID_OFFER")
         elif role_name is not None:
             require_string(role_name, "INVALID_ROLE_NAME")
@@ -750,6 +756,8 @@ class TaskService:
             if automatic:
                 value["routeDecisionDigest"] = route_decision["decisionDigest"]
                 value["routeGates"] = deepcopy(route_decision["gates"])
+                if host_contract is not None:
+                    value["hostContract"] = host_contract
             validate_offer(value)
             updated = deepcopy(state)
             updated["lifecycle"]["phase"] = "awaiting_claim"
@@ -823,6 +831,8 @@ class TaskService:
         if offer["schemaVersion"] == 3:
             envelope["routeDecisionDigest"] = offer["routeDecisionDigest"]
             envelope["routeGates"] = deepcopy(offer["routeGates"])
+            if offer.get("hostContract") is not None:
+                envelope["hostContract"] = offer["hostContract"]
         envelope["envelopeDigest"] = digest_object(envelope)
         self.runtime.write_envelope(envelope_id, envelope)
         if head(self.candidate_root) != before or not is_clean(self.candidate_root):
@@ -859,6 +869,7 @@ class TaskService:
             if offer["schemaVersion"] == 3 and (
                 envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
                 or envelope.get("routeGates") != offer["routeGates"]
+                or envelope.get("hostContract") != offer.get("hostContract")
                 or not all(offer["routeGates"].values())
             ):
                 raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
@@ -917,6 +928,10 @@ class TaskService:
             if offer["schemaVersion"] == 3:
                 claim["executionBundleDigest"] = offer["bundleDigest"]
                 claim["routeDecisionDigest"] = offer["routeDecisionDigest"]
+                activation = getattr(self.evidence_provider, "activation", None)
+                if isinstance(activation, dict) and activation.get("schemaVersion") == 2:
+                    claim["executorTaskName"] = activation["executorTaskName"]
+                    claim["executorAttemptDigest"] = activation["executorAttemptDigest"]
             updated_offer = deepcopy(offer)
             updated_offer["status"] = "consumed"
             updated_offer["consumedByDigest"] = digest_object(claim)
@@ -970,6 +985,7 @@ class TaskService:
             or envelope.get("bundleDigest") != offer["bundleDigest"]
             or envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
             or envelope.get("routeGates") != offer["routeGates"]
+            or envelope.get("hostContract") != offer.get("hostContract")
             or not all(offer["routeGates"].values())
             or sha256_bytes(envelope["capability"].encode("utf-8")) != offer["capabilityDigest"]
         ):
@@ -988,6 +1004,7 @@ class TaskService:
             "bundleDigest": offer["bundleDigest"],
             "routeDecisionDigest": offer["routeDecisionDigest"],
             "routeGates": deepcopy(offer["routeGates"]),
+            "hostContract": offer.get("hostContract"),
             "offerCreatedAt": offer["createdAt"],
             "offerExpiresAt": offer["expiresAt"],
         }
@@ -1119,8 +1136,6 @@ class TaskService:
             or activation["activationId"] != claim.get("activationId")
             or activation["envelopeId"] != claim.get("envelopeId")
             or activation["offerId"] != claim["offerId"]
-            or activation["agentId"] != claim["writerId"]
-            or activation["threadDigest"] != claim["sessionDigest"]
             or activation["roleName"] != offer["roleName"]
             or activation["roleDigest"] != offer["roleDigest"]
             or activation["configDigest"] != offer["configDigest"]
@@ -1130,6 +1145,17 @@ class TaskService:
             or activation["offerCreatedAt"] != offer["createdAt"]
             or activation["offerExpiresAt"] != offer["expiresAt"]
         ):
+            raise TaskError("INVALID_ACTIVATION_RECEIPT")
+        if activation["schemaVersion"] == 2:
+            if (
+                offer.get("hostContract") is None
+                or activation["executorTaskName"] != claim["writerId"]
+                or activation["executorAttemptDigest"] != claim["sessionDigest"]
+                or activation["executorTaskName"] != claim.get("executorTaskName")
+                or activation["executorAttemptDigest"] != claim.get("executorAttemptDigest")
+            ):
+                raise TaskError("INVALID_ACTIVATION_RECEIPT")
+        elif activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
 
     def revoke(self, expected_head: str, expected_revision: int, reason: str) -> dict[str, Any]:
