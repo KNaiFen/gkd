@@ -7,15 +7,25 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
+from unittest import mock
 
-from gkd_release.core import build_release_candidate
+from gkd_release.core import (
+    build_release_candidate,
+    post_merge_promotion_request,
+    validate_post_merge_release_record,
+)
 from gkd_release.verification import (
     CANARY_CHECK,
+    TrustedMainFinalGate,
     build_l4_canary_request,
     run_l1_properties,
+    validate_l3_forward_eval_record,
     validate_forward_eval_trace,
     validate_l4_canary_request,
     validate_l4_canary_result,
+    validate_post_merge_l4_canary_request,
+    validate_post_merge_l4_observed_check,
 )
 from gkd_task.canonical import canonical_bytes, digest_object
 from gkd_task.errors import TaskError
@@ -124,3 +134,92 @@ class LayeredVerificationContracts(unittest.TestCase):
         }
         with self.assertRaisesRegex(TaskError, "L4_CANARY_RESULT_INVALID"):
             validate_l4_canary_result(request, result)
+
+    def _trusted_main_final_gate(self) -> tuple[
+        TrustedMainFinalGate, dict, dict, dict, dict, list[dict]
+    ]:
+        source_sha = "a" * 40
+        gate = TrustedMainFinalGate(source_sha, SANDBOX_REPOSITORY)
+        candidate = build_release_candidate(release_input())
+        trace = json.loads(FORWARD_EVAL.read_text(encoding="utf-8"))
+        l3_record = gate.l3_forward_eval(trace)
+        request = gate.l4_canary_request(candidate)
+        scenario = {
+            "pullRequest": pull_request(
+                number=4,
+                repository="KNaiFen/gkd-sandbox",
+                head_branch=request["branch"],
+            ),
+            "checkPages": {"1": {"check_runs": [check_run(CANARY_CHECK)], "total_count": 1}},
+            "statusPages": {"1": []},
+        }
+        with tempfile.TemporaryDirectory(prefix="gkd-release-l4-") as temporary:
+            root = Path(temporary)
+            scenario_path = root / "scenario.json"
+            write_scenario(scenario_path, scenario)
+            environment = fake_github_environment(root, scenario_path)
+            with mock.patch.dict(os.environ, environment, clear=True):
+                observed_check = gate.observe_l4_canary(request, 4)
+        assets = [
+            {
+                "name": "gkd-0.1.0.tar.gz",
+                "sourceSha": source_sha,
+                "bundleDigest": candidate["bundleDigest"],
+                "sha256": "f" * 64,
+            }
+        ]
+        record = gate.release_record(candidate, l3_record, request, observed_check, assets)
+        return gate, l3_record, request, observed_check, record, assets
+
+    def test_trusted_main_final_gate_uses_one_exact_sha_and_fake_github_observation(self) -> None:
+        _, l3_record, request, observed_check, record, assets = self._trusted_main_final_gate()
+        self.assertEqual(l3_record, validate_l3_forward_eval_record(l3_record, "a" * 40))
+        self.assertEqual(request, validate_post_merge_l4_canary_request(request, "a" * 40, SANDBOX_REPOSITORY))
+        self.assertEqual(observed_check, validate_post_merge_l4_observed_check(request, observed_check))
+        self.assertEqual(record, validate_post_merge_release_record(record))
+        promotion = post_merge_promotion_request(record)
+        self.assertEqual("a" * 40, promotion["targetSha"])
+        self.assertEqual(promotion["targetSha"], promotion["releaseSha"])
+        self.assertEqual(assets, promotion["assets"])
+        self.assertEqual("a" * 40, promotion["assets"][0]["sourceSha"])
+
+    def test_post_merge_records_fail_closed_when_the_source_sha_is_substituted(self) -> None:
+        gate, l3_record, request, observed_check, _, assets = self._trusted_main_final_gate()
+        l3_mutation = deepcopy(l3_record)
+        l3_mutation["sourceSha"] = "b" * 40
+        l3_mutation["trace"]["sourceSha"] = "b" * 40
+        l3_mutation["traceDigest"] = digest_object(l3_mutation["trace"])
+        unsigned_l3 = dict(l3_mutation)
+        unsigned_l3.pop("recordDigest")
+        l3_mutation["recordDigest"] = digest_object(unsigned_l3)
+        with self.assertRaisesRegex(TaskError, "L3_SOURCE_SHA_MISMATCH"):
+            validate_l3_forward_eval_record(l3_mutation, "a" * 40)
+
+        request_mutation = deepcopy(request)
+        request_mutation["sourceSha"] = "b" * 40
+        request_mutation["branch"] = f"gkd-canary/{'b' * 12}"
+        unsigned_request = dict(request_mutation)
+        unsigned_request.pop("requestDigest")
+        request_mutation["requestDigest"] = digest_object(unsigned_request)
+        with self.assertRaisesRegex(TaskError, "L4_SOURCE_SHA_MISMATCH"):
+            validate_post_merge_l4_canary_request(request_mutation, "a" * 40, SANDBOX_REPOSITORY)
+
+        observed_mutation = deepcopy(observed_check)
+        observed_mutation["sourceSha"] = "b" * 40
+        observed_mutation["headSha"] = "b" * 40
+        unsigned_observed = dict(observed_mutation)
+        unsigned_observed.pop("recordDigest")
+        observed_mutation["recordDigest"] = digest_object(unsigned_observed)
+        with self.assertRaisesRegex(TaskError, "L4_CANARY_OBSERVATION_INVALID"):
+            validate_post_merge_l4_observed_check(request, observed_mutation)
+
+        split_assets = deepcopy(assets)
+        split_assets[0]["sourceSha"] = "b" * 40
+        with self.assertRaisesRegex(TaskError, "POST_MERGE_ASSET_PROVENANCE_MISMATCH"):
+            gate.release_record(
+                build_release_candidate(release_input()),
+                l3_record,
+                request,
+                observed_check,
+                split_assets,
+            )

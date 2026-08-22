@@ -21,6 +21,8 @@ def _flatten(suite: unittest.TestSuite):
 
 
 def _group(identifier: str) -> str:
+    if ".test_trusted_main_final_gate_" in identifier or ".test_post_merge_records_" in identifier:
+        return "post-merge-final-gate-fake-github"
     if ".test_l1_" in identifier:
         return "l1-property"
     if ".test_l2_" in identifier:
@@ -74,13 +76,13 @@ def main() -> int:
             "L0": "pass",
             "L1": run_l1_properties(traceability),
             "L2": {"fakeGitHubSubprocess": True, "status": "pass"},
-            "L3": {"fixtureOnly": True, "status": "pass", "traceDigest": digest_object(validate_forward_eval_trace(forward_eval))},
-            "L4": {"liveCanaryRun": False, "sandboxOnly": True, "status": "pass"},
+            "L3": {"fixtureOnly": True, "postMergeRecordContract": True, "status": "pass", "traceDigest": digest_object(validate_forward_eval_trace(forward_eval))},
+            "L4": {"liveCanaryRun": False, "observedCheckContract": True, "sandboxOnly": True, "status": "pass"},
         },
         "machinePathsRetained": False,
         "outcome": "release_candidate_verification_ready",
         "schemaVersion": 1,
-        "task": "GKD-M5-A",
+        "task": "GKD-M5-B",
         "traceabilityDigest": digest_object(traceability),
     }
     evidence["evidenceDigest"] = digest_object(evidence)
