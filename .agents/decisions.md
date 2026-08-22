@@ -351,3 +351,7 @@
 - [2026-08-22] `GKD-P1` post-merge `0.1.1` release gate 与 promotion 已完成。
   - Why: `ded7a727fb391b8b7062fc531d03c9b6942c834a` 的 release-candidate 合同 13/13、隔离安装 verify/version、fresh eval-only L3 与 sandbox PR #3 fixed-head `GKD Canary` 均通过；同一 source SHA 的确定性资产双副本 SHA-256 一致，final record 已独立验证。
   - Impact: tag/Release `v0.1.1` 均精确指向 P1 merge SHA，资产 `gkd-0.1.1-final-ded7a72.tar.gz` SHA-256 为 `502875847b1c6c1aa0843f9fe0f1d37810db457cd5e3be288183d1a7ff8c531e`。生产目录、AIO、Secrets、付费 runner 和 GitHub settings 未修改；下一步仍是独立 P2 global `AGENTS.md` policy migration。
+
+- [2026-08-22] `GKD-P2` 采用用户级 global `AGENTS.md` 的逐非空行无损压缩。
+  - Why: 当前实际 preimage 的 SHA-256 为 `aa86b3d6f69fb089370a2b36ced910632c37aec827c7b52e129db78ce67a582e`，不含 legacy CI reviewer、GKD role 或生产调用提示词；因此最小且可证明的压缩是按原顺序逐字保留全部非空规则行，只移除冗余空行。
+  - Impact: P2 由 trusted main 直接执行，不进入 portable bundle 或 executor worktree。实际 preimage 将写入 machine-local private recovery surface，并在原子替换后以“postimage 等于 preimage 的有序非空行序列”验证；任何 drift、symlink 或现有 recovery 均 fail-closed。
