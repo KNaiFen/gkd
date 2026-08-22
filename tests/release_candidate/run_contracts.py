@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import unittest
 
-from gkd_release.verification import run_l1_properties, validate_forward_eval_trace
+from gkd_release.verification import run_l1_properties, validate_l3_eval_only_trace
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 
 
@@ -28,7 +28,7 @@ def _group(identifier: str) -> str:
     if ".test_l2_" in identifier:
         return "l2-subprocess-fake-github"
     if ".test_l3_" in identifier:
-        return "l3-forward-eval-fixture"
+        return "l3-eval-only"
     if ".test_l4_" in identifier:
         return "l4-sandbox-canary"
     if "mutation" in identifier:
@@ -76,13 +76,24 @@ def main() -> int:
             "L0": "pass",
             "L1": run_l1_properties(traceability),
             "L2": {"fakeGitHubSubprocess": True, "status": "pass"},
-            "L3": {"fixtureOnly": True, "postMergeRecordContract": True, "status": "pass", "traceDigest": digest_object(validate_forward_eval_trace(forward_eval))},
-            "L4": {"liveCanaryRun": False, "observedCheckContract": True, "sandboxOnly": True, "status": "pass"},
+            "L3": {
+                "evalOnly": True,
+                "postMergeRecordContract": True,
+                "status": "pass",
+                "traceDigest": digest_object(validate_l3_eval_only_trace(forward_eval)),
+            },
+            "L4": {
+                "canonicalMarkerContract": True,
+                "liveCanaryRun": False,
+                "observedCheckContract": True,
+                "sandboxOnly": True,
+                "status": "pass",
+            },
         },
         "machinePathsRetained": False,
         "outcome": "release_candidate_verification_ready",
         "schemaVersion": 1,
-        "task": "GKD-M5-B",
+        "task": "GKD-M5-C",
         "traceabilityDigest": digest_object(traceability),
     }
     evidence["evidenceDigest"] = digest_object(evidence)
