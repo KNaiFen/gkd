@@ -346,4 +346,4 @@
 
 - [2026-08-22] `GKD-P1` fixed head 已独立验收并合并。
   - Why: trusted main 对 candidate `c352bdf8c90fdc614830dfdffa937a616292d1b1` 的 requirements、完整 diff、任务收据、418 项独立 verifier、PR #23 fixed-head `GKD Verify` 和无阻塞审查进行了复核；squash tree 与候选树一致。
-  - Impact: PR #23 以 squash merge `ded7a727fb391b8b7062fc531d03c9b6942c834a` 进入 main，候选 bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef` 等待 post-merge `0.1.1` release gate。此合并不写入生产目录或 AIO；P2 仍必须独立处理用户级 global `AGENTS.md` policy migration。
+  - Impact: PR #23 以 squash merge `ded7a727fb391b8b7062fc531d03c9b6942c834a` 进入 main，候选 bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef` 等待 post-merge `0.1.1` release gate；候选 worktree 与本地/远端任务分支已清理。此合并不写入生产目录或 AIO；P2 仍必须独立处理用户级 global `AGENTS.md` policy migration。
