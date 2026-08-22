@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "task": "GKD-R1",
+  "outcome": "release_upgrade_candidate_ready",
+  "fixedBase": "2d848db56aad86ece5daba281b7f857c6c1f82c6",
+  "bundleVersion": "0.1.2",
+  "candidateBundleDigest": "167be7a7c900788dbac78df0c7989310fedee6e2c97d311c068615d3127b6170",
+  "evidenceDigest": "969e1759813ddb95b475c477cc6a340eae7d1c9aa530141cf11cc7cb1f3a22b3",
+  "evidenceFileSha256": "0e4d949c01ee67ccf7232b6a9ff4c47855a5036a51af9ac5d47b90e6fe0a678e",
+  "determinism": {
+    "disjointTemporaryRoots": 2,
+    "byteIdentical": true
+  },
+  "verification": {
+    "releaseContracts": 15,
+    "fullVerifierContracts": 419,
+    "isolatedInstallFiles": 103
+  },
+  "boundaries": {
+    "productionMutation": false,
+    "aioMutation": false,
+    "tagOrReleaseCreated": false
+  }
+}

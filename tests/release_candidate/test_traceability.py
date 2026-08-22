@@ -5,6 +5,7 @@ from pathlib import Path
 import unittest
 
 from gkd_release.core import build_release_candidate, promotion_request, validate_traceability
+from gkd_task.canonical import digest_object
 from gkd_task.errors import TaskError
 
 
@@ -45,6 +46,26 @@ class ReleaseCandidateContracts(unittest.TestCase):
     def test_exact_sha_sandbox_and_provenance_bind_promotion(self) -> None:
         record = build_release_candidate({"version":"0.1.1","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"})
         self.assertEqual(promotion_request(record)["targetSha"], "a" * 40)
+        self.assertEqual("v0.1.1", promotion_request(record)["tagName"])
         record["bundleDigest"] = "d" * 64
         with self.assertRaisesRegex(TaskError, "RELEASE_RECORD_TAMPERED"):
+            promotion_request(record)
+
+    def test_stable_version_propagates_and_nonstable_versions_fail_closed(self) -> None:
+        candidate = {"version":"0.1.2","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
+        self.assertEqual("v0.1.2", promotion_request(build_release_candidate(candidate))["tagName"])
+        for version in ("0.1", "0.01.2", "0.1.2-rc.1", "v0.1.2", ""):
+            with self.subTest(version=version):
+                invalid = dict(candidate, version=version)
+                with self.assertRaisesRegex(TaskError, "INVALID_RELEASE_CANDIDATE"):
+                    build_release_candidate(invalid)
+
+    def test_version_mutation_cannot_change_promotion_tag(self) -> None:
+        candidate = {"version":"0.1.2","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
+        record = build_release_candidate(candidate)
+        record["version"] = "0.1.2-rc.1"
+        unsigned = dict(record)
+        unsigned.pop("recordDigest")
+        record["recordDigest"] = digest_object(unsigned)
+        with self.assertRaisesRegex(TaskError, "INVALID_RELEASE_CANDIDATE"):
             promotion_request(record)

@@ -2,7 +2,7 @@
 
 `canonical/` is the only bundle source root. `source.toml` is the reviewed
 developer declaration; `manifest.json` and `manifest.lock.json` are generated
-outputs and must never be edited by hand. The current `0.1.1` bundle is a stable
+outputs and must never be edited by hand. The current `0.1.2` bundle is a stable
 release candidate whose exact source, bundle, evidence, assets, and provenance
 remain bound until trusted-main promotion.
 

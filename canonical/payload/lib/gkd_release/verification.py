@@ -39,9 +39,9 @@ def _is_sha256(value: Any) -> bool:
     return True
 
 
-def _release_fixture(traceability: dict[str, Any]) -> dict[str, Any]:
+def _release_fixture(traceability: dict[str, Any], version: str) -> dict[str, Any]:
     return {
-        "version": "0.1.1",
+        "version": version,
         "sourceSha": "a" * 40,
         "bundleDigest": "b" * 64,
         "evidenceDigest": "c" * 64,
@@ -65,9 +65,10 @@ def run_l1_properties(traceability: dict[str, Any]) -> dict[str, Any]:
     validate_traceability(traceability)
     from .core import build_release_candidate, promotion_request
 
-    record = build_release_candidate(_release_fixture(traceability))
-    if promotion_request(record)["targetSha"] != "a" * 40:
-        raise TaskError("L1_PROPERTY_FAILED")
+    for version in ("0.1.1", "0.1.2"):
+        promotion = promotion_request(build_release_candidate(_release_fixture(traceability, version)))
+        if promotion["targetSha"] != "a" * 40 or promotion["tagName"] != f"v{version}":
+            raise TaskError("L1_PROPERTY_FAILED")
 
     results = []
     for index, decision in enumerate(DECISIONS):

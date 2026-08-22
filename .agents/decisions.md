@@ -371,3 +371,7 @@
 - [2026-08-23] `GKD-M2-K` 已通过 bootstrap exception 的独立 fixed-head 验收并合并。
   - Why: fixed candidate `5e00ed9410ee4c31d6e69b4134ba4157eb517f95` 的完整审查、417 项版本化 verifier、两份字节一致 evidence、候选隔离 install/verify 和 policy-backed `GKD Verify` 均无阻塞 finding；任务本身不能诚实使用正在修复的 automatic claim 路径。
   - Impact: PR #24 以 squash `f6374221d1996a9ecd5d84921660b6e45432d859` 进入 main，新的 canonical bundle digest 为 `883528f72ce915f089643f8f249fbdda471fc50a4bf87006703c5bbb0d54a2b3`。没有 claim/delivery 补造，也没有 tag、Release、production 或 AIO 变更；后续 AIO adoption 先等待独立 release upgrade 和 restage。
+
+- [2026-08-23] `GKD-R1` 用 strict stable semantic-version release contract 准备 M2-K 的 `0.1.2` 升级。
+  - Why: M2-K 改变了 canonical bundle，但现有 release candidate builder 与 promotion tag 把 `0.1.1` 写死，不能诚实生成后续版本或让消费项目只接入已发布 bundle。
+  - Impact: builder 现在只接受 `major.minor.patch`，从验证后的 record 派生 exact tag；L1 同时覆盖 legacy `0.1.1` 与 fresh `0.1.2`。R1 当前仅是候选，tag、Release、production restage 和 AIO 写入仍在 independent acceptance 后的 trusted-main 范围。
