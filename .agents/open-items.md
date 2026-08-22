@@ -42,4 +42,5 @@
 - [x] `GKD-M5` final promotion：sandbox PR #2 `GKD Canary` 通过；`v0.1.0` 已精确指向 `c14f166e0bee7d036b6e9ab0d5e014c40922fe59` 并发布同 SHA 资产。
 - [x] 用户已于2026-08-22明确授予生产 `~/.codex` 安装与 AIO 接入/旧实现迁移授权。
 - [x] `GKD-P1` epoch 2 candidate `c352bdf8c90fdc614830dfdffa937a616292d1b1` 已通过 418 项独立 verifier、PR #23 fixed-head `GKD Verify` 与无阻塞 independent review，并以 squash merge `ded7a727fb391b8b7062fc531d03c9b6942c834a` 进入 main。候选 worktree、本地分支和远端分支均已清理。`0.1.1` production migration plan/apply/doctor/rollback/recover 覆盖两份 legacy CI reviewer role 的删除、恢复和 doctor；temporary `migration-*` 继续拒绝生产根目录，global `AGENTS.md` policy 明确留给 P2。
-- [ ] 从 post-merge exact source 完成 `0.1.1` 的 L0-L4 release gate、确定性资产和同 SHA Release，再建立并验收 P2 的用户级 global `AGENTS.md` policy migration；二者完成前不得实际写入生产目录或 AIO。
+- [x] `GKD-P1` 的 post-merge `0.1.1` L0-L4 release gate、确定性资产和同 SHA Release 已完成：source/tag/Release target 为 `ded7a727fb391b8b7062fc531d03c9b6942c834a`，sandbox PR #3 head `14147c061423df4433301b1579c36ccb3fbb8d60` 的 `GKD Canary` 通过，资产 SHA-256 为 `502875847b1c6c1aa0843f9fe0f1d37810db457cd5e3be288183d1a7ff8c531e`。
+- [ ] 建立、实施并验收 P2 的用户级 global `AGENTS.md` policy migration：绑定实际 preimage、显式无损压缩映射、回滚和验证证据；P2 完成前不得实际写入生产目录或 AIO。

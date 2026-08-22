@@ -347,3 +347,7 @@
 - [2026-08-22] `GKD-P1` fixed head 已独立验收并合并。
   - Why: trusted main 对 candidate `c352bdf8c90fdc614830dfdffa937a616292d1b1` 的 requirements、完整 diff、任务收据、418 项独立 verifier、PR #23 fixed-head `GKD Verify` 和无阻塞审查进行了复核；squash tree 与候选树一致。
   - Impact: PR #23 以 squash merge `ded7a727fb391b8b7062fc531d03c9b6942c834a` 进入 main，候选 bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef` 等待 post-merge `0.1.1` release gate；候选 worktree 与本地/远端任务分支已清理。此合并不写入生产目录或 AIO；P2 仍必须独立处理用户级 global `AGENTS.md` policy migration。
+
+- [2026-08-22] `GKD-P1` post-merge `0.1.1` release gate 与 promotion 已完成。
+  - Why: `ded7a727fb391b8b7062fc531d03c9b6942c834a` 的 release-candidate 合同 13/13、隔离安装 verify/version、fresh eval-only L3 与 sandbox PR #3 fixed-head `GKD Canary` 均通过；同一 source SHA 的确定性资产双副本 SHA-256 一致，final record 已独立验证。
+  - Impact: tag/Release `v0.1.1` 均精确指向 P1 merge SHA，资产 `gkd-0.1.1-final-ded7a72.tar.gz` SHA-256 为 `502875847b1c6c1aa0843f9fe0f1d37810db457cd5e3be288183d1a7ff8c531e`。生产目录、AIO、Secrets、付费 runner 和 GitHub settings 未修改；下一步仍是独立 P2 global `AGENTS.md` policy migration。
