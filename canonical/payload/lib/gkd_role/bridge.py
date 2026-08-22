@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from gkd_bundle import BundleError, verify_bundle_root
@@ -21,6 +21,7 @@ from gkd_task.model import validate_runtime_evidence
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
 from .activation import HOST_ACKNOWLEDGEMENT_EVIDENCE, TrustedMainActivationAuthority, _instant
+from .project import verify_project
 from .roles import role_catalog, role_record
 from .routing import validate_route_decision
 from gkd_task.model import HOST_ACKNOWLEDGEMENT_CONTRACT
@@ -45,6 +46,7 @@ TERMINAL_RESULT_KEYS = {
 
 HOST_TASK_NAME_PREFIX = "gkd_executor_"
 HOST_TASK_NAME_MAX = 128
+HOST_TRUSTED_MAIN_PATH = "/root"
 
 
 def _task_name(task_id: str, offer_id: str, epoch: int) -> str:
@@ -63,6 +65,22 @@ def _task_name(task_id: str, offer_id: str, epoch: int) -> str:
     if not normalized:
         raise TaskError("INVALID_AUTOMATIC_TASK")
     return f"{HOST_TASK_NAME_PREFIX}{normalized}_{attempt_digest}"
+
+
+def _canonical_host_task_name(value: str, requested_name: str) -> str:
+    """Accept the host's full task identifier without fabricating a replacement."""
+
+    if not isinstance(value, str):
+        raise TaskError("INVALID_SPAWN_RESULT")
+    path = PurePosixPath(value)
+    if (
+        str(path) != value
+        or not path.is_absolute()
+        or path.parent.as_posix() != HOST_TRUSTED_MAIN_PATH
+        or path.name != requested_name
+    ):
+        raise TaskError("SPAWN_RESULT_MISMATCH")
+    return value
 
 
 def _validate_terminal_result(value: dict[str, Any]) -> None:
@@ -121,19 +139,18 @@ class _TerminalEvidenceProvider:
 def validate_spawn_result(facts: dict[str, Any], expected: dict[str, Any]) -> dict[str, Any]:
     if expected.get("hostContract") == HOST_ACKNOWLEDGEMENT_CONTRACT:
         require_keys(facts, HOST_ACKNOWLEDGEMENT_KEYS, "INVALID_SPAWN_RESULT")
-        for field in ("taskName", "agentType", "forkTurns"):
+        for field in ("agentType", "forkTurns"):
             require_string(facts[field], "INVALID_SPAWN_RESULT")
         if (
             facts["schemaVersion"] != 2
             or facts["status"] != "spawned"
             or facts["spawnCount"] != 1
-            or facts["taskName"] != expected["spawnRequest"]["taskName"]
             or facts["agentType"] != "gkd_executor"
             or facts["forkTurns"] != "none"
             or facts["fallbackAttempted"] is not False
         ):
             raise TaskError("SPAWN_RESULT_MISMATCH")
-        return {"taskName": facts["taskName"]}
+        return {"taskName": _canonical_host_task_name(facts["taskName"], expected["spawnRequest"]["taskName"])}
     require_keys(facts, SPAWN_KEYS, "INVALID_SPAWN_RESULT")
     for field in ("taskName", "agentType", "forkTurns", "agentId", "roleName", "model", "reasoningEffort", "sandbox"):
         require_string(facts[field], "INVALID_SPAWN_RESULT")
@@ -213,6 +230,8 @@ class TrustedMainRuntimeBridge:
         expected_revision: int,
         route_decision: dict[str, Any],
         expires_at: str,
+        project_root: Path,
+        production_root: Path,
     ) -> dict[str, Any]:
         catalog = self._verified_catalog()
         validate_route_decision(route_decision, require_automatic=True)
@@ -220,6 +239,18 @@ class TrustedMainRuntimeBridge:
             raise TaskError("EXECUTION_BUNDLE_MISMATCH")
         role = role_record(catalog, "gkd_executor")
         service = self._service()
+        state = service._state()
+        task_policy = state["repository"].get("policy")
+        if task_policy is None:
+            raise TaskError("TASK_POLICY_REQUIRED")
+        project = verify_project(self.bundle_root, self.execution_bundle_digest, project_root, production_root)
+        if (
+            route_decision["projectPolicy"] != task_policy
+            or project.get("policy") != task_policy
+            or project["roleDigest"] != role["roleDigest"]
+            or project["configDigest"] != role["configDigest"]
+        ):
+            raise TaskError("AUTOMATIC_ROUTE_POLICY_MISMATCH")
         service.offer(
             expected_head,
             expected_revision,

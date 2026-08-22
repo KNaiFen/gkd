@@ -16,6 +16,7 @@ from gkd_task.errors import TaskError
 
 
 POLICY_PATH = ".gkd/policy.json"
+POLICY_BINDING_KEYS = {"path", "digest", "provider", "repository", "baseBranch", "requiredChecks"}
 REPOSITORY_RE = re.compile(
     r"^github\.com/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$"
 )
@@ -30,6 +31,44 @@ class RepositoryPolicy:
     provider: str
     repository: str
     required_checks: tuple[str, ...]
+
+
+def policy_binding(policy: RepositoryPolicy) -> dict[str, Any]:
+    """Return the canonical, non-duplicating record shared by GKD boundaries."""
+
+    value = {
+        "path": POLICY_PATH,
+        "digest": policy.digest,
+        "provider": policy.provider,
+        "repository": policy.repository,
+        "baseBranch": policy.base_branch,
+        "requiredChecks": list(policy.required_checks),
+    }
+    validate_policy_binding(value)
+    return value
+
+
+def validate_policy_binding(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise TaskError("INVALID_POLICY_BINDING")
+    require_keys(value, POLICY_BINDING_KEYS, "INVALID_POLICY_BINDING")
+    checks = value["requiredChecks"]
+    if (
+        value["path"] != POLICY_PATH
+        or value["provider"] != "github"
+        or not _valid_repository(value["repository"])
+        or not _valid_branch(value["baseBranch"])
+        or not isinstance(checks, list)
+        or not checks
+        or len(checks) > 64
+        or any(not isinstance(check, str) or not CHECK_RE.fullmatch(check) for check in checks)
+        or checks != sorted(checks)
+        or len(checks) != len(set(checks))
+    ):
+        raise TaskError("INVALID_POLICY_BINDING")
+    from gkd_task.canonical import require_sha256
+
+    require_sha256(value["digest"], "INVALID_POLICY_BINDING")
 
 
 def _valid_repository(value: Any) -> bool:
@@ -77,6 +116,10 @@ def _lexical_root(value: Path) -> Path:
     if ".." in value.parts:
         raise TaskError("CHECKOUT_PATH_INVALID")
     root = value if value.is_absolute() else Path.cwd() / value
+    parts = root.parts
+    temporary_aliases = {Path(os.sep, "var"), Path(os.sep, "tmp")}
+    if len(parts) > 1 and Path(parts[0], parts[1]) in temporary_aliases:
+        root = Path(parts[0], parts[1]).resolve().joinpath(*parts[2:])
     current = Path(root.anchor)
     for part in root.parts[1:]:
         current /= part
@@ -199,3 +242,7 @@ def load_validated_policy(
         code="BASE_BRANCH_MISMATCH",
     )
     return policy
+
+
+def load_policy_binding(checkout_value: Path, repository: str) -> dict[str, Any]:
+    return policy_binding(load_validated_policy(checkout_value, repository))

@@ -10,11 +10,12 @@ import stat
 import subprocess
 from typing import Any, Protocol
 
+from gkd_ci.policy import load_policy_binding
 from .canonical import CHECK_NAME_RE, CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
-from .model import TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
+from .model import TASK_POLICY_REWORK_VERSION, TASK_POLICY_VERSION, TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
 from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
 from .transaction import TransactionChange, TransactionManager
 
@@ -313,6 +314,10 @@ def _validate_fixed_candidate(
     validate_state(state)
     if state["repository"]["taskPath"] != task_path:
         raise TaskError("CANDIDATE_INVALID")
+    if state["schemaVersion"] in {TASK_POLICY_VERSION, TASK_POLICY_REWORK_VERSION} and (
+        load_policy_binding(candidate_root, state["repository"]["identity"]) != state["repository"]["policy"]
+    ):
+        raise TaskError("TASK_POLICY_DRIFT")
     authorization = _fixed_json(candidate_root, candidate_head, f"{task_path}/authorization.json", "INVALID_AUTHORIZATION")
     validate_authorization(authorization)
     requirements = read_tree_file(candidate_root, candidate_head, f"{task_path}/requirements.md")
@@ -377,7 +382,7 @@ def _validate_fixed_candidate(
     if claimed_state["lifecycle"]["claim"] != claim or claimed_offer != expected_consumed_offer or current_offer != claimed_offer:
         raise TaskError("CLAIM_RECEIPT_UNAVAILABLE")
     activation_receipt_digest: str | None = None
-    if anchored_offer["schemaVersion"] in {2, 3}:
+    if anchored_offer["schemaVersion"] in {2, 3, 4}:
         from gkd_role.activation import validate_activation, validate_activation_receipt
 
         activation_receipt = runtime.read_claim_activation_receipt(claim["claimId"])
@@ -425,7 +430,7 @@ def _validate_fixed_candidate(
                 raise TaskError("INVALID_ACTIVATION_RECEIPT")
         elif activation["agentId"] != claim["writerId"] or activation["threadDigest"] != claim["sessionDigest"]:
             raise TaskError("INVALID_ACTIVATION_RECEIPT")
-        if anchored_offer["schemaVersion"] == 3 and (
+        if anchored_offer["schemaVersion"] in {3, 4} and (
             claim.get("executionBundleDigest") != anchored_offer["bundleDigest"]
             or claim.get("routeDecisionDigest") != anchored_offer["routeDecisionDigest"]
             or activation.get("routeDecisionDigest") != anchored_offer["routeDecisionDigest"]
@@ -695,7 +700,11 @@ def rework_candidate(
         if current != state or current["lifecycle"]["phase"] != "delivered" or current["lifecycle"]["blocked"] is not None:
             raise TaskError("INVALID_TRANSITION")
         updated = deepcopy(current)
-        updated["schemaVersion"] = TASK_STATE_REWORK_VERSION
+        updated["schemaVersion"] = (
+            TASK_POLICY_REWORK_VERSION
+            if current["schemaVersion"] in {TASK_POLICY_VERSION, TASK_POLICY_REWORK_VERSION}
+            else TASK_STATE_REWORK_VERSION
+        )
         updated["lifecycle"].setdefault("rejectedAttempts", []).append(attempt)
         updated["lifecycle"]["phase"] = "planning"
         updated["lifecycle"]["epoch"] += 1

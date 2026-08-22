@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from gkd_ci.policy import validate_policy_binding
 from gkd_task.canonical import digest_object, require_keys, require_sha256
 from gkd_task.errors import TaskError
 
@@ -20,13 +21,18 @@ GATES = (
 
 
 def decide_route(request: dict[str, Any]) -> dict[str, Any]:
-    require_keys(request, {"schemaVersion", "requestedRoute", "bundleDigest", "gates"}, "INVALID_ROUTE_REQUEST")
-    if request["schemaVersion"] != 1 or request["requestedRoute"] not in {None, "manual", "automatic"}:
+    keys = {"schemaVersion", "requestedRoute", "bundleDigest", "gates"}
+    if request.get("schemaVersion") == 2:
+        keys.add("projectPolicy")
+    require_keys(request, keys, "INVALID_ROUTE_REQUEST")
+    if request["schemaVersion"] not in {1, 2} or request["requestedRoute"] not in {None, "manual", "automatic"}:
         raise TaskError("INVALID_ROUTE_REQUEST")
     require_sha256(request["bundleDigest"], "INVALID_ROUTE_REQUEST")
     gates = request["gates"]
     if not isinstance(gates, dict) or tuple(sorted(gates)) != GATES or any(not isinstance(gates[name], bool) for name in GATES):
         raise TaskError("INVALID_ROUTE_REQUEST")
+    if request["schemaVersion"] == 2:
+        validate_policy_binding(request["projectPolicy"])
     requested = request["requestedRoute"] or "manual"
     if requested == "manual":
         outcome = "manual"
@@ -40,7 +46,7 @@ def decide_route(request: dict[str, Any]) -> dict[str, Any]:
             outcome = "automatic"
             refusal = None
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": request["schemaVersion"],
         "requestedRoute": requested,
         "outcome": outcome,
         "bundleDigest": request["bundleDigest"],
@@ -49,30 +55,35 @@ def decide_route(request: dict[str, Any]) -> dict[str, Any]:
         "fallbackAttempted": False,
         "refusal": refusal,
     }
+    if request["schemaVersion"] == 2:
+        result["projectPolicy"] = deepcopy(request["projectPolicy"])
     result["decisionDigest"] = digest_object(result)
     return result
 
 
 def validate_route_decision(value: dict[str, Any], require_automatic: bool = False) -> None:
-    require_keys(
-        value,
-        {
-            "schemaVersion", "requestedRoute", "outcome", "bundleDigest", "gates",
-            "selectedRole", "fallbackAttempted", "refusal", "decisionDigest",
-        },
-        "INVALID_ROUTE_DECISION",
-    )
+    keys = {
+        "schemaVersion", "requestedRoute", "outcome", "bundleDigest", "gates",
+        "selectedRole", "fallbackAttempted", "refusal", "decisionDigest",
+    }
+    if value.get("schemaVersion") == 2:
+        keys.add("projectPolicy")
+    require_keys(value, keys, "INVALID_ROUTE_DECISION")
+    if value["schemaVersion"] not in {1, 2}:
+        raise TaskError("INVALID_ROUTE_DECISION")
     require_sha256(value["bundleDigest"], "INVALID_ROUTE_DECISION")
     require_sha256(value["decisionDigest"], "INVALID_ROUTE_DECISION")
     gates = value["gates"]
     if not isinstance(gates, dict) or tuple(sorted(gates)) != GATES or any(not isinstance(gates[name], bool) for name in GATES):
         raise TaskError("INVALID_ROUTE_DECISION")
+    if value["schemaVersion"] == 2:
+        validate_policy_binding(value["projectPolicy"])
     unsigned = deepcopy(value)
     digest = unsigned.pop("decisionDigest")
     if digest_object(unsigned) != digest:
         raise TaskError("INVALID_ROUTE_DECISION")
     if require_automatic and (
-        value["schemaVersion"] != 1
+        value["schemaVersion"] != 2
         or value["requestedRoute"] != "automatic"
         or value["outcome"] != "automatic"
         or value["selectedRole"] != "gkd_executor"

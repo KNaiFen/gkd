@@ -11,6 +11,8 @@ import re
 import subprocess
 from typing import Any, Protocol
 
+from gkd_ci.policy import load_policy_binding
+
 from .canonical import (
     SystemClock,
     SystemNonce,
@@ -105,6 +107,23 @@ def _worktree_add(main_root: Path, candidate_root: Path, task_branch: str, base_
     )
 
 
+def _discard_worktree(main_root: Path, candidate_root: Path, task_branch: str) -> None:
+    removed = subprocess.run(
+        ["git", "-C", os.fspath(main_root), "worktree", "remove", "--force", os.fspath(candidate_root)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    deleted = subprocess.run(
+        ["git", "-C", os.fspath(main_root), "branch", "-D", task_branch],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if removed.returncode != 0 or deleted.returncode != 0:
+        raise TaskError("BOOTSTRAP_ROLLBACK_FAILED")
+
+
 def bootstrap_task(
     main_root_value: Path,
     candidate_root_value: Path,
@@ -163,54 +182,60 @@ def bootstrap_task(
     if runtime_root is not None and _paths_overlap(runtime_root.resolve(strict=False), candidate_root):
         raise TaskError("RUNTIME_ROOT_OVERLAP")
     _worktree_add(main_root, candidate_root, task_branch, base_sha)
-    verify_identity(candidate_root, repository, task_branch, common_dir(main_root))
-    if head(candidate_root) != base_sha:
-        raise TaskError("BASE_HEAD_MISMATCH")
+    try:
+        verify_identity(candidate_root, repository, task_branch, common_dir(main_root))
+        if head(candidate_root) != base_sha:
+            raise TaskError("BASE_HEAD_MISMATCH")
+        policy = load_policy_binding(candidate_root, repository)
 
-    durable_repository = {
-        "identity": repository,
-        "baseBranch": base_branch,
-        "baseSha": base_sha,
-        "taskBranch": task_branch,
-        "taskPath": task_path,
-    }
-    task_root = verified_relative_path(candidate_root, task_path)
-    task_root.mkdir(parents=True, exist_ok=False)
-    for name, content in raw_documents.items():
-        atomic_write(task_root / name, content)
-    state = new_state(task_id, durable_repository, documents, clock.now(), base_sha)
-    atomic_write(task_root / "task.json", canonical_bytes(state))
-    committed_head = commit_exact(
-        candidate_root,
-        [f"{task_path}/{name}" for name in (*raw_documents.keys(), "task.json")],
-        f"初始化任务 {task_id}",
-    )
-    runtime_path = runtime_root or (common_dir(candidate_root) / "gkd-runtime")
-    if _paths_overlap(runtime_path.resolve(strict=False), candidate_root.resolve()):
-        raise TaskError("RUNTIME_ROOT_OVERLAP")
-    runtime = RuntimeStore(runtime_path)
-    runtime.write_attachment(
-        {
-            "schemaVersion": RUNTIME_SCHEMA_VERSION,
-            "kind": "attachment",
-            "repository": repository,
-            "taskId": task_id,
+        durable_repository = {
+            "identity": repository,
+            "baseBranch": base_branch,
+            "baseSha": base_sha,
             "taskBranch": task_branch,
             "taskPath": task_path,
-            "candidateRoot": os.fspath(candidate_root),
-            "commonDir": os.fspath(common_dir(candidate_root)),
-            "updatedAt": clock.now(),
+            "policy": policy,
         }
-    )
-    require_clean(main_root)
-    require_clean(candidate_root)
-    return {
-        "status": "bootstrapped",
-        "taskId": task_id,
-        "baseSha": base_sha,
-        "head": committed_head,
-        "revision": 0,
-    }
+        task_root = verified_relative_path(candidate_root, task_path)
+        task_root.mkdir(parents=True, exist_ok=False)
+        for name, content in raw_documents.items():
+            atomic_write(task_root / name, content)
+        state = new_state(task_id, durable_repository, documents, clock.now(), base_sha)
+        atomic_write(task_root / "task.json", canonical_bytes(state))
+        committed_head = commit_exact(
+            candidate_root,
+            [f"{task_path}/{name}" for name in (*raw_documents.keys(), "task.json")],
+            f"初始化任务 {task_id}",
+        )
+        runtime_path = runtime_root or (common_dir(candidate_root) / "gkd-runtime")
+        if _paths_overlap(runtime_path.resolve(strict=False), candidate_root.resolve()):
+            raise TaskError("RUNTIME_ROOT_OVERLAP")
+        runtime = RuntimeStore(runtime_path)
+        runtime.write_attachment(
+            {
+                "schemaVersion": RUNTIME_SCHEMA_VERSION,
+                "kind": "attachment",
+                "repository": repository,
+                "taskId": task_id,
+                "taskBranch": task_branch,
+                "taskPath": task_path,
+                "candidateRoot": os.fspath(candidate_root),
+                "commonDir": os.fspath(common_dir(candidate_root)),
+                "updatedAt": clock.now(),
+            }
+        )
+        require_clean(main_root)
+        require_clean(candidate_root)
+        return {
+            "status": "bootstrapped",
+            "taskId": task_id,
+            "baseSha": base_sha,
+            "head": committed_head,
+            "revision": 0,
+        }
+    except Exception:
+        _discard_worktree(main_root, candidate_root, task_branch)
+        raise
 
 
 class RuntimeEvidenceProvider(Protocol):
@@ -674,6 +699,7 @@ class TaskService:
         require_sha256(role_digest, "INVALID_ROLE_DIGEST")
         require_sha256(config_digest, "INVALID_CONFIG_DIGEST")
         require_utc(expires_at, "INVALID_OFFER_EXPIRY")
+        state_before = self._state()
         automatic = route == "automatic"
         if automatic:
             if role_name is None or bundle_digest is None or route_decision is None:
@@ -688,6 +714,9 @@ class TaskService:
                 or route_decision["selectedRole"] != role_name
             ):
                 raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
+            state_policy = state_before["repository"].get("policy")
+            if state_policy is None or route_decision.get("projectPolicy") != state_policy:
+                raise TaskError("AUTOMATIC_ROUTE_POLICY_MISMATCH")
             if host_contract is not None:
                 from .model import HOST_ACKNOWLEDGEMENT_CONTRACT
 
@@ -700,7 +729,6 @@ class TaskService:
             require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
         capability = self.nonce.token(48)
         capability_digest = sha256_bytes(capability.encode("utf-8"))
-        state_before = self._state()
         offer_id = digest_object({"taskId": state_before["taskId"], "epoch": state_before["lifecycle"]["epoch"], "nonce": self.nonce.token()})
         created_at = self.clock.now()
         capability_record = {
@@ -729,7 +757,7 @@ class TaskService:
             if expires_at <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
             value = {
-                "schemaVersion": 3 if automatic else (2 if role_name is not None else TASK_SCHEMA_VERSION),
+                "schemaVersion": 4 if automatic else (2 if role_name is not None else TASK_SCHEMA_VERSION),
                 "offerId": offer_id,
                 "status": "active",
                 "epoch": state["lifecycle"]["epoch"],
@@ -756,6 +784,7 @@ class TaskService:
             if automatic:
                 value["routeDecisionDigest"] = route_decision["decisionDigest"]
                 value["routeGates"] = deepcopy(route_decision["gates"])
+                value["projectPolicy"] = deepcopy(route_decision["projectPolicy"])
                 if host_contract is not None:
                     value["hostContract"] = host_contract
             validate_offer(value)
@@ -825,12 +854,14 @@ class TaskService:
             "configDigest": offer["configDigest"],
             "createdAt": self.clock.now(),
         }
-        if offer["schemaVersion"] in {2, 3}:
+        if offer["schemaVersion"] in {2, 3, 4}:
             envelope["roleName"] = offer["roleName"]
             envelope["bundleDigest"] = offer["bundleDigest"]
-        if offer["schemaVersion"] == 3:
+        if offer["schemaVersion"] in {3, 4}:
             envelope["routeDecisionDigest"] = offer["routeDecisionDigest"]
             envelope["routeGates"] = deepcopy(offer["routeGates"])
+            if offer["schemaVersion"] == 4:
+                envelope["projectPolicy"] = deepcopy(offer["projectPolicy"])
             if offer.get("hostContract") is not None:
                 envelope["hostContract"] = offer["hostContract"]
         envelope["envelopeDigest"] = digest_object(envelope)
@@ -861,28 +892,30 @@ class TaskService:
                 or offer["authorizationDigest"] != state["actionAuthorizationDigest"]
             ):
                 raise TaskError("CAPABILITY_MISMATCH")
-            if offer["schemaVersion"] in {2, 3} and (
+            if offer["schemaVersion"] in {2, 3, 4} and (
                 envelope.get("roleName") != offer["roleName"]
                 or envelope.get("bundleDigest") != offer["bundleDigest"]
             ):
                 raise TaskError("CAPABILITY_MISMATCH")
-            if offer["schemaVersion"] == 3 and (
+            if offer["schemaVersion"] in {3, 4} and (
                 envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
                 or envelope.get("routeGates") != offer["routeGates"]
                 or envelope.get("hostContract") != offer.get("hostContract")
                 or not all(offer["routeGates"].values())
             ):
                 raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
+            if offer["schemaVersion"] == 4 and envelope.get("projectPolicy") != offer["projectPolicy"]:
+                raise TaskError("AUTOMATIC_ROUTE_POLICY_MISMATCH")
             if offer["expiresAt"] <= self.clock.now():
                 raise TaskError("OFFER_EXPIRED")
-            if offer["schemaVersion"] in {2, 3}:
+            if offer["schemaVersion"] in {2, 3, 4}:
                 self._require_activation_authority()
             evidence_expectation = {
                 "route": offer["route"],
                 "roleDigest": offer["roleDigest"],
                 "configDigest": offer["configDigest"],
             }
-            if offer["schemaVersion"] in {2, 3}:
+            if offer["schemaVersion"] in {2, 3, 4}:
                 evidence_expectation.update(
                     {
                         "taskId": state["taskId"],
@@ -896,7 +929,7 @@ class TaskService:
                         "offerExpiresAt": offer["expiresAt"],
                     }
                 )
-            if offer["schemaVersion"] == 3:
+            if offer["schemaVersion"] in {3, 4}:
                 evidence_expectation["routeDecisionDigest"] = offer["routeDecisionDigest"]
             evidence = self.evidence_provider.observe("claim", evidence_expectation)
             validate_runtime_evidence(evidence)
@@ -919,13 +952,13 @@ class TaskService:
                 "claimedAt": self.clock.now(),
                 "claimBaseHead": expected_head,
             }
-            if offer["schemaVersion"] in {2, 3}:
+            if offer["schemaVersion"] in {2, 3, 4}:
                 activation_id = getattr(self.evidence_provider, "activation_id", None)
                 if not isinstance(activation_id, str):
                     raise TaskError("RUNTIME_EVIDENCE_MISMATCH")
                 claim["activationId"] = activation_id
                 claim["envelopeId"] = envelope["envelopeId"]
-            if offer["schemaVersion"] == 3:
+            if offer["schemaVersion"] in {3, 4}:
                 claim["executionBundleDigest"] = offer["bundleDigest"]
                 claim["routeDecisionDigest"] = offer["routeDecisionDigest"]
                 activation = getattr(self.evidence_provider, "activation", None)
@@ -976,7 +1009,7 @@ class TaskService:
         envelope = self.runtime.read_envelope(envelope_id)
         if (
             state["lifecycle"]["phase"] != "awaiting_claim"
-            or offer["schemaVersion"] != 3
+            or offer["schemaVersion"] != 4
             or offer["status"] != "active"
             or offer["route"] != "automatic"
             or offer["offerId"] != envelope["offerId"]
@@ -985,6 +1018,7 @@ class TaskService:
             or envelope.get("bundleDigest") != offer["bundleDigest"]
             or envelope.get("routeDecisionDigest") != offer["routeDecisionDigest"]
             or envelope.get("routeGates") != offer["routeGates"]
+            or envelope.get("projectPolicy") != offer["projectPolicy"]
             or envelope.get("hostContract") != offer.get("hostContract")
             or not all(offer["routeGates"].values())
             or sha256_bytes(envelope["capability"].encode("utf-8")) != offer["capabilityDigest"]
@@ -1004,6 +1038,7 @@ class TaskService:
             "bundleDigest": offer["bundleDigest"],
             "routeDecisionDigest": offer["routeDecisionDigest"],
             "routeGates": deepcopy(offer["routeGates"]),
+            "projectPolicy": deepcopy(offer["projectPolicy"]),
             "hostContract": offer.get("hostContract"),
             "offerCreatedAt": offer["createdAt"],
             "offerExpiresAt": offer["expiresAt"],

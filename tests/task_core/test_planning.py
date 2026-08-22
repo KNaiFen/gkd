@@ -83,7 +83,7 @@ class PlanningContracts(unittest.TestCase):
     def test_every_material_section_invalidates_approval_and_authorization(self) -> None:
         for section in PLAN_MATERIAL_SECTIONS:
             with self.subTest(section=section):
-                repo = TaskRepo(identity=f"example.test/team/{section.lower().replace(' ', '-')}")
+                repo = TaskRepo(identity=f"github.com/team/{section.lower().replace(' ', '-')}")
                 try:
                     service = repo.ready_and_authorized()
                     values = planning_documents({section: f"Changed {section}."})

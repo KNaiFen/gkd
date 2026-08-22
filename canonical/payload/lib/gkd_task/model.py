@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import Any
 
@@ -25,6 +25,8 @@ from .errors import TaskError
 
 TASK_SCHEMA_VERSION = 1
 TASK_STATE_REWORK_VERSION = 2
+TASK_POLICY_VERSION = 3
+TASK_POLICY_REWORK_VERSION = 4
 PHASES = {
     "planning",
     "awaiting_claim",
@@ -63,15 +65,36 @@ EVENT_TYPES = {
 }
 
 
-def _repository_record(value: Any) -> None:
+def _repository_record(value: Any, state_schema_version: int) -> None:
     if not isinstance(value, dict):
         raise TaskError("INVALID_TASK_STATE")
-    require_keys(value, {"identity", "baseBranch", "baseSha", "taskBranch", "taskPath"}, "INVALID_TASK_STATE")
+    keys = {"identity", "baseBranch", "baseSha", "taskBranch", "taskPath"}
+    if state_schema_version in {TASK_POLICY_VERSION, TASK_POLICY_REWORK_VERSION}:
+        keys.add("policy")
+    require_keys(value, keys, "INVALID_TASK_STATE")
     require_string(value["identity"], "INVALID_TASK_STATE")
     require_string(value["baseBranch"], "INVALID_TASK_STATE")
     require_sha1(value["baseSha"], "INVALID_TASK_STATE")
     require_string(value["taskBranch"], "INVALID_TASK_STATE")
     relative_path(value["taskPath"], "INVALID_TASK_STATE")
+    if "policy" in keys:
+        from gkd_ci.policy import validate_policy_binding
+
+        validate_policy_binding(value["policy"])
+        if (
+            value["policy"]["repository"].casefold() != value["identity"].casefold()
+            or value["policy"]["baseBranch"] != value["baseBranch"]
+        ):
+            raise TaskError("INVALID_TASK_STATE")
+
+
+def _writer_id(value: Any, code: str) -> None:
+    if isinstance(value, str):
+        path = PurePosixPath(value)
+        if str(path) == value and path.is_absolute() and path.parent.as_posix() == "/root":
+            require_string(path.name, code)
+            return
+    require_string(value, code)
 
 
 def _documents_record(value: Any) -> None:
@@ -221,7 +244,7 @@ def _lifecycle_record(value: Any, state_schema_version: int) -> None:
     if not isinstance(value, dict):
         raise TaskError("INVALID_TASK_STATE")
     keys = {"phase", "epoch", "blocked", "writer", "offer", "claim", "retiredClaims", "delivery", "acceptance", "completion"}
-    if state_schema_version == TASK_STATE_REWORK_VERSION:
+    if state_schema_version in {TASK_STATE_REWORK_VERSION, TASK_POLICY_REWORK_VERSION}:
         keys.add("rejectedAttempts")
     require_keys(value, keys, "INVALID_TASK_STATE")
     if value["phase"] not in PHASES or not isinstance(value["epoch"], int) or value["epoch"] < 0:
@@ -240,7 +263,7 @@ def _lifecycle_record(value: Any, state_schema_version: int) -> None:
     if value["writer"] is not None:
         require_keys(value["writer"], {"claimId", "writerId", "sessionDigest"}, "INVALID_TASK_STATE")
         require_sha256(value["writer"]["claimId"], "INVALID_TASK_STATE")
-        require_string(value["writer"]["writerId"], "INVALID_TASK_STATE")
+        _writer_id(value["writer"]["writerId"], "INVALID_TASK_STATE")
         require_sha256(value["writer"]["sessionDigest"], "INVALID_TASK_STATE")
     if value["offer"] is not None:
         require_keys(value["offer"], {"offerId", "epoch", "authorizationDigest"}, "INVALID_TASK_STATE")
@@ -270,7 +293,7 @@ def _lifecycle_record(value: Any, state_schema_version: int) -> None:
         raise TaskError("INVALID_TASK_STATE")
     for attempt in rejected_attempts:
         _rejected_attempt(attempt)
-    if state_schema_version == TASK_STATE_REWORK_VERSION and not rejected_attempts:
+    if state_schema_version in {TASK_STATE_REWORK_VERSION, TASK_POLICY_REWORK_VERSION} and not rejected_attempts:
         raise TaskError("INVALID_TASK_STATE")
     if value["delivery"] is not None:
         _delivery_record(value["delivery"])
@@ -358,7 +381,13 @@ def _claim_record(value: dict[str, Any]) -> None:
     }
     if "executorTaskName" in value or "executorAttemptDigest" in value:
         require_keys(value, acknowledgement_keys, "INVALID_TASK_STATE")
-        require_string(value["executorTaskName"], "INVALID_TASK_STATE")
+        task_name = value["executorTaskName"]
+        if not isinstance(task_name, str):
+            raise TaskError("INVALID_TASK_STATE")
+        path = PurePosixPath(task_name)
+        if str(path) != task_name or not path.is_absolute() or path.parent.as_posix() != "/root":
+            raise TaskError("INVALID_TASK_STATE")
+        require_string(path.name, "INVALID_TASK_STATE")
         require_sha256(value["executorAttemptDigest"], "INVALID_TASK_STATE")
     elif "activationId" in value or "envelopeId" in value:
         keys = legacy_keys | {"activationId", "envelopeId"}
@@ -376,7 +405,7 @@ def _claim_record(value: dict[str, Any]) -> None:
         require_sha256(value[field], "INVALID_TASK_STATE")
     if not isinstance(value["epoch"], int) or value["epoch"] < 0:
         raise TaskError("INVALID_TASK_STATE")
-    require_string(value["writerId"], "INVALID_TASK_STATE")
+    _writer_id(value["writerId"], "INVALID_TASK_STATE")
     require_utc(value["claimedAt"], "INVALID_TASK_STATE")
     require_sha1(value["claimBaseHead"], "INVALID_TASK_STATE")
 
@@ -485,12 +514,17 @@ def validate_state(value: dict[str, Any]) -> None:
         },
         "INVALID_TASK_STATE",
     )
-    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, TASK_STATE_REWORK_VERSION}:
+    if value["schemaVersion"] not in {
+        TASK_SCHEMA_VERSION,
+        TASK_STATE_REWORK_VERSION,
+        TASK_POLICY_VERSION,
+        TASK_POLICY_REWORK_VERSION,
+    }:
         raise TaskError("INVALID_TASK_STATE")
     require_string(value["taskId"], "INVALID_TASK_STATE")
     if not isinstance(value["revision"], int) or value["revision"] < 0:
         raise TaskError("INVALID_TASK_STATE")
-    _repository_record(value["repository"])
+    _repository_record(value["repository"], value["schemaVersion"])
     _documents_record(value["documents"])
     _approval_record(value["approval"])
     _implementation_authorization(value["implementationAuthorization"])
@@ -536,7 +570,7 @@ def validate_state(value: dict[str, Any]) -> None:
         if event["head"] is not None:
             require_sha1(event["head"], "INVALID_TASK_STATE")
         require_sha256(event["recordDigest"], "INVALID_TASK_STATE")
-    if value["schemaVersion"] == TASK_SCHEMA_VERSION and any(event["type"] == "reworked" for event in value["history"]):
+    if value["schemaVersion"] in {TASK_SCHEMA_VERSION, TASK_POLICY_VERSION} and any(event["type"] == "reworked" for event in value["history"]):
         raise TaskError("INVALID_TASK_STATE")
     _history_relationships(value)
     require_sha256(value["integrityDigest"], "INVALID_TASK_STATE")
@@ -564,6 +598,16 @@ def read_state(path: Path, task_root: Path | None = None) -> dict[str, Any]:
             raise TaskError("PLAN_MATERIAL_DRIFT")
         if records["implementation"]["digest"] != value["documents"]["implementation"]["digest"]:
             raise TaskError("DOCUMENT_DIGEST_DRIFT")
+        if value["schemaVersion"] in {TASK_POLICY_VERSION, TASK_POLICY_REWORK_VERSION}:
+            checkout = task_root
+            for _ in Path(value["repository"]["taskPath"]).parts:
+                checkout = checkout.parent
+            if checkout / value["repository"]["taskPath"] != task_root:
+                raise TaskError("TASK_POLICY_DRIFT")
+            from gkd_ci.policy import load_policy_binding
+
+            if load_policy_binding(checkout, value["repository"]["identity"]) != value["repository"]["policy"]:
+                raise TaskError("TASK_POLICY_DRIFT")
     return value
 
 
@@ -583,7 +627,7 @@ def new_state(
     }
     return finalize_state(
         {
-            "schemaVersion": TASK_SCHEMA_VERSION,
+            "schemaVersion": TASK_POLICY_VERSION if "policy" in repository else TASK_SCHEMA_VERSION,
             "taskId": task_id,
             "revision": 0,
             "repository": repository,
@@ -754,16 +798,18 @@ def validate_offer(value: dict[str, Any]) -> None:
             "expiresAt",
             "consumedByDigest",
     }
-    if value.get("schemaVersion") in {2, 3}:
+    if value.get("schemaVersion") in {2, 3, 4}:
         versioned_keys = legacy_keys | {"roleName", "bundleDigest"}
-        if value["schemaVersion"] == 3:
+        if value["schemaVersion"] in {3, 4}:
             versioned_keys |= {"routeDecisionDigest", "routeGates"}
+            if value["schemaVersion"] == 4:
+                versioned_keys.add("projectPolicy")
             if "hostContract" in value:
                 versioned_keys.add("hostContract")
         require_keys(value, versioned_keys, "INVALID_OFFER")
         require_string(value["roleName"], "INVALID_OFFER")
         require_sha256(value["bundleDigest"], "INVALID_OFFER")
-        if value["schemaVersion"] == 3:
+        if value["schemaVersion"] in {3, 4}:
             require_sha256(value["routeDecisionDigest"], "INVALID_OFFER")
             expected_gates = {
                 "activationProviderReady", "bundleFixed", "offerClaimReady",
@@ -778,7 +824,7 @@ def validate_offer(value: dict[str, Any]) -> None:
             if value["route"] != "automatic" or value["roleName"] != "gkd_executor":
                 raise TaskError("INVALID_OFFER")
             decision = {
-                "schemaVersion": 1,
+                "schemaVersion": 2 if value["schemaVersion"] == 4 else 1,
                 "requestedRoute": "automatic",
                 "outcome": "automatic",
                 "bundleDigest": value["bundleDigest"],
@@ -787,6 +833,11 @@ def validate_offer(value: dict[str, Any]) -> None:
                 "fallbackAttempted": False,
                 "refusal": None,
             }
+            if value["schemaVersion"] == 4:
+                from gkd_ci.policy import validate_policy_binding
+
+                validate_policy_binding(value["projectPolicy"])
+                decision["projectPolicy"] = value["projectPolicy"]
             decision["decisionDigest"] = digest_object(decision)
             if decision["decisionDigest"] != value["routeDecisionDigest"]:
                 raise TaskError("INVALID_OFFER")
@@ -794,7 +845,7 @@ def validate_offer(value: dict[str, Any]) -> None:
                 raise TaskError("INVALID_OFFER")
     else:
         require_keys(value, legacy_keys, "INVALID_OFFER")
-    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, 2, 3} or value["status"] not in {"active", "consumed", "revoked"}:
+    if value["schemaVersion"] not in {TASK_SCHEMA_VERSION, 2, 3, 4} or value["status"] not in {"active", "consumed", "revoked"}:
         raise TaskError("INVALID_OFFER")
     for field in ("offerId", "planMaterialDigest", "authorizationDigest", "roleDigest", "configDigest", "capabilityDigest"):
         require_sha256(value[field], "INVALID_OFFER")
@@ -807,7 +858,7 @@ def validate_offer(value: dict[str, Any]) -> None:
     if not isinstance(value["epoch"], int) or value["epoch"] < 0:
         raise TaskError("INVALID_OFFER")
     require_string(value["route"], "INVALID_OFFER")
-    if value["route"] == "automatic" and value["schemaVersion"] != 3:
+    if value["route"] == "automatic" and value["schemaVersion"] not in {3, 4}:
         raise TaskError("INVALID_OFFER")
     if not isinstance(value["planVersion"], int) or value["planVersion"] < 1:
         raise TaskError("INVALID_OFFER")
@@ -832,8 +883,9 @@ def validate_runtime_evidence(value: dict[str, Any]) -> None:
     )
     if value["schemaVersion"] != TASK_SCHEMA_VERSION or value["status"] not in {"active", "terminal", "missing"}:
         raise TaskError("INVALID_RUNTIME_EVIDENCE")
-    for field in ("provider", "writerId", "route"):
+    for field in ("provider", "route"):
         require_string(value[field], "INVALID_RUNTIME_EVIDENCE")
+    _writer_id(value["writerId"], "INVALID_RUNTIME_EVIDENCE")
     for field in ("sessionDigest", "roleDigest", "configDigest", "evidenceDigest"):
         require_sha256(value[field], "INVALID_RUNTIME_EVIDENCE")
     require_utc(value["observedAt"], "INVALID_RUNTIME_EVIDENCE")

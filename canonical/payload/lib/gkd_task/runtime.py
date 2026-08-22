@@ -124,6 +124,8 @@ def validate_envelope(value: dict[str, Any]) -> None:
         keys = legacy_keys | {"roleName", "bundleDigest"}
         if "routeDecisionDigest" in value or "routeGates" in value:
             keys |= {"routeDecisionDigest", "routeGates"}
+            if "projectPolicy" in value:
+                keys.add("projectPolicy")
             if "hostContract" in value:
                 keys.add("hostContract")
         require_keys(value, keys, "INVALID_LAUNCH_ENVELOPE")
@@ -142,6 +144,10 @@ def validate_envelope(value: dict[str, Any]) -> None:
 
                 if value["hostContract"] != HOST_ACKNOWLEDGEMENT_CONTRACT:
                     raise TaskError("INVALID_LAUNCH_ENVELOPE")
+            if "projectPolicy" in value:
+                from gkd_ci.policy import validate_policy_binding
+
+                validate_policy_binding(value["projectPolicy"])
     else:
         require_keys(value, legacy_keys, "INVALID_LAUNCH_ENVELOPE")
     if value["schemaVersion"] != RUNTIME_SCHEMA_VERSION or value["kind"] != "launch-envelope":

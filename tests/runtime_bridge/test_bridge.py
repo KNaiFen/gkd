@@ -10,7 +10,8 @@ import subprocess
 import sys
 import unittest
 
-from gkd_role.bridge import HOST_TASK_NAME_MAX, _task_name, validate_spawn_result
+from gkd_role.bridge import HOST_TASK_NAME_MAX, TrustedMainRuntimeBridge, _task_name, validate_spawn_result
+from gkd_role.project import stage_project
 from gkd_role.roles import role_catalog
 from gkd_role.routing import validate_route_decision
 from gkd_task.acceptance import _validate_fixed_candidate
@@ -43,6 +44,20 @@ class AutomaticBridgeContracts(unittest.TestCase):
         bridge, prepared = ready_bridge(self.repo, source / "payload")
         return bridge, prepared, source / "payload"
 
+    def _unprepared_bridge(self):
+        self.repo.ready_and_authorized()
+        digest = bundle_digest()
+        stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)
+        bridge = TrustedMainRuntimeBridge(
+            self.repo.candidate,
+            self.repo.task_path,
+            RuntimeStore(self.repo.runtime_root),
+            BUNDLE_ROOT,
+            digest,
+        )
+        decision = automatic_decision(digest, self.repo.state()["repository"]["policy"])
+        return bridge, decision
+
     def _delivered_candidate(self):
         bridge, prepared = ready_bridge(self.repo)
         claimed = bridge.claim(
@@ -71,13 +86,13 @@ class AutomaticBridgeContracts(unittest.TestCase):
         claim = state["lifecycle"]["claim"]
         self.assertEqual(prepared["executionBundleDigest"], claim["executionBundleDigest"])
         self.assertEqual(prepared["routeDecisionDigest"], claim["routeDecisionDigest"])
-        self.assertEqual(prepared["spawnRequest"]["taskName"], claim["executorTaskName"])
+        self.assertEqual(spawn_result(prepared)["taskName"], claim["executorTaskName"])
         self.assertNotIn("agentId", claim)
         self.assertNotIn("threadDigest", claim)
         activation = RuntimeStore(self.repo.runtime_root).read_activation(claim["activationId"])
         self.assertEqual(2, activation["schemaVersion"])
         self.assertEqual("host-spawn-acknowledgement", activation["evidenceClass"])
-        self.assertEqual(prepared["spawnRequest"]["taskName"], activation["executorTaskName"])
+        self.assertEqual(spawn_result(prepared)["taskName"], activation["executorTaskName"])
         self.assertEqual(claim["executorAttemptDigest"], activation["executorAttemptDigest"])
         for unavailable in ("agentId", "threadDigest", "effectiveModel", "effectiveReasoningEffort", "effectiveSandbox"):
             self.assertNotIn(unavailable, activation)
@@ -128,8 +143,6 @@ class AutomaticBridgeContracts(unittest.TestCase):
             self.repo,
             prepared,
             claim,
-            agentId=claim["writerId"],
-            sessionDigest=claim["sessionDigest"],
         )
         baseline_task = (self.repo.task_root / "task.json").read_bytes()
         baseline_runtime = self._runtime_snapshot()
@@ -145,7 +158,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             service.offer(*self.repo.cas(), "automatic", role["roleDigest"], role["configDigest"], FUTURE_TIME, "gkd_executor", bundle_digest())
         self.assertEqual("AUTOMATIC_ROUTE_DECISION_REQUIRED", raised.exception.code)
-        decision = automatic_decision()
+        decision = automatic_decision(bundle_digest(), self.repo.state()["repository"]["policy"])
         extra_gate = deepcopy(decision)
         extra_gate["gates"]["unexpectedGate"] = True
         extra_gate["decisionDigest"] = digest_object(
@@ -155,9 +168,10 @@ class AutomaticBridgeContracts(unittest.TestCase):
             validate_route_decision(extra_gate, require_automatic=True)
         for gate in decision["gates"]:
             request = {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "requestedRoute": "automatic",
                 "bundleDigest": bundle_digest(),
+                "projectPolicy": self.repo.state()["repository"]["policy"],
                 "gates": {**decision["gates"], gate: False},
             }
             rejected = __import__("gkd_role.routing", fromlist=["decide_route"]).decide_route(request)
@@ -177,6 +191,44 @@ class AutomaticBridgeContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             validate_envelope(envelope)
         self.assertEqual("INVALID_LAUNCH_ENVELOPE", raised.exception.code)
+
+    def test_prepare_rejects_substituted_policy_before_offer_write(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        substituted = deepcopy(decision)
+        substituted["projectPolicy"]["digest"] = "e" * 64
+        substituted["decisionDigest"] = digest_object(
+            {key: value for key, value in substituted.items() if key != "decisionDigest"}
+        )
+        task_before = (self.repo.task_root / "task.json").read_bytes()
+        runtime_before = self._runtime_snapshot()
+        with self.assertRaisesRegex(TaskError, "AUTOMATIC_ROUTE_POLICY_MISMATCH"):
+            bridge.prepare(*self.repo.cas(), substituted, FUTURE_TIME, self.repo.main, self.repo.production)
+        self.assertEqual(task_before, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(runtime_before, self._runtime_snapshot())
+
+    def test_prepare_rejects_stale_project_inventory_and_candidate_policy_drift(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        task_before = (self.repo.task_root / "task.json").read_bytes()
+        project_policy = self.repo.main / ".gkd" / "policy.json"
+        changed = json.loads(project_policy.read_bytes())
+        changed["requiredChecks"] = ["alternate-contract"]
+        project_policy.write_bytes(canonical_bytes(changed))
+        with self.assertRaisesRegex(TaskError, "PROJECT_STAGE_DRIFT"):
+            bridge.prepare(*self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production)
+        self.assertEqual(task_before, (self.repo.task_root / "task.json").read_bytes())
+
+        project_policy.write_bytes(canonical_bytes({
+            "schemaVersion": 1,
+            "provider": "github",
+            "repository": self.repo.identity,
+            "baseBranch": self.repo.base_branch,
+            "requiredChecks": ["contract"],
+        }))
+        candidate_policy = self.repo.candidate / ".gkd" / "policy.json"
+        candidate_policy.write_bytes(canonical_bytes(changed))
+        with self.assertRaisesRegex(TaskError, "TASK_POLICY_DRIFT"):
+            bridge.prepare(*self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production)
+        self.assertEqual(task_before, (self.repo.task_root / "task.json").read_bytes())
 
     def test_fixed_head_acceptance_requires_automatic_activation_receipt(self) -> None:
         _, claim, runtime, delivered = self._delivered_candidate()
@@ -274,6 +326,8 @@ class AutomaticBridgeContracts(unittest.TestCase):
             "missing": {key: value for key, value in spawn_result(prepared).items() if key != "taskName"},
             "duplicate": spawn_result(prepared, spawnCount=2),
             "task": spawn_result(prepared, taskName="other_task"),
+            "parent": spawn_result(prepared, taskName=f"/other/{prepared['spawnRequest']['taskName']}"),
+            "leaf": spawn_result(prepared, taskName="/root/other_task"),
             "role": spawn_result(prepared, agentType="worker"),
             "fork": spawn_result(prepared, forkTurns="all"),
             "fallback": spawn_result(prepared, fallbackAttempted=True),

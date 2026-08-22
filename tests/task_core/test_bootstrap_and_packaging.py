@@ -13,7 +13,7 @@ import gkd_bundle
 from gkd_task.canonical import FixedClock
 from gkd_task.errors import TaskError
 from gkd_task.service import bootstrap_task
-from tests.task_core.helpers import FIXED_TIME, TaskRepo
+from tests.task_core.helpers import FIXED_TIME, TaskRepo, run
 
 
 class BootstrapNegativeContracts(unittest.TestCase):
@@ -98,6 +98,28 @@ class BootstrapNegativeContracts(unittest.TestCase):
                 FixedClock(FIXED_TIME),
             )
         self.assertFalse(candidate.exists())
+
+    def test_missing_policy_rolls_back_the_new_worktree_and_branch(self) -> None:
+        run("git", "rm", ".gkd/policy.json", cwd=self.repo.main)
+        run("git", "commit", "-m", "remove policy", cwd=self.repo.main)
+        run("git", "push", "origin", self.repo.base_branch, cwd=self.repo.main)
+        candidate = self.repo.root / "candidate-no-policy"
+        with self.assertRaisesRegex(TaskError, "POLICY_INVALID"):
+            bootstrap_task(
+                self.repo.main,
+                candidate,
+                self.repo.package,
+                "TASK-NO-POLICY",
+                "tasks/task-no-policy",
+                self.repo.identity,
+                self.repo.base_branch,
+                run("git", "rev-parse", "HEAD", cwd=self.repo.main),
+                "task/no-policy",
+                self.repo.root / "runtime-no-policy",
+                FixedClock(FIXED_TIME),
+            )
+        self.assertFalse(candidate.exists())
+        self.assertEqual("", run("git", "branch", "--list", "task/no-policy", cwd=self.repo.main))
 
 
 class PackagingContracts(unittest.TestCase):

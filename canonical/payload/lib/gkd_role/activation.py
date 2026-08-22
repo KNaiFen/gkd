@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from typing import Any
 
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, require_utc
@@ -12,6 +13,15 @@ from .roles import ACTIVATION_PROVIDER, activation_provider, role_record
 
 
 HOST_ACKNOWLEDGEMENT_EVIDENCE = "host-spawn-acknowledgement"
+
+
+def _host_task_name(value: Any, code: str) -> None:
+    if not isinstance(value, str):
+        raise TaskError(code)
+    path = PurePosixPath(value)
+    if str(path) != value or not path.is_absolute() or path.parent.as_posix() != "/root":
+        raise TaskError(code)
+    require_string(path.name, code)
 
 
 def _instant(value: str, code: str) -> datetime:
@@ -59,7 +69,10 @@ def validate_activation(value: dict[str, Any]) -> None:
             "taskId", "repository", "taskBranch", "route", "executorTaskName", "roleName",
             "configuredModel", "configuredReasoningEffort", "configuredSandbox", "providerName",
         ):
-            require_string(value[field], "INVALID_ACTIVATION")
+            if field == "executorTaskName":
+                _host_task_name(value[field], "INVALID_ACTIVATION")
+            else:
+                require_string(value[field], "INVALID_ACTIVATION")
         for field in (
             "activationId", "offerId", "envelopeId", "executorAttemptDigest", "roleDigest", "configDigest",
             "bundleDigest", "providerDigest", "activationDigest",
@@ -201,7 +214,7 @@ class TrustedMainActivationAuthority:
             or host_facts["taskName"] != expected["executorTaskName"]
         ):
             raise TaskError("ACTIVATION_OBSERVATION_MISMATCH")
-        require_string(host_facts["taskName"], "INVALID_ACTIVATION_OBSERVATION")
+        _host_task_name(host_facts["taskName"], "INVALID_ACTIVATION_OBSERVATION")
         if not _instant(expected["offerCreatedAt"], "INVALID_ACTIVATION_REQUEST") < _instant(expected["offerExpiresAt"], "INVALID_ACTIVATION_REQUEST"):
             raise TaskError("INVALID_ACTIVATION_REQUEST")
         if not _instant(expected["offerCreatedAt"], "INVALID_ACTIVATION_REQUEST") <= _instant(host_facts["acknowledgedAt"], "INVALID_ACTIVATION_OBSERVATION") < _instant(expected["offerExpiresAt"], "INVALID_ACTIVATION_REQUEST"):
