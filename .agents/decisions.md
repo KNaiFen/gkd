@@ -328,3 +328,6 @@
 - [2026-08-22] `GKD-M5-B` 将最终 live gate 收敛为 trusted-main 的 exact-SHA 记录边界。
   - Why: M5-A 的 L3 fixture 与 L4 request/result 尚不能证明 post-merge 的同一 source SHA，也没有把可重用资产与 tag/Release promotion 输入绑定到该 SHA。
   - Impact: `gkd_release` 增加 canonical/redacted L3 forward-eval record、L4 request/observed-check record、无 GitHub 写入面的 trusted-main boundary 和 post-merge promotion provenance；替换 L3/L4/asset source SHA 均 fail-closed。当前仅以 deterministic fake-GitHub 合同验证，真实 L3/L4、accept、merge、tag 和 Release 仍由后续 trusted main 负责。
+- [2026-08-22] M5 final live gate and promotion completed.
+  - Why: M5-C corrected the cross-repository identity error by keeping GKD release source SHA and sandbox PR head SHA distinct, validating canonical `canary.json` at the fixed sandbox head, and requiring an eval-only redacted L3 record.
+  - Impact: M5-C PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a` merged as `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`; 412/412 verifier and fixed-head CI passed. Trusted main observed sandbox PR #2 head `98f31a24739418b4855870ec848c269208b760d8` with `GKD Canary` success, generated final record `0ecb8a607d4f2f460e12237a1c3ec7a17f2ef8a2c3b6ed47e83e0ee6baadf807`, and created tag/release `v0.1.0` targeting the exact merge SHA. No production Codex or AIO changes were made.
