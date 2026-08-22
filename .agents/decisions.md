@@ -383,3 +383,7 @@
 - [2026-08-23] R2 release closeout 已完成。
   - Why: 发布后的事实已写入 main；继续保留 candidate worktree、task branches、sandbox canary branches 或临时 artifact 根会制造过期的可写事实面。
   - Impact: R1/R2 本地和远端 task branches、两份 candidate worktree、sandbox PR #2-#5 的 canary branches 及 release 临时根均已删除；GitHub PR 历史、`v0.1.0`、`v0.1.1`、`v0.1.2` tag/Release 与 main records 保留。下一步只能从已发布 `v0.1.2` asset restage。
+
+- [2026-08-23] 已发布 `v0.1.2` 完成 isolated project restage。
+  - Why: 原 project inventory 仍绑定更早的 `6dd423...` execution bundle，不能用于新 release 的任何 route 或 AIO 接入前置事实。
+  - Impact: 已发布 asset 先在隔离临时根 verify，再按旧 inventory 的 preimage 移除 project-local managed files，随后 stage/verify `83b006...`。新 inventory digest 为 `a8bcf31c37e1aea3271bf19561644b90ae739ce2999fa5641beb914edafbd1e1`；production/AIO 未写入。
