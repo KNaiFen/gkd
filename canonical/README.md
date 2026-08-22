@@ -2,7 +2,7 @@
 
 `canonical/` is the only bundle source root. `source.toml` is the reviewed
 developer declaration; `manifest.json` and `manifest.lock.json` are generated
-outputs and must never be edited by hand. The current `0.1.0` bundle is a stable
+outputs and must never be edited by hand. The current `0.1.1` bundle is a stable
 release candidate whose exact source, bundle, evidence, assets, and provenance
 remain bound until trusted-main promotion.
 
@@ -26,6 +26,16 @@ The bootstrap installer has no production or user-home mode. Installation
 requires an explicit existing system-temporary root and an explicit existing
 target beneath it. The installed read-only `verify` and `version` surfaces are
 foundation contracts, not a production doctor.
+
+The separate `gkd-role production-migration-*` commands are the only explicit
+production-home migration surface. They stage the bounded GKD roles, Skills and
+managed config block, preserve a private path-relative recovery record until
+terminal verification, and expose plan, apply, doctor, rollback and recovery
+results without configuration contents or an absolute home path. The older
+temporary `migration-*` commands remain production-forbidden.
+Its doctor certifies only that bounded transaction and explicitly reports
+`globalAgentsPolicy: outside_scope`; it neither reads, writes, nor certifies
+the user-specific global `AGENTS.md` policy reserved for P2.
 
 Evidence output must resolve outside the source, temporary installation and
 protected roots. Temporary installs are fully removed before the final

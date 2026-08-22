@@ -122,7 +122,7 @@ def validate_traceability(value: Any) -> None:
 
 def build_release_candidate(value: dict[str, Any]) -> dict[str, Any]:
     require_keys(value, {"version", "sourceSha", "bundleDigest", "evidenceDigest", "traceability", "layers", "sandboxRepository"}, "INVALID_RELEASE_CANDIDATE")
-    if value["version"] != "0.1.0" or not isinstance(value["sandboxRepository"], str) or not re.fullmatch(r"github\.com/[A-Za-z0-9_.-]+/gkd-sandbox", value["sandboxRepository"]):
+    if value["version"] != "0.1.1" or not isinstance(value["sandboxRepository"], str) or not re.fullmatch(r"github\.com/[A-Za-z0-9_.-]+/gkd-sandbox", value["sandboxRepository"]):
         raise TaskError("INVALID_RELEASE_CANDIDATE")
     require_sha1(value["sourceSha"], "INVALID_RELEASE_CANDIDATE")
     for key in ("bundleDigest", "evidenceDigest"):
@@ -144,7 +144,7 @@ def promotion_request(record: dict[str, Any]) -> dict[str, Any]:
     rebuilt = build_release_candidate({key: record[key] for key in ("version", "sourceSha", "bundleDigest", "evidenceDigest", "traceability", "layers", "sandboxRepository")})
     if rebuilt != record:
         raise TaskError("RELEASE_RECORD_TAMPERED")
-    return {"tagName": "v0.1.0", "targetSha": record["sourceSha"], "bundleDigest": record["bundleDigest"], "provenanceDigest": digest_object(record["provenance"])}
+    return {"tagName": "v0.1.1", "targetSha": record["sourceSha"], "bundleDigest": record["bundleDigest"], "provenanceDigest": digest_object(record["provenance"])}
 
 
 def _assets(value: Any, source_sha: str, bundle_digest: str) -> list[dict[str, Any]]:

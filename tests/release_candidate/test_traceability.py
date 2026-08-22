@@ -43,7 +43,7 @@ class ReleaseCandidateContracts(unittest.TestCase):
                     self.assertIn(identifier, available)
 
     def test_exact_sha_sandbox_and_provenance_bind_promotion(self) -> None:
-        record = build_release_candidate({"version":"0.1.0","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"})
+        record = build_release_candidate({"version":"0.1.1","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"})
         self.assertEqual(promotion_request(record)["targetSha"], "a" * 40)
         record["bundleDigest"] = "d" * 64
         with self.assertRaisesRegex(TaskError, "RELEASE_RECORD_TAMPERED"):
