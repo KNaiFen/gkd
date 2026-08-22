@@ -355,3 +355,7 @@
 - [2026-08-22] `GKD-P2` 采用用户级 global `AGENTS.md` 的逐非空行无损压缩。
   - Why: 当前实际 preimage 的 SHA-256 为 `aa86b3d6f69fb089370a2b36ced910632c37aec827c7b52e129db78ce67a582e`，不含 legacy CI reviewer、GKD role 或生产调用提示词；因此最小且可证明的压缩是按原顺序逐字保留全部非空规则行，只移除冗余空行。
   - Impact: P2 由 trusted main 直接执行，不进入 portable bundle 或 executor worktree。实际 preimage 将写入 machine-local private recovery surface，并在原子替换后以“postimage 等于 preimage 的有序非空行序列”验证；任何 drift、symlink 或现有 recovery 均 fail-closed。
+
+- [2026-08-22] `GKD-P2` global policy migration 已通过 trusted-main acceptance。
+  - Why: 常规 target、preimage、empty recovery、private backup/stage、canonical recovery record和原子替换均按计划验证；postimage 的 86 行等于 preimage 的有序非空行序列，规则文字没有被改写。
+  - Impact: postimage SHA-256 为 `164475eb136a84161c55eda5bb4f6bff7c7832a63e42d7b238cdbec81135da77`，private recovery record digest 为 `798061a57598dc92d1f55e94812d0fc7dc257d28ed5b33997bd1bc55632351ff`，backup 仅留在 machine-local restricted surface。P1 production migration 和 AIO 均未执行，下一步可使用已发布 `v0.1.1` 的 production interface。
