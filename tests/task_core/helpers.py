@@ -74,7 +74,7 @@ def planning_documents(material_overrides: dict[str, str] | None = None, notes: 
 
 
 class TaskRepo:
-    def __init__(self, identity: str = "example.test/team/repository", base_branch: str = "trunk") -> None:
+    def __init__(self, identity: str = "github.com/team/repository", base_branch: str = "trunk") -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="gkd-task-contract-")
         self.root = Path(self.temporary.name)
         self.origin = self.root / "origin.git"
@@ -83,6 +83,8 @@ class TaskRepo:
         self.package = self.root / "package"
         self.runtime_root = self.root / "runtime"
         self.runtime_root.mkdir()
+        self.production = self.root / "production-codex"
+        self.production.mkdir()
         self.task_id = "TASK-ALPHA"
         self.task_path = "tasks/task-alpha"
         self.task_branch = "task/task-alpha"
@@ -93,11 +95,30 @@ class TaskRepo:
         run("git", "config", "user.name", "Fixture", cwd=self.main)
         run("git", "config", "user.email", "fixture@example.test", cwd=self.main)
         run("git", "config", "remote.origin.gkdIdentity", identity, cwd=self.main)
+        (self.main / ".git" / "info" / "exclude").write_text(
+            ".codex/\n.agents/\n.gkd/runtime-project.json\n",
+            encoding="utf-8",
+        )
         (self.main / "README.md").write_text("fixture\n", encoding="utf-8")
-        run("git", "add", "README.md", cwd=self.main)
+        (self.main / ".gkd").mkdir()
+        (self.main / ".gkd" / "policy.json").write_bytes(
+            canonical_bytes(
+                {
+                    "schemaVersion": 1,
+                    "provider": "github",
+                    "repository": identity,
+                    "baseBranch": base_branch,
+                    "requiredChecks": ["contract"],
+                }
+            )
+        )
+        run("git", "add", "README.md", ".gkd/policy.json", cwd=self.main)
         run("git", "commit", "-m", "base", cwd=self.main)
         run("git", "push", "-u", "origin", base_branch, cwd=self.main)
         self.base_sha = run("git", "rev-parse", "HEAD", cwd=self.main)
+        github_remote = f"https://{identity}.git"
+        run("git", "remote", "set-url", "origin", github_remote, cwd=self.main)
+        run("git", "config", "--local", f"url.file://{self.origin}.insteadOf", github_remote, cwd=self.main)
         self.write_package(planning_documents())
         bootstrap_task(
             self.main,

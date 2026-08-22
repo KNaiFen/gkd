@@ -1,5 +1,5 @@
 {
-  "$id": "gkd://schema/task/runtime-v2",
+  "$id": "gkd://schema/task/runtime-v3",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "oneOf": [
     {"$ref": "#/$defs/attachment"},
@@ -7,6 +7,7 @@
     {"$ref": "#/$defs/envelope"},
     {"$ref": "#/$defs/envelopeV2"},
     {"$ref": "#/$defs/envelopeV3"},
+    {"$ref": "#/$defs/envelopeV4"},
     {"$ref": "#/$defs/claimReceipt"},
     {"$ref": "#/$defs/activation"},
     {"$ref": "#/$defs/activationReceipt"},
@@ -27,6 +28,19 @@
         "waitGateReady": {"const": true}
       },
       "required": ["activationProviderReady", "bundleFixed", "offerClaimReady", "roleAvailable", "roleConfigFixed", "waitGateReady"]
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {"const": ".gkd/policy.json"},
+        "digest": {"$ref": "#/$defs/sha256"},
+        "provider": {"const": "github"},
+        "repository": {"type": "string"},
+        "baseBranch": {"type": "string"},
+        "requiredChecks": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      },
+      "required": ["path", "digest", "provider", "repository", "baseBranch", "requiredChecks"]
     },
     "attachment": {
       "type": "object",
@@ -91,6 +105,23 @@
             "hostContract": {"const": "host-spawn-acknowledgement-v1"}
           },
           "required": ["roleName", "bundleDigest", "routeDecisionDigest", "routeGates"]
+        }
+      ]
+    },
+    "envelopeV4": {
+      "type": "object", "unevaluatedProperties": false,
+      "allOf": [
+        {"$ref": "#/$defs/envelopeBase"},
+        {
+          "properties": {
+            "route": {"const": "automatic"}, "roleName": {"const": "gkd_executor"},
+            "bundleDigest": {"$ref": "#/$defs/sha256"},
+            "routeDecisionDigest": {"$ref": "#/$defs/sha256"},
+            "routeGates": {"$ref": "#/$defs/gates"},
+            "projectPolicy": {"$ref": "#/$defs/policy"},
+            "hostContract": {"const": "host-spawn-acknowledgement-v1"}
+          },
+          "required": ["roleName", "bundleDigest", "routeDecisionDigest", "routeGates", "projectPolicy"]
         }
       ]
     },

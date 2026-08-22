@@ -91,8 +91,8 @@ class PackagingContracts(unittest.TestCase):
 
     def test_legacy_offer_and_envelope_validators_remain_readable(self) -> None:
         offer_schema = json.loads((BUNDLE_ROOT / "schema" / "task" / "offer.schema.json").read_text(encoding="utf-8"))
-        self.assertEqual({"v1", "v2", "v3", "base", "sha1", "sha256", "gates"}, set(offer_schema["$defs"]))
-        self.assertEqual(3, len(offer_schema["oneOf"]))
+        self.assertEqual({"v1", "v2", "v3", "v4", "base", "sha1", "sha256", "gates", "policy"}, set(offer_schema["$defs"]))
+        self.assertEqual(4, len(offer_schema["oneOf"]))
 
 
 if __name__ == "__main__":

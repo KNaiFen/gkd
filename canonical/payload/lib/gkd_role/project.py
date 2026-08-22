@@ -12,8 +12,10 @@ import tomllib
 from typing import Any
 
 from gkd_bundle import BundleError, verify_bundle_root
+from gkd_ci.policy import load_policy_binding, validate_policy_binding
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
+from gkd_task.gitops import branch, repository_identity
 from .roles import load_role_source, role_catalog, role_files, role_record
 
 
@@ -136,7 +138,19 @@ def _skill_files(bundle_root: Path, skill: str, target_root: Path) -> dict[str, 
     return result
 
 
-def _desired_files(bundle_root: Path, bundle_digest: str) -> tuple[dict[str, tuple[bytes, int]], dict[str, Any]]:
+def _project_policy(project: Path) -> dict[str, Any]:
+    repository = repository_identity(project)
+    policy = load_policy_binding(project, repository)
+    if branch(project) != policy["baseBranch"]:
+        raise TaskError("PROJECT_POLICY_BRANCH_MISMATCH")
+    return policy
+
+
+def _desired_files(
+    bundle_root: Path,
+    bundle_digest: str,
+    policy: dict[str, Any],
+) -> tuple[dict[str, tuple[bytes, int]], dict[str, Any]]:
     root = bundle_root.resolve()
     try:
         verified = verify_bundle_root(root)
@@ -144,6 +158,7 @@ def _desired_files(bundle_root: Path, bundle_digest: str) -> tuple[dict[str, tup
         raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
     if verified["contentDigest"] != bundle_digest:
         raise TaskError("BUNDLE_DIGEST_MISMATCH")
+    validate_policy_binding(policy)
     source, _ = load_role_source(root)
     catalog = role_catalog(root, bundle_digest)
     definition = next(item for item in source["roles"] if item["name"] == "gkd_executor")
@@ -171,13 +186,14 @@ def _desired_files(bundle_root: Path, bundle_digest: str) -> tuple[dict[str, tup
         "configDigest": role["configDigest"],
         "projectConfigDigest": sha256_bytes(config),
         "skillDigests": {name: catalog["skillDigests"][name] for name in sorted(expected_skills)},
+        "policy": deepcopy(policy),
     }
     return files, facts
 
 
 def _inventory(files: dict[str, tuple[bytes, int]], facts: dict[str, Any]) -> dict[str, Any]:
     value = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "kind": "gkd-project-runtime",
         **facts,
         "files": [
@@ -196,15 +212,14 @@ def _inventory(files: dict[str, tuple[bytes, int]], facts: dict[str, Any]) -> di
 
 
 def _validate_inventory(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {
-            "schemaVersion", "kind", "executionBundleDigest", "roleName", "roleDigest",
-            "configDigest", "projectConfigDigest", "skillDigests", "files", "launch", "inventoryDigest",
-        },
-        "INVALID_PROJECT_INVENTORY",
-    )
-    if value["schemaVersion"] != 1 or value["kind"] != "gkd-project-runtime" or value["roleName"] != "gkd_executor":
+    keys = {
+        "schemaVersion", "kind", "executionBundleDigest", "roleName", "roleDigest",
+        "configDigest", "projectConfigDigest", "skillDigests", "files", "launch", "inventoryDigest",
+    }
+    if value.get("schemaVersion") == 2:
+        keys.add("policy")
+    require_keys(value, keys, "INVALID_PROJECT_INVENTORY")
+    if value["schemaVersion"] not in {1, 2} or value["kind"] != "gkd-project-runtime" or value["roleName"] != "gkd_executor":
         raise TaskError("INVALID_PROJECT_INVENTORY")
     for field in ("executionBundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "inventoryDigest"):
         require_sha256(value[field], "INVALID_PROJECT_INVENTORY")
@@ -214,6 +229,8 @@ def _validate_inventory(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_PROJECT_INVENTORY")
     for digest in value["skillDigests"].values():
         require_sha256(digest, "INVALID_PROJECT_INVENTORY")
+    if value["schemaVersion"] == 2:
+        validate_policy_binding(value["policy"])
     if not isinstance(value["files"], list) or not value["files"]:
         raise TaskError("INVALID_PROJECT_INVENTORY")
     paths = []
@@ -265,7 +282,7 @@ def _managed_files(project: Path) -> set[str]:
 
 
 def _result(status: str, inventory: dict[str, Any]) -> dict[str, Any]:
-    return {
+    result = {
         "status": status,
         "executionBundleDigest": inventory["executionBundleDigest"],
         "roleName": inventory["roleName"],
@@ -276,11 +293,14 @@ def _result(status: str, inventory: dict[str, Any]) -> dict[str, Any]:
         "inventoryDigest": inventory["inventoryDigest"],
         "launch": inventory["launch"],
     }
+    if inventory.get("policy") is not None:
+        result["policy"] = inventory["policy"]
+    return result
 
 
 def verify_project(bundle_root: Path, bundle_digest: str, project_root: Path, production_root: Path) -> dict[str, Any]:
     source, project = _validate_boundaries(bundle_root, project_root, production_root)
-    files, facts = _desired_files(source, bundle_digest)
+    files, facts = _desired_files(source, bundle_digest, _project_policy(project))
     _reject_symlink_chains(project, (*files, PROJECT_INVENTORY))
     inventory = read_canonical_json(project / PROJECT_INVENTORY, "INVALID_PROJECT_INVENTORY", _validate_inventory)
     expected = _inventory(files, facts)
@@ -308,7 +328,7 @@ def stage_project(
     failure_hook: Any | None = None,
 ) -> dict[str, Any]:
     source, project = _validate_boundaries(bundle_root, project_root, production_root)
-    files, facts = _desired_files(source, bundle_digest)
+    files, facts = _desired_files(source, bundle_digest, _project_policy(project))
     _reject_symlink_chains(project, (*files, PROJECT_INVENTORY))
     inventory_path = project / PROJECT_INVENTORY
     if inventory_path.exists() or inventory_path.is_symlink():

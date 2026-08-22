@@ -9,7 +9,9 @@ import sys
 import tempfile
 import unittest
 
+import gkd_bundle
 from gkd_role.project import remove_project, stage_project, verify_project
+from gkd_task.canonical import canonical_bytes
 from gkd_task.errors import TaskError
 from tests.runtime_bridge.helpers import BUNDLE_ROOT, bundle_digest, init_repo, run
 
@@ -43,6 +45,10 @@ class ProjectStagingContracts(unittest.TestCase):
         )
         self.assertTrue((first / ".codex" / "agents" / "gkd_executor.toml").is_file())
         self.assertTrue((first / ".agents" / "skills" / "gkd-main" / "SKILL.md").is_file())
+        self.assertEqual(
+            json.loads((first / ".gkd" / "policy.json").read_text(encoding="utf-8"))["repository"],
+            one["policy"]["repository"],
+        )
         for name in ("gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"):
             self.assertTrue((first / ".codex" / "skills" / name / "SKILL.md").is_file())
         self.assertEqual(before, run("git", "status", "--porcelain=v1", cwd=candidate))
@@ -66,6 +72,24 @@ class ProjectStagingContracts(unittest.TestCase):
         role_file.chmod(0o644)
         self.assertEqual("removed", remove_project(first, self.production)["status"])
         self.assertFalse((first / ".gkd" / "runtime-project.json").exists())
+
+    def test_policy_is_required_and_staged_inventory_rejects_live_drift(self) -> None:
+        missing = self._project("missing-policy")
+        (missing / ".gkd" / "policy.json").unlink()
+        with self.assertRaises(TaskError) as raised:
+            stage_project(BUNDLE_ROOT, bundle_digest(), missing, self.production)
+        self.assertEqual("POLICY_INVALID", raised.exception.code)
+        self.assertFalse((missing / ".gkd" / "runtime-project.json").exists())
+
+        project = self._project("policy-drift")
+        stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production)
+        policy_path = project / ".gkd" / "policy.json"
+        policy = json.loads(policy_path.read_bytes())
+        policy["requiredChecks"] = ["alternate-contract"]
+        policy_path.write_bytes(canonical_bytes(policy))
+        with self.assertRaises(TaskError) as raised:
+            verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production)
+        self.assertEqual("PROJECT_STAGE_DRIFT", raised.exception.code)
 
     def test_boundary_conflicts_fail_before_mutation(self) -> None:
         non_git = self.root / "not-git"
@@ -96,7 +120,7 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
         self.assertFalse((project / ".codex").exists())
         self.assertFalse((project / ".agents").exists())
-        self.assertFalse((project / ".gkd").exists())
+        self.assertFalse((project / ".gkd" / "runtime-project.json").exists())
 
         project_parent = self.root / "project-parent"
         project_parent.mkdir()
@@ -107,7 +131,7 @@ class ProjectStagingContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             stage_project(BUNDLE_ROOT, bundle_digest(), project_alias / "project", self.production)
         self.assertEqual("PROJECT_ROOT_SYMLINK", raised.exception.code)
-        self.assertFalse((ancestor_project / ".gkd").exists())
+        self.assertFalse((ancestor_project / ".gkd" / "runtime-project.json").exists())
 
         source_parent = self.root / "source-parent"
         source_parent.mkdir()
@@ -119,7 +143,7 @@ class ProjectStagingContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             stage_project(source_alias / "canonical" / "payload", bundle_digest(), bundle_target, self.production)
         self.assertEqual("PROJECT_SOURCE_SYMLINK", raised.exception.code)
-        self.assertFalse((bundle_target / ".gkd").exists())
+        self.assertFalse((bundle_target / ".gkd" / "runtime-project.json").exists())
 
     def test_source_declaration_symlink_fails_before_project_write(self) -> None:
         copied_source = self.root / "source-toml-symlink"
@@ -135,7 +159,7 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual("BUNDLE_CONTENT_MISMATCH", raised.exception.code)
         self.assertFalse((project / ".codex").exists())
         self.assertFalse((project / ".agents").exists())
-        self.assertFalse((project / ".gkd").exists())
+        self.assertFalse((project / ".gkd" / "runtime-project.json").exists())
 
     def test_supported_python_does_not_create_bundle_bytecode_before_staging(self) -> None:
         copied_source = self.root / "default-python-canonical"
@@ -178,6 +202,72 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual(0, staged.returncode, staged.stderr)
         self.assertEqual([], list((copied_source / "payload").rglob("*.pyc")))
         self.assertEqual([], list((copied_source / "payload").rglob("__pycache__")))
+
+    def test_installed_bridge_prepare_preserves_verified_inventory(self) -> None:
+        temporary_root = self.root / "installed-bridge-root"
+        target = temporary_root / "target"
+        temporary_root.mkdir()
+        target.mkdir()
+        installed = gkd_bundle.install(Path("canonical"), temporary_root, target)
+        code = """
+import sys
+from pathlib import Path
+import gkd_role
+from gkd_role.bridge import TrustedMainRuntimeBridge
+from gkd_role.project import stage_project
+from gkd_role.routing import decide_route
+from gkd_task.canonical import FixedClock, FixedNonce
+from gkd_task.runtime import RuntimeStore
+from tests.task_core.helpers import FIXED_TIME, FUTURE_TIME, TaskRepo
+
+bundle = Path(sys.argv[1])
+digest = sys.argv[2]
+repo = TaskRepo()
+try:
+    repo.ready_and_authorized()
+    stage_project(bundle, digest, repo.main, repo.production)
+    decision = decide_route({
+        "schemaVersion": 2,
+        "requestedRoute": "automatic",
+        "bundleDigest": digest,
+        "projectPolicy": repo.state()["repository"]["policy"],
+        "gates": {
+            "activationProviderReady": True,
+            "bundleFixed": True,
+            "offerClaimReady": True,
+            "roleAvailable": True,
+            "roleConfigFixed": True,
+            "waitGateReady": True,
+        },
+    })
+    bridge = TrustedMainRuntimeBridge(
+        repo.candidate,
+        repo.task_path,
+        RuntimeStore(repo.runtime_root),
+        bundle,
+        digest,
+        FixedClock(FIXED_TIME),
+        FixedNonce(["c" * 48, *[f"installed-bridge-nonce-{index}" for index in range(12)]]),
+    )
+    bridge.prepare(*repo.cas(), decision, FUTURE_TIME, repo.main, repo.production)
+finally:
+    repo.close()
+"""
+        environment = dict(os.environ)
+        environment.pop("PYTHONDONTWRITEBYTECODE", None)
+        environment["PYTHONPATH"] = os.pathsep.join((str(target / "gkd" / "lib"), str(Path.cwd())))
+        prepared = subprocess.run(
+            [sys.executable, "-B", "-c", code, str(target / "gkd"), installed["contentDigest"]],
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(0, prepared.returncode, prepared.stderr)
+        self.assertEqual(installed["contentDigest"], gkd_bundle.verify(temporary_root, target)["contentDigest"])
+        self.assertEqual([], list((target / "gkd").rglob("*.pyc")))
+        self.assertEqual([], list((target / "gkd").rglob("__pycache__")))
 
     def test_symlink_traversal_overlap_and_bundle_drift_fail_closed(self) -> None:
         project = self._project("project")
@@ -226,7 +316,7 @@ class ProjectStagingContracts(unittest.TestCase):
         with self.assertRaises(TaskError) as raised:
             stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production, fail_after_second)
         self.assertEqual("PROJECT_STAGE_FAILED", raised.exception.code)
-        self.assertEqual(["README.md"], sorted(path.name for path in project.iterdir() if path.name != ".git"))
+        self.assertEqual([".gkd", "README.md"], sorted(path.name for path in project.iterdir() if path.name != ".git"))
 
     def test_project_remove_retries_after_managed_file_was_deleted(self) -> None:
         project = self._project("remove-retry")

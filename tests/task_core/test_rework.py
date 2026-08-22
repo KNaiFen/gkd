@@ -9,6 +9,7 @@ import threading
 import unittest
 
 from gkd_role.bridge import TrustedMainRuntimeBridge
+from gkd_role.project import stage_project
 from gkd_task.acceptance import accept_candidate, make_review, rework_candidate, validate_review
 from gkd_task.canonical import FixedClock, FixedNonce, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
@@ -60,6 +61,7 @@ class ReworkContracts(unittest.TestCase):
     def _automatic_delivery(self) -> tuple[dict[str, object], dict[str, object], str]:
         self.repo.ready_and_authorized()
         digest = bundle_digest()
+        stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)
         bridge = TrustedMainRuntimeBridge(
             self.repo.candidate,
             self.repo.task_path,
@@ -69,7 +71,13 @@ class ReworkContracts(unittest.TestCase):
             FixedClock(FIXED_TIME),
             FixedNonce(["c" * 48, *[f"automatic-nonce-{index}" for index in range(20)]]),
         )
-        prepared = bridge.prepare(*self.repo.cas(), automatic_decision(digest), FUTURE_TIME)
+        prepared = bridge.prepare(
+            *self.repo.cas(),
+            automatic_decision(digest, self.repo.state()["repository"]["policy"]),
+            FUTURE_TIME,
+            self.repo.main,
+            self.repo.production,
+        )
         claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "automatic-activation")
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME))
         self.repo.deliver(service, claimed["claimId"], OUTPUT_BUNDLE_DIGEST)
@@ -78,7 +86,7 @@ class ReworkContracts(unittest.TestCase):
     def test_rework_preserves_exact_attempt_and_only_commits_coordination_files(self) -> None:
         service, candidate_head = self.repo.delivered()
         before = self.repo.state()
-        self.assertEqual(1, before["schemaVersion"])
+        self.assertEqual(3, before["schemaVersion"])
         authorization = (self.repo.task_root / "authorization.json").read_bytes()
         documents = {name: (self.repo.task_root / name).read_bytes() for name in ("requirements.md", "plan.md", "implementation.md")}
         main_head = run("git", "rev-parse", "HEAD", cwd=self.repo.main)
@@ -88,7 +96,7 @@ class ReworkContracts(unittest.TestCase):
         state = self.repo.state()
         attempt = state["lifecycle"]["rejectedAttempts"][0]
         self.assertEqual("reworked", result["status"])
-        self.assertEqual(2, state["schemaVersion"])
+        self.assertEqual(4, state["schemaVersion"])
         self.assertEqual("planning", state["lifecycle"]["phase"])
         self.assertEqual(before["lifecycle"]["epoch"] + 1, state["lifecycle"]["epoch"])
         self.assertEqual(before["lifecycle"]["claim"], attempt["claim"])
@@ -161,7 +169,14 @@ class ReworkContracts(unittest.TestCase):
             FixedClock(FIXED_TIME),
             FixedNonce(["e" * 48, *[f"repair-nonce-{index}" for index in range(20)]]),
         )
-        prepared = bridge.prepare(*self.repo.cas(), automatic_decision(digest), FUTURE_TIME)
+        stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)
+        prepared = bridge.prepare(
+            *self.repo.cas(),
+            automatic_decision(digest, self.repo.state()["repository"]["policy"]),
+            FUTURE_TIME,
+            self.repo.main,
+            self.repo.production,
+        )
         claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "repair-activation")
         self.assertNotEqual(old_state["lifecycle"]["offer"]["offerId"], claimed["offerId"])
         self.assertNotEqual(old_state["lifecycle"]["claim"]["claimId"], claimed["claimId"])

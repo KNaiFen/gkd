@@ -7,9 +7,10 @@ import subprocess
 import sys
 
 from gkd_role.bridge import TrustedMainRuntimeBridge
+from gkd_role.project import stage_project
 from gkd_role.roles import role_catalog
 from gkd_role.routing import decide_route
-from gkd_task.canonical import FixedClock, FixedNonce
+from gkd_task.canonical import FixedClock, FixedNonce, canonical_bytes
 from gkd_task.runtime import RuntimeStore
 from tests.task_core.helpers import FIXED_TIME, FUTURE_TIME, TaskRepo
 
@@ -32,20 +33,35 @@ def init_repo(root: Path) -> None:
     run("git", "config", "user.name", "Fixture", cwd=root)
     run("git", "config", "user.email", "fixture@example.test", cwd=root)
     (root / "README.md").write_text("fixture\n", encoding="utf-8")
-    run("git", "add", "README.md", cwd=root)
+    (root / ".gkd").mkdir()
+    (root / ".gkd" / "policy.json").write_bytes(
+        canonical_bytes(
+            {
+                "schemaVersion": 1,
+                "provider": "github",
+                "repository": "github.com/team/repository",
+                "baseBranch": "main",
+                "requiredChecks": ["contract"],
+            }
+        )
+    )
+    run("git", "add", "README.md", ".gkd/policy.json", cwd=root)
     run("git", "commit", "-m", "base", cwd=root)
+    run("git", "remote", "add", "origin", "https://github.com/team/repository.git", cwd=root)
+    run("git", "update-ref", "refs/remotes/origin/main", "HEAD", cwd=root)
 
 
 def bundle_digest() -> str:
     return json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))["contentDigest"]
 
 
-def automatic_decision(digest: str | None = None) -> dict[str, object]:
+def automatic_decision(digest: str, project_policy: dict[str, object]) -> dict[str, object]:
     return decide_route(
         {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "requestedRoute": "automatic",
-            "bundleDigest": digest or bundle_digest(),
+            "bundleDigest": digest,
+            "projectPolicy": project_policy,
             "gates": {
                 "activationProviderReady": True,
                 "bundleFixed": True,
@@ -61,6 +77,7 @@ def automatic_decision(digest: str | None = None) -> dict[str, object]:
 def ready_bridge(repo: TaskRepo, bundle_root: Path = BUNDLE_ROOT) -> tuple[TrustedMainRuntimeBridge, dict[str, object]]:
     repo.ready_and_authorized()
     digest = bundle_digest()
+    stage_project(bundle_root, digest, repo.main, repo.production)
     bridge = TrustedMainRuntimeBridge(
         repo.candidate,
         repo.task_path,
@@ -70,7 +87,13 @@ def ready_bridge(repo: TaskRepo, bundle_root: Path = BUNDLE_ROOT) -> tuple[Trust
         FixedClock(FIXED_TIME),
         FixedNonce(["c" * 48, *[f"bridge-nonce-{index}" for index in range(20)]]),
     )
-    prepared = bridge.prepare(*repo.cas(), automatic_decision(digest), FUTURE_TIME)
+    prepared = bridge.prepare(
+        *repo.cas(),
+        automatic_decision(digest, repo.state()["repository"]["policy"]),
+        FUTURE_TIME,
+        repo.main,
+        repo.production,
+    )
     return bridge, prepared
 
 
@@ -79,7 +102,7 @@ def spawn_result(prepared: dict[str, object], **overrides: object) -> dict[str, 
         "schemaVersion": 2,
         "status": "spawned",
         "spawnCount": 1,
-        "taskName": prepared["spawnRequest"]["taskName"],
+        "taskName": f"/root/{prepared['spawnRequest']['taskName']}",
         "agentType": "gkd_executor",
         "forkTurns": "none",
         "fallbackAttempted": False,
