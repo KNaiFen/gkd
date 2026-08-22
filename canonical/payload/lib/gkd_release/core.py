@@ -11,6 +11,7 @@ from gkd_task.errors import TaskError
 
 DECISIONS = tuple(f"GKD-{number:03d}" for number in range(1, 17))
 LAYERS = {"L0", "L1", "L2", "L3", "L4"}
+ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 TRACEABILITY_EVIDENCE = {
     "GKD-001": (
         "tests.role_routing.test_routing_waiting.RoutingContracts.test_explicit_automatic_selects_only_gkd_executor_when_every_gate_is_true",
@@ -144,3 +145,156 @@ def promotion_request(record: dict[str, Any]) -> dict[str, Any]:
     if rebuilt != record:
         raise TaskError("RELEASE_RECORD_TAMPERED")
     return {"tagName": "v0.1.0", "targetSha": record["sourceSha"], "bundleDigest": record["bundleDigest"], "provenanceDigest": digest_object(record["provenance"])}
+
+
+def _assets(value: Any, source_sha: str, bundle_digest: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not value:
+        raise TaskError("POST_MERGE_ASSETS_INVALID")
+    names: list[str] = []
+    for asset in value:
+        if not isinstance(asset, dict):
+            raise TaskError("POST_MERGE_ASSETS_INVALID")
+        require_keys(asset, {"name", "sourceSha", "bundleDigest", "sha256"}, "POST_MERGE_ASSETS_INVALID")
+        if (
+            not isinstance(asset["name"], str)
+            or not ASSET_NAME_RE.fullmatch(asset["name"])
+            or asset["sourceSha"] != source_sha
+            or asset["bundleDigest"] != bundle_digest
+        ):
+            raise TaskError("POST_MERGE_ASSET_PROVENANCE_MISMATCH")
+        require_sha256(asset["sha256"], "POST_MERGE_ASSETS_INVALID")
+        names.append(asset["name"])
+    if names != sorted(set(names)):
+        raise TaskError("POST_MERGE_ASSETS_INVALID")
+    return value
+
+
+def _post_merge_provenance(
+    release_record: dict[str, Any],
+    l3_record: dict[str, Any],
+    l4_request: dict[str, Any],
+    l4_observed_check: dict[str, Any],
+    assets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    result = {
+        "sourceSha": release_record["sourceSha"],
+        "bundleDigest": release_record["bundleDigest"],
+        "evidenceDigest": release_record["evidenceDigest"],
+        "releaseRecordDigest": release_record["recordDigest"],
+        "l3RecordDigest": l3_record["recordDigest"],
+        "l4RequestDigest": l4_request["requestDigest"],
+        "l4ObservedCheckDigest": l4_observed_check["recordDigest"],
+        "assetsDigest": digest_object(assets),
+    }
+    result["provenanceDigest"] = digest_object(result)
+    return result
+
+
+def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
+    """Bind trusted-main L3/L4 observations and promotion assets to one merge SHA."""
+
+    require_keys(
+        value,
+        {
+            "releaseCandidate",
+            "sourceSha",
+            "sandboxRepository",
+            "l3ForwardEval",
+            "l4CanaryRequest",
+            "l4ObservedCheck",
+            "assets",
+        },
+        "POST_MERGE_RELEASE_RECORD_INVALID",
+    )
+    source_sha = value["sourceSha"]
+    require_sha1(source_sha, "POST_MERGE_RELEASE_RECORD_INVALID")
+    release_record = value["releaseCandidate"]
+    if not isinstance(release_record, dict):
+        raise TaskError("POST_MERGE_RELEASE_RECORD_INVALID")
+    promotion_request(release_record)
+    if release_record["sourceSha"] != source_sha:
+        raise TaskError("POST_MERGE_SOURCE_SHA_MISMATCH")
+    sandbox_repository = value["sandboxRepository"]
+    if not isinstance(sandbox_repository, str) or release_record["sandboxRepository"] != sandbox_repository:
+        raise TaskError("POST_MERGE_SANDBOX_MISMATCH")
+
+    from .verification import (
+        validate_l3_forward_eval_record,
+        validate_post_merge_l4_canary_request,
+        validate_post_merge_l4_observed_check,
+    )
+
+    l3_record = validate_l3_forward_eval_record(value["l3ForwardEval"], source_sha)
+    l4_request = validate_post_merge_l4_canary_request(
+        value["l4CanaryRequest"], source_sha, sandbox_repository
+    )
+    l4_observed_check = validate_post_merge_l4_observed_check(l4_request, value["l4ObservedCheck"])
+    assets = _assets(value["assets"], source_sha, release_record["bundleDigest"])
+    provenance = _post_merge_provenance(
+        release_record, l3_record, l4_request, l4_observed_check, assets
+    )
+    result = {
+        "schemaVersion": 1,
+        "releaseCandidate": release_record,
+        "finalGate": {
+            "sourceSha": source_sha,
+            "sandboxRepository": sandbox_repository,
+            "l3ForwardEval": l3_record,
+            "l4CanaryRequest": l4_request,
+            "l4ObservedCheck": l4_observed_check,
+        },
+        "assets": assets,
+        "provenance": provenance,
+    }
+    result["recordDigest"] = digest_object(result)
+    return result
+
+
+def validate_post_merge_release_record(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise TaskError("POST_MERGE_RELEASE_RECORD_INVALID")
+    require_keys(
+        value,
+        {"schemaVersion", "releaseCandidate", "finalGate", "assets", "provenance", "recordDigest"},
+        "POST_MERGE_RELEASE_RECORD_INVALID",
+    )
+    if value["schemaVersion"] != 1 or not isinstance(value["finalGate"], dict):
+        raise TaskError("POST_MERGE_RELEASE_RECORD_INVALID")
+    require_keys(
+        value["finalGate"],
+        {"sourceSha", "sandboxRepository", "l3ForwardEval", "l4CanaryRequest", "l4ObservedCheck"},
+        "POST_MERGE_RELEASE_RECORD_INVALID",
+    )
+    unsigned = dict(value)
+    actual = unsigned.pop("recordDigest")
+    if not isinstance(actual, str) or actual != digest_object(unsigned):
+        raise TaskError("POST_MERGE_RELEASE_RECORD_TAMPERED")
+    rebuilt = build_post_merge_release_record(
+        {
+            "releaseCandidate": value["releaseCandidate"],
+            "sourceSha": value["finalGate"]["sourceSha"],
+            "sandboxRepository": value["finalGate"]["sandboxRepository"],
+            "l3ForwardEval": value["finalGate"]["l3ForwardEval"],
+            "l4CanaryRequest": value["finalGate"]["l4CanaryRequest"],
+            "l4ObservedCheck": value["finalGate"]["l4ObservedCheck"],
+            "assets": value["assets"],
+        }
+    )
+    if rebuilt != value:
+        raise TaskError("POST_MERGE_PROVENANCE_MISMATCH")
+    return value
+
+
+def post_merge_promotion_request(record: dict[str, Any]) -> dict[str, Any]:
+    """Return tag, Release, and prebuilt-asset inputs without issuing a write."""
+
+    validated = validate_post_merge_release_record(record)
+    source_sha = validated["finalGate"]["sourceSha"]
+    return {
+        "tagName": f"v{validated['releaseCandidate']['version']}",
+        "targetSha": source_sha,
+        "releaseSha": source_sha,
+        "assets": validated["assets"],
+        "assetsDigest": digest_object(validated["assets"]),
+        "provenanceDigest": validated["provenance"]["provenanceDigest"],
+    }

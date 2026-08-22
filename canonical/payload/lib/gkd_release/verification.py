@@ -157,6 +157,45 @@ def validate_forward_eval_trace(value: Any, expected_source_sha: str | None = No
     return value
 
 
+def build_l3_forward_eval_record(trace: Any, expected_source_sha: str) -> dict[str, Any]:
+    """Canonicalize the redacted L3 facts observed by trusted main after merge."""
+
+    trace = validate_forward_eval_trace(trace, expected_source_sha)
+    record = {
+        "schemaVersion": 1,
+        "sourceSha": expected_source_sha,
+        "trace": trace,
+        "traceDigest": digest_object(trace),
+    }
+    record["recordDigest"] = digest_object(record)
+    return record
+
+
+def validate_l3_forward_eval_record(
+    value: Any, expected_source_sha: str | None = None
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise TaskError("L3_RECORD_INVALID")
+    require_keys(
+        value,
+        {"schemaVersion", "sourceSha", "trace", "traceDigest", "recordDigest"},
+        "L3_RECORD_INVALID",
+    )
+    if value["schemaVersion"] != 1:
+        raise TaskError("L3_RECORD_INVALID")
+    require_sha1(value["sourceSha"], "L3_RECORD_INVALID")
+    if expected_source_sha is not None and value["sourceSha"] != expected_source_sha:
+        raise TaskError("L3_SOURCE_SHA_MISMATCH")
+    trace = validate_forward_eval_trace(value["trace"], value["sourceSha"])
+    if value["traceDigest"] != digest_object(trace):
+        raise TaskError("L3_RECORD_TAMPERED")
+    unsigned = dict(value)
+    actual = unsigned.pop("recordDigest")
+    if actual != digest_object(unsigned):
+        raise TaskError("L3_RECORD_TAMPERED")
+    return value
+
+
 def build_l4_canary_request(record: dict[str, Any]) -> dict[str, Any]:
     from .core import promotion_request
 
@@ -200,6 +239,162 @@ def validate_l4_canary_request(value: Any) -> dict[str, Any]:
     if request["branch"] != f"gkd-canary/{request['sourceSha'][:12]}":
         raise TaskError("L4_CANARY_REQUEST_INVALID")
     return value
+
+
+def build_post_merge_l4_canary_request(
+    record: dict[str, Any], expected_source_sha: str, sandbox_repository: str
+) -> dict[str, Any]:
+    """Derive the one sandbox-only L4 request from the immutable merge SHA."""
+
+    request = build_l4_canary_request(record)
+    return validate_post_merge_l4_canary_request(
+        request, expected_source_sha, sandbox_repository
+    )
+
+
+def validate_post_merge_l4_canary_request(
+    value: Any, expected_source_sha: str, sandbox_repository: str
+) -> dict[str, Any]:
+    request = validate_l4_canary_request(value)
+    require_sha1(expected_source_sha, "L4_CANARY_REQUEST_INVALID")
+    if request["sourceSha"] != expected_source_sha:
+        raise TaskError("L4_SOURCE_SHA_MISMATCH")
+    if request["repository"] != sandbox_repository:
+        raise TaskError("L4_SANDBOX_MISMATCH")
+    return request
+
+
+def observe_post_merge_l4_canary(
+    request: dict[str, Any], pull_request: int, github: GitHubClient | None = None
+) -> dict[str, Any]:
+    """Read one exact canary check; this boundary contains no GitHub write operation."""
+
+    validated_request = validate_l4_canary_request(request)
+    if isinstance(pull_request, bool) or not isinstance(pull_request, int) or pull_request < 1:
+        raise TaskError("L4_CANARY_OBSERVATION_INVALID")
+    observation = (github or GitHubClient()).observe(
+        validated_request["repository"],
+        pull_request,
+        validated_request["sourceSha"],
+        (CANARY_CHECK,),
+    )
+    if (
+        observation.repository != validated_request["repository"]
+        or observation.head_sha != validated_request["sourceSha"]
+        or observation.head_branch != validated_request["branch"]
+        or observation.state != "open"
+        or observation.checks != ((CANARY_CHECK, "success"),)
+    ):
+        raise TaskError("L4_CANARY_OBSERVATION_INVALID")
+    result = {
+        "schemaVersion": 1,
+        "sourceSha": validated_request["sourceSha"],
+        "repository": observation.repository,
+        "pullRequest": observation.pull_request,
+        "branch": observation.head_branch,
+        "headSha": observation.head_sha,
+        "requiredCheck": CANARY_CHECK,
+        "outcome": "success",
+        "requestDigest": validated_request["requestDigest"],
+    }
+    result["recordDigest"] = digest_object(result)
+    return result
+
+
+def validate_post_merge_l4_observed_check(
+    request: dict[str, Any], value: Any
+) -> dict[str, Any]:
+    request = validate_l4_canary_request(request)
+    if not isinstance(value, dict):
+        raise TaskError("L4_CANARY_OBSERVATION_INVALID")
+    require_keys(
+        value,
+        {
+            "schemaVersion",
+            "sourceSha",
+            "repository",
+            "pullRequest",
+            "branch",
+            "headSha",
+            "requiredCheck",
+            "outcome",
+            "requestDigest",
+            "recordDigest",
+        },
+        "L4_CANARY_OBSERVATION_INVALID",
+    )
+    if (
+        value["schemaVersion"] != 1
+        or value["sourceSha"] != request["sourceSha"]
+        or value["repository"] != request["repository"]
+        or value["branch"] != request["branch"]
+        or value["headSha"] != request["sourceSha"]
+        or value["requiredCheck"] != CANARY_CHECK
+        or value["outcome"] != "success"
+        or value["requestDigest"] != request["requestDigest"]
+        or isinstance(value["pullRequest"], bool)
+        or not isinstance(value["pullRequest"], int)
+        or value["pullRequest"] < 1
+    ):
+        raise TaskError("L4_CANARY_OBSERVATION_INVALID")
+    unsigned = dict(value)
+    actual = unsigned.pop("recordDigest")
+    if actual != digest_object(unsigned):
+        raise TaskError("L4_CANARY_OBSERVATION_TAMPERED")
+    return value
+
+
+class TrustedMainFinalGate:
+    """Trusted-main boundary for one post-merge gate; it never writes GitHub state."""
+
+    def __init__(self, source_sha: str, sandbox_repository: str) -> None:
+        require_sha1(source_sha, "POST_MERGE_GATE_INVALID")
+        if not isinstance(sandbox_repository, str) or not SANDBOX_REPOSITORY_RE.fullmatch(sandbox_repository):
+            raise TaskError("POST_MERGE_GATE_INVALID")
+        self.source_sha = source_sha
+        self.sandbox_repository = sandbox_repository
+
+    def l3_forward_eval(self, trace: Any) -> dict[str, Any]:
+        return build_l3_forward_eval_record(trace, self.source_sha)
+
+    def l4_canary_request(self, release_record: dict[str, Any]) -> dict[str, Any]:
+        return build_post_merge_l4_canary_request(
+            release_record, self.source_sha, self.sandbox_repository
+        )
+
+    def observe_l4_canary(
+        self,
+        request: dict[str, Any],
+        pull_request: int,
+        github: GitHubClient | None = None,
+    ) -> dict[str, Any]:
+        request = validate_post_merge_l4_canary_request(
+            request, self.source_sha, self.sandbox_repository
+        )
+        observed = observe_post_merge_l4_canary(request, pull_request, github)
+        return validate_post_merge_l4_observed_check(request, observed)
+
+    def release_record(
+        self,
+        release_candidate: dict[str, Any],
+        l3_forward_eval: dict[str, Any],
+        l4_canary_request: dict[str, Any],
+        l4_observed_check: dict[str, Any],
+        assets: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        from .core import build_post_merge_release_record
+
+        return build_post_merge_release_record(
+            {
+                "releaseCandidate": release_candidate,
+                "sourceSha": self.source_sha,
+                "sandboxRepository": self.sandbox_repository,
+                "l3ForwardEval": l3_forward_eval,
+                "l4CanaryRequest": l4_canary_request,
+                "l4ObservedCheck": l4_observed_check,
+                "assets": assets,
+            }
+        )
 
 
 def validate_l4_canary_result(request: dict[str, Any], value: Any) -> dict[str, Any]:

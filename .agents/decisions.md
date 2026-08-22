@@ -324,3 +324,7 @@
 - [2026-08-22] `GKD-M5-A` epoch 5 将 release traceability 返工为可执行分层证据。
   - Why: 首轮候选只验证 16 项矩阵字段齐全，全部条目复用同一测试，不能证明 L1 property、L2 subprocess/fake-GitHub、L3 fresh-agent 或 L4 sandbox canary 的实际合同。
   - Impact: 候选的 `gkd_release` 新增 L1 property evidence、L2 只读 fake-GitHub probe、L3 脱敏 forward-eval trace 与 L4 exact-SHA canary request/result contract。可复用 bundle 只接受 release record 中的 sandbox 身份；本任务将 `github.com/KNaiFen/gkd-sandbox` 作为受测 release input 绑定，避免把仓库专有 identity 写入通用 payload。真实 L3/L4 和 promotion 仍只由 trusted main 在 merge 后执行。
+
+- [2026-08-22] `GKD-M5-B` 将最终 live gate 收敛为 trusted-main 的 exact-SHA 记录边界。
+  - Why: M5-A 的 L3 fixture 与 L4 request/result 尚不能证明 post-merge 的同一 source SHA，也没有把可重用资产与 tag/Release promotion 输入绑定到该 SHA。
+  - Impact: `gkd_release` 增加 canonical/redacted L3 forward-eval record、L4 request/observed-check record、无 GitHub 写入面的 trusted-main boundary 和 post-merge promotion provenance；替换 L3/L4/asset source SHA 均 fail-closed。当前仅以 deterministic fake-GitHub 合同验证，真实 L3/L4、accept、merge、tag 和 Release 仍由后续 trusted main 负责。
