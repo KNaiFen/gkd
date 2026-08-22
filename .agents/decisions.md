@@ -375,3 +375,7 @@
 - [2026-08-23] `GKD-R1` 用 strict stable semantic-version release contract 准备 M2-K 的 `0.1.2` 升级。
   - Why: M2-K 改变了 canonical bundle，但现有 release candidate builder 与 promotion tag 把 `0.1.1` 写死，不能诚实生成后续版本或让消费项目只接入已发布 bundle。
   - Impact: builder 现在只接受 `major.minor.patch`，从验证后的 record 派生 exact tag；L1 同时覆盖 legacy `0.1.1` 与 fresh `0.1.2`。R1 当前仅是候选，tag、Release、production restage 和 AIO 写入仍在 independent acceptance 后的 trusted-main 范围。
+
+- [2026-08-23] `GKD-R2` 将最终 L3 收敛为 trusted-main 可观察的 release evaluation，并发布 `v0.1.2`。
+  - Why: R1 仍要求宿主不能提供的 fresh executor role/child lifecycle/effective runtime 字段；用 schema 形状填充这些字段会把发布建立在伪造事实之上。
+  - Impact: L3 schema v3 只绑定 accepted release candidate 的 source SHA、candidate record digest、traceability digest 与 no-write boundary；legacy L3 形状不再作为新记录入口。PR #26 fixed head `28387943cec3492c86d0f283d6207b008b63db99` 以 squash `dd7ec7a9d0b81acffc2730236a29f8fad128d5a9` 合并；new L3、sandbox PR #5 `GKD Canary`、asset 和 final provenance 全部同 source 绑定后，`v0.1.2` tag/Release 发布。production/AIO 未写入。
