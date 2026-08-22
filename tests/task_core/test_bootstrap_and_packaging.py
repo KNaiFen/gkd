@@ -123,7 +123,7 @@ class PackagingContracts(unittest.TestCase):
         second_verify = gkd_bundle.verify(temporary_root, second)
         self.assertEqual(first_install["contentDigest"], second_install["contentDigest"])
         self.assertEqual(first_verify, second_verify)
-        self.assertEqual("0.1.0", first_install["bundleVersion"])
+        self.assertEqual("0.1.1", first_install["bundleVersion"])
         self.assertGreaterEqual(first_install["files"], 24)
 
     def test_installed_gkd_task_is_executable_and_imports_installed_library(self) -> None:

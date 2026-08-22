@@ -1,7 +1,7 @@
 # Context
 
 - Goal: 建立可版本化、可安装、可专门验证的 GKD canonical distribution source。
-- Active task: M3/M4/M5 已收尾；用户已授权生产安装和 AIO 接入，当前处于生产安装 capability gate。
+- Active task: `GKD-P1` 正在独立 worktree 中实现 production migration capability；候选尚待固定 head delivery 和独立验收，未写入生产目录或 AIO。
 - Current state: M3/M4/M5 已完成。M4 fixed head `2b9dbfe5aa8003926eed2ef89e562e245859cdf0` 由 PR #19 merge 为 `44e413937df8e05045d907af2630185bc4fb9bcc`；M5-A PR #20 fixed head `8d61c478594efd9e03c85be7462a2fd856c7a121` 由 merge `3f0a60feaa724e37163d207678917f140312cfdc` 进入 main；M5-B PR #21 fixed head `20e905f9f93b100c13969da5ec2be3d96e54213a` 由 merge `c1de724d686af291cb1ffcf0a2cb12d6621244c6` 进入 main；M5-C PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a` 由 merge `c14f166e0bee7d036b6e9ab0d5e014c40922fe59` 进入 main。release source/tag target 为 `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`；closeout 后当前 main 与 origin/main 均为 `2d9567ab5865520a2be3611995a0f959d247f6f2`，跟踪面干净。`v0.1.0` 的 `gkd-role migration-plan` 对生产 home 稳定返回 `MIGRATION_PRODUCTION_FORBIDDEN`，因此尚未写入生产目录或 AIO。
 - M5 final: version `0.1.0`, bundle digest `6dd423ab0662ba0563d222cc07f35cfdd508d00fffaa893a9d9355783df2dba9`; final record digest `0ecb8a607d4f2f460e12237a1c3ec7a17f2ef8a2c3b6ed47e83e0ee6baadf807`; L3 digest `c7e72d0fe6a0031248765d516f105018ef0e592fd37a66cd0495c59e2ea305a8`; sandbox PR #2 head `98f31a24739418b4855870ec848c269208b760d8`, L4 digest `8ea764e63c6f97996f2d74d9de5e949b9d52d40d62cd2ebfc3db84016530f0d5`, `GKD Canary` passed. Tag `v0.1.0` and GitHub Release target the exact main merge SHA; asset `gkd-0.1.0-final-c14f166.tar.gz` SHA-256 is `fbbdbc526d699bd4fe3744edb65733ea246dc080046fa05e77c46359ad16ebd1`.
 - Constraints: 完整 GKD 测试只在开发 GKD 或形成 GKD release candidate 时运行；消费项目的普通产品代码和文档变更不运行该测试套件。

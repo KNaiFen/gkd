@@ -335,3 +335,7 @@
 - [2026-08-22] 用户授权生产安装和 AIO 接入，但 `v0.1.0` 的生产迁移门 fail-closed。
   - Why: 用户已明确授权两项后续动作；重新锚定发布、生产目录形态和实际 CLI 后，`gkd-role migration-plan --home-root /Users/knaifen` 返回 `MIGRATION_PRODUCTION_FORBIDDEN`。同一发行物的 bundle installer 也将 home 目标拒绝为临时边界外，故不存在已验证的生产 doctor、原子替换和回滚入口。
   - Impact: 授权不被降格为未授权，但不能被扩大解释为允许绕过既有保护或以未验证脚本覆盖运行中的 Codex 状态。生产安装与 AIO 写入暂停在 capability gate；下一步须先对最小生产迁移实现、测试和新版本发布取得明确范围决定。
+
+- [2026-08-22] `GKD-P1` 将生产迁移限定为声明的 GKD 角色、Skill、配置块和恢复面。
+  - Why: 任务要求在真实 home 中提供可恢复安装，但禁止替换整个 home 或复制无关运行时数据。
+  - Impact: 新接口独立于 temporary `migration-*`，先验证 bundle 与 staged 内容，再保存仅含相对路径和摘要的恢复 preimage；医生、回滚和恢复都拒绝 symlink、损坏或不可证明状态。候选仍不得实际写入生产 home、AIO、tag 或 Release。

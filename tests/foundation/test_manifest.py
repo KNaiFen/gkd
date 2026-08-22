@@ -28,7 +28,7 @@ class ManifestContracts(unittest.TestCase):
         _, validated_manifest, lock = gkd_bundle._validated_source(self.source)
         self.assertEqual(schema["schemaVersion"], 1)
         self.assertEqual(manifest, validated_manifest)
-        self.assertEqual(manifest["bundleVersion"], "0.1.0")
+        self.assertEqual(manifest["bundleVersion"], "0.1.1")
         self.assertEqual(manifest["releaseStatus"], "release-candidate")
         self.assertEqual(
             [item["name"] for item in manifest["components"]],

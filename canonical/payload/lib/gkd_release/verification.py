@@ -41,7 +41,7 @@ def _is_sha256(value: Any) -> bool:
 
 def _release_fixture(traceability: dict[str, Any]) -> dict[str, Any]:
     return {
-        "version": "0.1.0",
+        "version": "0.1.1",
         "sourceSha": "a" * 40,
         "bundleDigest": "b" * 64,
         "evidenceDigest": "c" * 64,

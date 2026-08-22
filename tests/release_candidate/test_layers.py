@@ -48,7 +48,7 @@ SANDBOX_REPOSITORY = "github.com/KNaiFen/gkd-sandbox"
 
 def release_input() -> dict:
     return {
-        "version": "0.1.0",
+        "version": "0.1.1",
         "sourceSha": "a" * 40,
         "bundleDigest": "b" * 64,
         "evidenceDigest": "c" * 64,
@@ -199,7 +199,7 @@ class LayeredVerificationContracts(unittest.TestCase):
                 observed_check = gate.observe_l4_canary(request, 4)
         assets = [
             {
-                "name": "gkd-0.1.0.tar.gz",
+                "name": "gkd-0.1.1.tar.gz",
                 "sourceSha": source_sha,
                 "bundleDigest": candidate["bundleDigest"],
                 "sha256": "f" * 64,

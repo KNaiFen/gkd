@@ -32,7 +32,7 @@ class PackagingContracts(unittest.TestCase):
 
     def test_role_and_task_schemas_are_versioned_and_strict(self) -> None:
         role_schemas = {path.name for path in (BUNDLE_ROOT / "schema" / "role").iterdir()}
-        self.assertEqual({"activation.schema.json", "context.schema.json", "migration.schema.json", "project.schema.json", "route-decision.schema.json", "route.schema.json", "spawn-result.schema.json", "wait.schema.json"}, role_schemas)
+        self.assertEqual({"activation.schema.json", "context.schema.json", "migration.schema.json", "production-migration.schema.json", "project.schema.json", "route-decision.schema.json", "route.schema.json", "spawn-result.schema.json", "wait.schema.json"}, role_schemas)
         for path in (BUNDLE_ROOT / "schema").rglob("*.schema.json"):
             value = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("https://json-schema.org/draft/2020-12/schema", value["$schema"])
