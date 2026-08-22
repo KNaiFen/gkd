@@ -367,3 +367,7 @@
 - [2026-08-23] 用户选择将 automatic bridge 的信任合同限定为当前宿主可观察事实。
   - Why: 现有宿主可提供一次 direct `gkd_executor` spawn 的确认和返回任务名，却不提供可机器绑定的 child thread、raw agent identity 或 host-effective runtime receipt；把缺失事实写进 bridge 会让 claim 建立在伪造字段上。
   - Impact: `GKD-M2-K` 增加版本化 host-spawn acknowledgement，保留 bundle/catalog 的 configured role expectations 和已有 offer/route/CAS/delivery binding，以确定性 attempt handle 替代 raw identity。新 attempt 没有可绑定 terminal 时不得自动 reclaim，必须进入 manual recovery；历史记录按旧版本读取，不被重解释。
+
+- [2026-08-23] `GKD-M2-K` 已通过 bootstrap exception 的独立 fixed-head 验收并合并。
+  - Why: fixed candidate `5e00ed9410ee4c31d6e69b4134ba4157eb517f95` 的完整审查、417 项版本化 verifier、两份字节一致 evidence、候选隔离 install/verify 和 policy-backed `GKD Verify` 均无阻塞 finding；任务本身不能诚实使用正在修复的 automatic claim 路径。
+  - Impact: PR #24 以 squash `f6374221d1996a9ecd5d84921660b6e45432d859` 进入 main，新的 canonical bundle digest 为 `883528f72ce915f089643f8f249fbdda471fc50a4bf87006703c5bbb0d54a2b3`。没有 claim/delivery 补造，也没有 tag、Release、production 或 AIO 变更；后续 AIO adoption 先等待独立 release upgrade 和 restage。
