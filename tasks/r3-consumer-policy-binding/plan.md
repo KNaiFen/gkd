@@ -64,4 +64,4 @@ Allowed task effects are branch commits, push, one GKD task PR, CI repair inside
 
 ## Implementation Notes
 
-Prefer structured policy APIs over string parsing. Keep policy schema/project facts separate from host facts. Tests must prove that substituted policy JSON, origin drift, stale project inventory, and a mismatched route record fail before any automatic bridge action.
+Prefer structured policy APIs over string parsing. Keep policy schema/project facts separate from host facts. Tests must prove that substituted policy JSON, origin drift, stale project inventory, and a mismatched route record fail before any automatic bridge action. The trusted-main library entry must run without creating bytecode files inside the verified installed bundle; the caller or library must set the standard no-bytecode guard before importing bundle modules, and the regression test must verify the installed inventory remains valid after bridge preparation.
