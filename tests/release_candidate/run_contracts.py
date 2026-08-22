@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 import unittest
 
-from gkd_release.verification import run_l1_properties, validate_l3_eval_only_trace
+from gkd_release.core import build_release_candidate
+from gkd_release.verification import build_l3_trusted_main_record, run_l1_properties, validate_l3_trusted_main_record
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 
 
@@ -28,7 +29,7 @@ def _group(identifier: str) -> str:
     if ".test_l2_" in identifier:
         return "l2-subprocess-fake-github"
     if ".test_l3_" in identifier:
-        return "l3-eval-only"
+        return "l3-trusted-main-evaluation"
     if ".test_l4_" in identifier:
         return "l4-sandbox-canary"
     if "mutation" in identifier:
@@ -56,9 +57,18 @@ def main() -> int:
     traceability = json.loads(
         (repository / "canonical/payload/fixtures/release/traceability.json").read_text(encoding="utf-8")
     )
-    forward_eval = json.loads(
-        (repository / "canonical/payload/fixtures/release/forward-eval-trace.json").read_text(encoding="utf-8")
+    release_candidate = build_release_candidate(
+        {
+            "version": "0.1.2",
+            "sourceSha": "a" * 40,
+            "bundleDigest": "b" * 64,
+            "evidenceDigest": "c" * 64,
+            "traceability": traceability,
+            "layers": ["L0", "L1", "L2", "L3", "L4"],
+            "sandboxRepository": "github.com/KNaiFen/gkd-sandbox",
+        }
     )
+    l3_record = build_l3_trusted_main_record(release_candidate)
     lock = json.loads((repository / "canonical/manifest.lock.json").read_text(encoding="utf-8"))
     groups: dict[str, list[str]] = {}
     for identifier in test_ids:
@@ -77,10 +87,12 @@ def main() -> int:
             "L1": run_l1_properties(traceability),
             "L2": {"fakeGitHubSubprocess": True, "status": "pass"},
             "L3": {
-                "evalOnly": True,
+                "trustedMainObserved": True,
                 "postMergeRecordContract": True,
                 "status": "pass",
-                "traceDigest": digest_object(validate_l3_eval_only_trace(forward_eval)),
+                "evaluationDigest": validate_l3_trusted_main_record(
+                    l3_record, release_candidate
+                )["evaluationDigest"],
             },
             "L4": {
                 "canonicalMarkerContract": True,
@@ -93,7 +105,7 @@ def main() -> int:
         "machinePathsRetained": False,
         "outcome": "release_candidate_verification_ready",
         "schemaVersion": 1,
-        "task": "GKD-R1",
+        "task": "GKD-R2",
         "traceabilityDigest": digest_object(traceability),
     }
     evidence["evidenceDigest"] = digest_object(evidence)

@@ -206,7 +206,7 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
             "releaseSourceSha",
             "sandboxHeadSha",
             "sandboxRepository",
-            "l3EvalOnly",
+            "l3TrustedMainEvaluation",
             "l4CanaryRequest",
             "l4ObservedCheck",
             "assets",
@@ -228,12 +228,14 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
         raise TaskError("POST_MERGE_SANDBOX_MISMATCH")
 
     from .verification import (
-        validate_l3_eval_only_record,
+        validate_l3_trusted_main_record,
         validate_post_merge_l4_canary_request,
         validate_post_merge_l4_observed_check,
     )
 
-    l3_record = validate_l3_eval_only_record(value["l3EvalOnly"], source_sha)
+    l3_record = validate_l3_trusted_main_record(
+        value["l3TrustedMainEvaluation"], release_record
+    )
     l4_request = validate_post_merge_l4_canary_request(
         value["l4CanaryRequest"],
         source_sha,
@@ -252,7 +254,7 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
             "releaseSourceSha": source_sha,
             "sandboxHeadSha": sandbox_head_sha,
             "sandboxRepository": sandbox_repository,
-            "l3EvalOnly": l3_record,
+            "l3TrustedMainEvaluation": l3_record,
             "l4CanaryRequest": l4_request,
             "l4ObservedCheck": l4_observed_check,
         },
@@ -279,7 +281,7 @@ def validate_post_merge_release_record(value: Any) -> dict[str, Any]:
             "releaseSourceSha",
             "sandboxHeadSha",
             "sandboxRepository",
-            "l3EvalOnly",
+            "l3TrustedMainEvaluation",
             "l4CanaryRequest",
             "l4ObservedCheck",
         },
@@ -295,7 +297,7 @@ def validate_post_merge_release_record(value: Any) -> dict[str, Any]:
             "releaseSourceSha": value["finalGate"]["releaseSourceSha"],
             "sandboxHeadSha": value["finalGate"]["sandboxHeadSha"],
             "sandboxRepository": value["finalGate"]["sandboxRepository"],
-            "l3EvalOnly": value["finalGate"]["l3EvalOnly"],
+            "l3TrustedMainEvaluation": value["finalGate"]["l3TrustedMainEvaluation"],
             "l4CanaryRequest": value["finalGate"]["l4CanaryRequest"],
             "l4ObservedCheck": value["finalGate"]["l4ObservedCheck"],
             "assets": value["assets"],
