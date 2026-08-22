@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -127,6 +128,19 @@ def check_run(
         "head_sha": head,
         "name": name,
         "status": status,
+    }
+
+
+def canary_marker_document(value: dict[str, Any]) -> dict[str, Any]:
+    content = canonical_bytes(value)
+    return {
+        "content": base64.b64encode(content).decode("ascii"),
+        "encoding": "base64",
+        "name": "canary.json",
+        "path": "canary.json",
+        "sha": "f" * 40,
+        "size": len(content),
+        "type": "file",
     }
 
 

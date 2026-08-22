@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 import json
 import re
@@ -139,6 +140,43 @@ class GitHubClient:
         if expected_total is not None and len(values) != expected_total:
             raise TaskError("GITHUB_RESPONSE_INVALID")
         return values
+
+    def read_file(self, repository: str, path: str, ref: str) -> bytes:
+        """Read one small repository file at one immutable GitHub commit."""
+
+        if (
+            not isinstance(repository, str)
+            or not repository.startswith("github.com/")
+            or not isinstance(path, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", path)
+        ):
+            raise TaskError("GITHUB_RESPONSE_INVALID")
+        repository_path = _full_name(repository.removeprefix("github.com/"))
+        require_sha1(ref, "GITHUB_RESPONSE_INVALID")
+        document = _object(
+            self._request(f"repos/{repository_path}/contents/{path}?ref={ref}")
+        )
+        content = document.get("content")
+        encoded = content.replace("\n", "") if isinstance(content, str) else None
+        if (
+            document.get("type") != "file"
+            or document.get("encoding") != "base64"
+            or document.get("path") != path
+            or document.get("name") != path.rsplit("/", 1)[-1]
+            or not isinstance(document.get("size"), int)
+            or isinstance(document.get("size"), bool)
+            or not isinstance(encoded, str)
+            or not re.fullmatch(r"[A-Za-z0-9+/=]*", encoded)
+        ):
+            raise TaskError("GITHUB_RESPONSE_INVALID")
+        require_sha1(document.get("sha"), "GITHUB_RESPONSE_INVALID")
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except ValueError:
+            raise TaskError("GITHUB_RESPONSE_INVALID") from None
+        if len(decoded) != document["size"] or len(decoded) > 64 * 1024:
+            raise TaskError("GITHUB_RESPONSE_INVALID")
+        return decoded
 
     def observe(
         self,

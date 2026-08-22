@@ -20,8 +20,8 @@ from .verification import (
     build_l4_canary_request,
     run_l1_properties,
     run_l2_probe,
-    validate_forward_eval_trace,
-    validate_l3_forward_eval_record,
+    validate_l3_eval_only_record,
+    validate_l3_eval_only_trace,
     validate_l4_canary_request,
     validate_l4_canary_result,
 )
@@ -41,7 +41,24 @@ def _read(path: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("validate-traceability", "l1-properties", "l2-probe", "validate-l3-trace", "validate-l3-record", "canary-plan", "validate-canary-request", "validate-canary-result", "validate-final-gate", "promotion-plan", "promotion-input"))
+    parser.add_argument(
+        "command",
+        choices=(
+            "validate-traceability",
+            "l1-properties",
+            "l2-probe",
+            "validate-l3-eval-only",
+            "validate-l3-eval-record",
+            "validate-l3-trace",
+            "validate-l3-record",
+            "canary-plan",
+            "validate-canary-request",
+            "validate-canary-result",
+            "validate-final-gate",
+            "promotion-plan",
+            "promotion-input",
+        ),
+    )
     parser.add_argument("--input", type=Path, required=True)
     try:
         args = parser.parse_args(argv)
@@ -53,20 +70,46 @@ def main(argv: list[str] | None = None) -> int:
             result = run_l1_properties(value)
         elif args.command == "l2-probe":
             result = run_l2_probe(value)
-        elif args.command == "validate-l3-trace":
-            result = {"status": "valid", "sourceSha": validate_forward_eval_trace(value)["sourceSha"]}
-        elif args.command == "validate-l3-record":
-            result = {"status": "valid", "sourceSha": validate_l3_forward_eval_record(value)["sourceSha"]}
+        elif args.command in {"validate-l3-eval-only", "validate-l3-trace"}:
+            result = {
+                "status": "valid",
+                "releaseSourceSha": validate_l3_eval_only_trace(value)["releaseSourceSha"],
+            }
+        elif args.command in {"validate-l3-eval-record", "validate-l3-record"}:
+            result = {
+                "status": "valid",
+                "releaseSourceSha": validate_l3_eval_only_record(value)[
+                    "releaseSourceSha"
+                ],
+            }
         elif args.command == "canary-plan":
-            result = build_l4_canary_request(value)
+            result = build_l4_canary_request(
+                value.get("releaseCandidate"),
+                value.get("sandboxHeadSha"),
+            )
         elif args.command == "validate-canary-request":
-            result = {"status": "valid", "sourceSha": validate_l4_canary_request(value)["sourceSha"]}
+            result = {
+                "status": "valid",
+                "releaseSourceSha": validate_l4_canary_request(value)[
+                    "releaseSourceSha"
+                ],
+            }
         elif args.command == "validate-canary-result":
             request = value.get("request") if isinstance(value, dict) else None
             result_value = value.get("result") if isinstance(value, dict) else None
-            result = {"status": "valid", "sourceSha": validate_l4_canary_result(request, result_value)["sourceSha"]}
+            result = {
+                "status": "valid",
+                "releaseSourceSha": validate_l4_canary_result(
+                    request, result_value
+                )["releaseSourceSha"],
+            }
         elif args.command == "validate-final-gate":
-            result = {"status": "valid", "sourceSha": validate_post_merge_release_record(value)["finalGate"]["sourceSha"]}
+            result = {
+                "status": "valid",
+                "releaseSourceSha": validate_post_merge_release_record(value)[
+                    "finalGate"
+                ]["releaseSourceSha"],
+            }
         elif args.command == "promotion-input":
             result = post_merge_promotion_request(value)
         else:

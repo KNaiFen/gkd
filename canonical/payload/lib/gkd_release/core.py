@@ -177,7 +177,7 @@ def _post_merge_provenance(
     assets: list[dict[str, Any]],
 ) -> dict[str, Any]:
     result = {
-        "sourceSha": release_record["sourceSha"],
+        "releaseSourceSha": release_record["sourceSha"],
         "bundleDigest": release_record["bundleDigest"],
         "evidenceDigest": release_record["evidenceDigest"],
         "releaseRecordDigest": release_record["recordDigest"],
@@ -197,17 +197,20 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
         value,
         {
             "releaseCandidate",
-            "sourceSha",
+            "releaseSourceSha",
+            "sandboxHeadSha",
             "sandboxRepository",
-            "l3ForwardEval",
+            "l3EvalOnly",
             "l4CanaryRequest",
             "l4ObservedCheck",
             "assets",
         },
         "POST_MERGE_RELEASE_RECORD_INVALID",
     )
-    source_sha = value["sourceSha"]
+    source_sha = value["releaseSourceSha"]
     require_sha1(source_sha, "POST_MERGE_RELEASE_RECORD_INVALID")
+    sandbox_head_sha = value["sandboxHeadSha"]
+    require_sha1(sandbox_head_sha, "POST_MERGE_RELEASE_RECORD_INVALID")
     release_record = value["releaseCandidate"]
     if not isinstance(release_record, dict):
         raise TaskError("POST_MERGE_RELEASE_RECORD_INVALID")
@@ -219,14 +222,17 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
         raise TaskError("POST_MERGE_SANDBOX_MISMATCH")
 
     from .verification import (
-        validate_l3_forward_eval_record,
+        validate_l3_eval_only_record,
         validate_post_merge_l4_canary_request,
         validate_post_merge_l4_observed_check,
     )
 
-    l3_record = validate_l3_forward_eval_record(value["l3ForwardEval"], source_sha)
+    l3_record = validate_l3_eval_only_record(value["l3EvalOnly"], source_sha)
     l4_request = validate_post_merge_l4_canary_request(
-        value["l4CanaryRequest"], source_sha, sandbox_repository
+        value["l4CanaryRequest"],
+        source_sha,
+        sandbox_repository,
+        sandbox_head_sha,
     )
     l4_observed_check = validate_post_merge_l4_observed_check(l4_request, value["l4ObservedCheck"])
     assets = _assets(value["assets"], source_sha, release_record["bundleDigest"])
@@ -234,12 +240,13 @@ def build_post_merge_release_record(value: dict[str, Any]) -> dict[str, Any]:
         release_record, l3_record, l4_request, l4_observed_check, assets
     )
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "releaseCandidate": release_record,
         "finalGate": {
-            "sourceSha": source_sha,
+            "releaseSourceSha": source_sha,
+            "sandboxHeadSha": sandbox_head_sha,
             "sandboxRepository": sandbox_repository,
-            "l3ForwardEval": l3_record,
+            "l3EvalOnly": l3_record,
             "l4CanaryRequest": l4_request,
             "l4ObservedCheck": l4_observed_check,
         },
@@ -258,11 +265,18 @@ def validate_post_merge_release_record(value: Any) -> dict[str, Any]:
         {"schemaVersion", "releaseCandidate", "finalGate", "assets", "provenance", "recordDigest"},
         "POST_MERGE_RELEASE_RECORD_INVALID",
     )
-    if value["schemaVersion"] != 1 or not isinstance(value["finalGate"], dict):
+    if value["schemaVersion"] != 2 or not isinstance(value["finalGate"], dict):
         raise TaskError("POST_MERGE_RELEASE_RECORD_INVALID")
     require_keys(
         value["finalGate"],
-        {"sourceSha", "sandboxRepository", "l3ForwardEval", "l4CanaryRequest", "l4ObservedCheck"},
+        {
+            "releaseSourceSha",
+            "sandboxHeadSha",
+            "sandboxRepository",
+            "l3EvalOnly",
+            "l4CanaryRequest",
+            "l4ObservedCheck",
+        },
         "POST_MERGE_RELEASE_RECORD_INVALID",
     )
     unsigned = dict(value)
@@ -272,9 +286,10 @@ def validate_post_merge_release_record(value: Any) -> dict[str, Any]:
     rebuilt = build_post_merge_release_record(
         {
             "releaseCandidate": value["releaseCandidate"],
-            "sourceSha": value["finalGate"]["sourceSha"],
+            "releaseSourceSha": value["finalGate"]["releaseSourceSha"],
+            "sandboxHeadSha": value["finalGate"]["sandboxHeadSha"],
             "sandboxRepository": value["finalGate"]["sandboxRepository"],
-            "l3ForwardEval": value["finalGate"]["l3ForwardEval"],
+            "l3EvalOnly": value["finalGate"]["l3EvalOnly"],
             "l4CanaryRequest": value["finalGate"]["l4CanaryRequest"],
             "l4ObservedCheck": value["finalGate"]["l4ObservedCheck"],
             "assets": value["assets"],
@@ -289,7 +304,7 @@ def post_merge_promotion_request(record: dict[str, Any]) -> dict[str, Any]:
     """Return tag, Release, and prebuilt-asset inputs without issuing a write."""
 
     validated = validate_post_merge_release_record(record)
-    source_sha = validated["finalGate"]["sourceSha"]
+    source_sha = validated["finalGate"]["releaseSourceSha"]
     return {
         "tagName": f"v{validated['releaseCandidate']['version']}",
         "targetSha": source_sha,

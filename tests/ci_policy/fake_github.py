@@ -35,6 +35,13 @@ def main() -> int:
         value = scenario.get("checkPages", {}).get(page, {"check_runs": [], "total_count": 0})
     elif "/statuses?" in endpoint:
         value = scenario.get("statusPages", {}).get(page, [])
+    elif "/contents/canary.json?" in endpoint:
+        reference = re.search(r"[?&]ref=([0-9a-f]{40})$", endpoint)
+        if reference is None:
+            return 4
+        value = scenario.get("canaryMarkers", {}).get(reference.group(1))
+        if value is None:
+            return 4
     else:
         return 4
     sys.stdout.write(json.dumps(value, sort_keys=True))
