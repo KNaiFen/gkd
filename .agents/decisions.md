@@ -359,3 +359,7 @@
 - [2026-08-22] `GKD-P2` global policy migration 已通过 trusted-main acceptance。
   - Why: 常规 target、preimage、empty recovery、private backup/stage、canonical recovery record和原子替换均按计划验证；postimage 的 86 行等于 preimage 的有序非空行序列，规则文字没有被改写。
   - Impact: postimage SHA-256 为 `164475eb136a84161c55eda5bb4f6bff7c7832a63e42d7b238cdbec81135da77`，private recovery record digest 为 `798061a57598dc92d1f55e94812d0fc7dc257d28ed5b33997bd1bc55632351ff`，backup 仅留在 machine-local restricted surface。P1 production migration 和 AIO 均未执行，下一步可使用已发布 `v0.1.1` 的 production interface。
+
+- [2026-08-22] `GKD-P1` released production migration 已通过 trusted-main apply/doctor。
+  - Why: 从 `v0.1.1` Release asset 重建的隔离安装通过 verify；production plan 先固定受管 roles、Skills、config block、两份 legacy reviewer 缺失终态与 recovery surface，随后 apply 和 doctor 对同一 bundle 给出一致 digest。
+  - Impact: bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef` 的 plan digest 为 `4345db67f85e394ab9492ea93d4c48c7b074ebceea61bd81e9128d648251c5f4`，inventory/managed-surface digest 为 `b316622f47ca774accb0156ede878e4eb7248f988a51cf100f181e753da0c2a4` / `e3c212d28747381f35ee11b364a10ae574dbaabe02e782336ed15baea58f1c05`。AIO、Secrets、paid runners 和 GitHub settings 未修改；AIO adoption 现可独立开始。
