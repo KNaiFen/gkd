@@ -331,3 +331,7 @@
 - [2026-08-22] M5 final live gate and promotion completed.
   - Why: M5-C corrected the cross-repository identity error by keeping GKD release source SHA and sandbox PR head SHA distinct, validating canonical `canary.json` at the fixed sandbox head, and requiring an eval-only redacted L3 record.
   - Impact: M5-C PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a` merged as `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`; 412/412 verifier and fixed-head CI passed. Trusted main observed sandbox PR #2 head `98f31a24739418b4855870ec848c269208b760d8` with `GKD Canary` success, generated final record `0ecb8a607d4f2f460e12237a1c3ec7a17f2ef8a2c3b6ed47e83e0ee6baadf807`, and created tag/release `v0.1.0` targeting the exact merge SHA. No production Codex or AIO changes were made.
+
+- [2026-08-22] 用户授权生产安装和 AIO 接入，但 `v0.1.0` 的生产迁移门 fail-closed。
+  - Why: 用户已明确授权两项后续动作；重新锚定发布、生产目录形态和实际 CLI 后，`gkd-role migration-plan --home-root /Users/knaifen` 返回 `MIGRATION_PRODUCTION_FORBIDDEN`。同一发行物的 bundle installer 也将 home 目标拒绝为临时边界外，故不存在已验证的生产 doctor、原子替换和回滚入口。
+  - Impact: 授权不被降格为未授权，但不能被扩大解释为允许绕过既有保护或以未验证脚本覆盖运行中的 Codex 状态。生产安装与 AIO 写入暂停在 capability gate；下一步须先对最小生产迁移实现、测试和新版本发布取得明确范围决定。

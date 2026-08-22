@@ -40,5 +40,5 @@
 - [x] `GKD-M5-B`：PR #21 fixed head `20e905f9f93b100c13969da5ec2be3d96e54213a`，merge `c1de724d686af291cb1ffcf0a2cb12d6621244c6`；412 项 verifier 与独立 fixed-head CI/acceptance 通过。
 - [x] `GKD-M5-C`：PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a`，merge `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`；修复跨仓库 source/head 分离、canonical marker 与 eval-only L3，412 项 verifier、fixed-head CI 与独立 acceptance 通过。
 - [x] `GKD-M5` final promotion：sandbox PR #2 `GKD Canary` 通过；`v0.1.0` 已精确指向 `c14f166e0bee7d036b6e9ab0d5e014c40922fe59` 并发布同 SHA 资产。
-- [ ] GKD release candidate通过后，另行取得生产 `~/.codex` 安装授权。
-- [ ] 生产bundle可用后，另行批准AIO接入与旧实现迁移；不得由GKD本体授权推断。
+- [x] 用户已于2026-08-22明确授予生产 `~/.codex` 安装与 AIO 接入/旧实现迁移授权。
+- [ ] `v0.1.0` 不提供生产迁移 capability：`gkd-role migration-plan --home-root /Users/knaifen` 稳定返回 `MIGRATION_PRODUCTION_FORBIDDEN`，`gkd-bundle install` 也拒绝 home 目标。不得绕过该保护直接写生产目录；需要取得对最小生产迁移实现及其新版本发布的明确范围决定，之后才能开始 AIO 写入。
