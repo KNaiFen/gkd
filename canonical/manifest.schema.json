@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "title": "GKD development bundle manifest",
+  "title": "GKD bundle manifest",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,8 +11,8 @@
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "bundleVersion": { "type": "string", "pattern": "^0\\.0\\.0-dev\\.[0-9]+$" },
-    "releaseStatus": { "const": "development" },
+    "bundleVersion": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$" },
+    "releaseStatus": { "const": "release-candidate" },
     "components": {
       "type": "array",
       "minItems": 1,

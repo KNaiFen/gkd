@@ -316,3 +316,11 @@
 - [2026-08-22] `GKD-M4-A` fixed head 已独立验收、合并并刷新 project staging。
   - Why: trusted main 对 PR #19 的完整 diff、requirements、delivery、finalization five-axis code review、独立 399 项 verifier、隔离 bundle install 和 live fixed-head `GKD Verify` 进行了终验，无阻塞 finding；M4 仅提供无副作用 release mechanism。
   - Impact: fixed head `2b9dbfe5aa8003926eed2ef89e562e245859cdf0` 以 squash merge `44e413937df8e05045d907af2630185bc4fb9bcc` 进入 main；accepted bundle/evidence digest 为 `27470fc60cfa005a2784ac81f0aba07c4e50e2381bf057fe9b38aa8d016e1912` / `90e499d761517a65080eb46edcab588b07d275267d38c609274a6dab3e287170`。未创建 tag/Release；M5 将在完整 L0-L4 和独立终验后形成并精确推广最终 release candidate。
+
+- [2026-08-22] `GKD-M5-A` 将 bundle 声明提升为稳定 `0.1.0` release candidate。
+  - Why: 最终候选需要可安装的稳定版本、全量可追溯验证和同 SHA promotion 输入，同时 executor 不得创建 tag 或 Release。
+  - Impact: `gkd_release` 只验证 L0-L4、sandbox binding、16 项 decision traceability 与 provenance，并生成只读 promotion request；真实 L3/L4 与 promotion 继续由 merge 后 trusted main 完成。
+
+- [2026-08-22] `GKD-M5-A` epoch 5 将 release traceability 返工为可执行分层证据。
+  - Why: 首轮候选只验证 16 项矩阵字段齐全，全部条目复用同一测试，不能证明 L1 property、L2 subprocess/fake-GitHub、L3 fresh-agent 或 L4 sandbox canary 的实际合同。
+  - Impact: 候选的 `gkd_release` 新增 L1 property evidence、L2 只读 fake-GitHub probe、L3 脱敏 forward-eval trace 与 L4 exact-SHA canary request/result contract。可复用 bundle 只接受 release record 中的 sandbox 身份；本任务将 `github.com/KNaiFen/gkd-sandbox` 作为受测 release input 绑定，避免把仓库专有 identity 写入通用 payload。真实 L3/L4 和 promotion 仍只由 trusted main 在 merge 后执行。

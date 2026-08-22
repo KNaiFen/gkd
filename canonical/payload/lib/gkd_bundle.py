@@ -21,6 +21,7 @@ sys.dont_write_bytecode = True
 
 SCHEMA_VERSION = 1
 DEVELOPMENT_VERSION = re.compile(r"^0\.0\.0-dev\.[0-9]+$")
+STABLE_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 ALLOWED_MODES = {"0644", "0755"}
 ALLOWED_KINDS = {"executable", "library"}
@@ -287,9 +288,10 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     if declaration["schema_version"] != SCHEMA_VERSION:
         raise BundleError("INVALID_SOURCE_DECLARATION")
     version = declaration["bundle_version"]
-    if not isinstance(version, str) or not DEVELOPMENT_VERSION.fullmatch(version):
-        raise BundleError("INVALID_DEVELOPMENT_VERSION")
-    if declaration["release_status"] != "development":
+    if not isinstance(version, str) or not (DEVELOPMENT_VERSION.fullmatch(version) or STABLE_VERSION.fullmatch(version)):
+        raise BundleError("INVALID_BUNDLE_VERSION")
+    expected_status = "development" if DEVELOPMENT_VERSION.fullmatch(version) else "release-candidate"
+    if declaration["release_status"] != expected_status:
         raise BundleError("INVALID_RELEASE_STATUS")
     components = declaration["components"]
     if not isinstance(components, list) or not components:
@@ -362,7 +364,7 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     return {
         "schemaVersion": SCHEMA_VERSION,
         "bundleVersion": version,
-        "releaseStatus": "development",
+        "releaseStatus": expected_status,
         "components": sorted(normalized_components, key=lambda x: x["name"]),
     }
 
@@ -598,8 +600,8 @@ def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
     if (
         manifest["schemaVersion"] != SCHEMA_VERSION
         or not isinstance(manifest["bundleVersion"], str)
-        or not DEVELOPMENT_VERSION.fullmatch(manifest["bundleVersion"])
-        or manifest["releaseStatus"] != "development"
+        or not (DEVELOPMENT_VERSION.fullmatch(manifest["bundleVersion"]) or STABLE_VERSION.fullmatch(manifest["bundleVersion"]))
+        or manifest["releaseStatus"] != ("development" if DEVELOPMENT_VERSION.fullmatch(manifest["bundleVersion"]) else "release-candidate")
         or not isinstance(manifest["components"], list)
         or not manifest["components"]
     ):

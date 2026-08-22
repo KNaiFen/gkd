@@ -1,6 +1,6 @@
 schema_version = 1
-bundle_version = "0.0.0-dev.0"
-release_status = "development"
+bundle_version = "0.1.0"
+release_status = "release-candidate"
 
 [[components]]
 name = "ci-monitor-cli"
@@ -37,6 +37,19 @@ name = "review-cli"
 kind = "executable"
 files = [
   { source = "payload/bin/gkd-review", target = "gkd/bin/gkd-review", mode = "0755" },
+]
+
+[[components]]
+name = "release-candidate"
+kind = "library"
+files = [
+  { source = "payload/bin/gkd-release", target = "gkd/bin/gkd-release", mode = "0755" },
+  { source = "payload/fixtures/release/forward-eval-trace.json", target = "gkd/fixtures/release/forward-eval-trace.json", mode = "0644" },
+  { source = "payload/fixtures/release/traceability.json", target = "gkd/fixtures/release/traceability.json", mode = "0644" },
+  { source = "payload/lib/gkd_release/__init__.py", target = "gkd/lib/gkd_release/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_release/cli.py", target = "gkd/lib/gkd_release/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_release/core.py", target = "gkd/lib/gkd_release/core.py", mode = "0644" },
+  { source = "payload/lib/gkd_release/verification.py", target = "gkd/lib/gkd_release/verification.py", mode = "0644" },
 ]
 
 [[components]]
