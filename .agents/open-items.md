@@ -49,4 +49,5 @@
 - [x] `GKD-R1` 的未发布 `0.1.2` 候选在 L3 host-fact 缺口被发现后由 `GKD-R2` 取代；没有将 R1 candidate tag 或 Release。
 - [x] `GKD-R2` 已由 PR #26 fixed head `28387943cec3492c86d0f283d6207b008b63db99` 独立复核、`GKD Verify` fixed-head success，并 merge 为 `dd7ec7a9d0b81acffc2730236a29f8fad128d5a9`。schema v3 L3、sandbox PR #5 canary、asset 和 final provenance 通过后，`v0.1.2` tag/Release 已精确发布；bundle digest 为 `83b0063fe1f59fa6843acbaa26f70de9e02a47430c1f6bc3a72a4d0204dffc28`。R1/R2 task branches/worktrees、sandbox canary branches/PR 与临时根已清理。
 - [x] 已从 release-verified `v0.1.2` asset 完成 isolated project restage：旧 `6dd423...` inventory 已按 preimage 移除，`83b006...` stage/verify 的 inventory 为 `a8bcf31c37e1aea3271bf19561644b90ae739ce2999fa5641beb914edafbd1e1`；production/AIO 未写入。
-- [ ] 对 production `v0.1.2` upgrade 执行只读 doctor/plan 并在确认可恢复路径后 apply/doctor；随后先完成不写入的 AIO legacy inventory/mapping，再建立 AIO pin、adapter/policy 和迁移任务；不得把通用 GKD 逻辑复制进 AIO。
+- [x] 已对 production `v0.1.2` upgrade 完成只读 plan、apply 和 doctor：plan `4eb345aabe31f6e22a20be571a9bd805532defb0c48f74e148e4de924486aac1`，inventory/managed-surface 为 `3ad9c33dfffe484e3e717f55a06336be5490a2d37867c1b07a1ca7a349f5bdc2` / `99585366d99a1b8d0a445473c6e805956a0747f6acf07c34f630c199fe01bff7`，doctor healthy；global AGENTS 仍 outside scope。
+- [ ] 先完成不写入的 AIO legacy inventory/mapping，再建立 AIO pin、adapter/policy 和迁移任务；不得把通用 GKD 逻辑复制进 AIO。

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "outcome": "production_migration_healthy",
+  "releaseTag": "v0.1.2",
+  "bundleDigest": "83b0063fe1f59fa6843acbaa26f70de9e02a47430c1f6bc3a72a4d0204dffc28",
+  "planDigest": "4eb345aabe31f6e22a20be571a9bd805532defb0c48f74e148e4de924486aac1",
+  "beforeManagedSurfaceDigest": "e3c212d28747381f35ee11b364a10ae574dbaabe02e782336ed15baea58f1c05",
+  "inventoryDigest": "3ad9c33dfffe484e3e717f55a06336be5490a2d37867c1b07a1ca7a349f5bdc2",
+  "managedSurfaceDigest": "99585366d99a1b8d0a445473c6e805956a0747f6acf07c34f630c199fe01bff7",
+  "globalAgentsPolicy": "outside_scope"
+}

@@ -387,3 +387,7 @@
 - [2026-08-23] 已发布 `v0.1.2` 完成 isolated project restage。
   - Why: 原 project inventory 仍绑定更早的 `6dd423...` execution bundle，不能用于新 release 的任何 route 或 AIO 接入前置事实。
   - Impact: 已发布 asset 先在隔离临时根 verify，再按旧 inventory 的 preimage 移除 project-local managed files，随后 stage/verify `83b006...`。新 inventory digest 为 `a8bcf31c37e1aea3271bf19561644b90ae739ce2999fa5641beb914edafbd1e1`；production/AIO 未写入。
+
+- [2026-08-23] 已发布 `v0.1.2` 已通过 production migration apply/doctor。
+  - Why: 只读 plan 表明当前 production GKD managed surface 可以由固定 bundle 以恢复面事务升级；旧 `v0.1.1` doctor mismatch 是预期 pre-upgrade 状态，而不是允许绕过的异常。
+  - Impact: plan `4eb345aabe31f6e22a20be571a9bd805532defb0c48f74e148e4de924486aac1` 已 apply，doctor healthy，inventory/managed-surface 为 `3ad9c33dfffe484e3e717f55a06336be5490a2d37867c1b07a1ca7a349f5bdc2` / `99585366d99a1b8d0a445473c6e805956a0747f6acf07c34f630c199fe01bff7`。global AGENTS 继续 `outside_scope`；AIO 尚未写入。
