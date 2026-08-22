@@ -42,6 +42,7 @@ KNOWN_ACTIONS = {
     "ready_for_review",
     "conditional_merge",
 }
+HOST_ACKNOWLEDGEMENT_CONTRACT = "host-spawn-acknowledgement-v1"
 EVENT_TYPES = {
     "bootstrap",
     "requirements_ready",
@@ -351,7 +352,15 @@ def _lifecycle_record(value: Any, state_schema_version: int) -> None:
 
 def _claim_record(value: dict[str, Any]) -> None:
     legacy_keys = {"claimId", "offerId", "epoch", "writerId", "sessionDigest", "roleDigest", "configDigest", "claimedAt", "claimBaseHead"}
-    if "activationId" in value or "envelopeId" in value:
+    acknowledgement_keys = legacy_keys | {
+        "activationId", "envelopeId", "executionBundleDigest", "routeDecisionDigest",
+        "executorTaskName", "executorAttemptDigest",
+    }
+    if "executorTaskName" in value or "executorAttemptDigest" in value:
+        require_keys(value, acknowledgement_keys, "INVALID_TASK_STATE")
+        require_string(value["executorTaskName"], "INVALID_TASK_STATE")
+        require_sha256(value["executorAttemptDigest"], "INVALID_TASK_STATE")
+    elif "activationId" in value or "envelopeId" in value:
         keys = legacy_keys | {"activationId", "envelopeId"}
         if "executionBundleDigest" in value or "routeDecisionDigest" in value:
             keys |= {"executionBundleDigest", "routeDecisionDigest"}
@@ -749,6 +758,8 @@ def validate_offer(value: dict[str, Any]) -> None:
         versioned_keys = legacy_keys | {"roleName", "bundleDigest"}
         if value["schemaVersion"] == 3:
             versioned_keys |= {"routeDecisionDigest", "routeGates"}
+            if "hostContract" in value:
+                versioned_keys.add("hostContract")
         require_keys(value, versioned_keys, "INVALID_OFFER")
         require_string(value["roleName"], "INVALID_OFFER")
         require_sha256(value["bundleDigest"], "INVALID_OFFER")
@@ -778,6 +789,8 @@ def validate_offer(value: dict[str, Any]) -> None:
             }
             decision["decisionDigest"] = digest_object(decision)
             if decision["decisionDigest"] != value["routeDecisionDigest"]:
+                raise TaskError("INVALID_OFFER")
+            if value.get("hostContract") is not None and value["hostContract"] != HOST_ACKNOWLEDGEMENT_CONTRACT:
                 raise TaskError("INVALID_OFFER")
     else:
         require_keys(value, legacy_keys, "INVALID_OFFER")

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -49,7 +50,7 @@ class PackagingContracts(unittest.TestCase):
             installed = gkd_bundle.install(SOURCE_ROOT, temporary, target)
             lock = json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))
             executable = target / "gkd" / "bin" / "gkd-role"
-            result = subprocess.run([str(executable), "roles", "--bundle-root", str(target / "gkd"), "--bundle-digest", bundle_digest()], cwd=target, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            result = subprocess.run([sys.executable, str(executable), "roles", "--bundle-root", str(target / "gkd"), "--bundle-digest", bundle_digest()], cwd=target, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(3, len(json.loads(result.stdout)["roles"]))
             self.assertEqual("0755", oct(executable.stat().st_mode & 0o777).removeprefix("0o").zfill(4))

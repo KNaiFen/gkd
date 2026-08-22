@@ -137,7 +137,7 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertFalse((project / ".agents").exists())
         self.assertFalse((project / ".gkd").exists())
 
-    def test_default_python_does_not_create_bundle_bytecode_before_staging(self) -> None:
+    def test_supported_python_does_not_create_bundle_bytecode_before_staging(self) -> None:
         copied_source = self.root / "default-python-canonical"
         shutil.copytree(
             Path("canonical"),
@@ -159,6 +159,7 @@ class ProjectStagingContracts(unittest.TestCase):
         self.assertEqual(0, imported.returncode, imported.stderr)
         staged = subprocess.run(
             [
+                sys.executable,
                 str(copied_source / "payload" / "bin" / "gkd-role"),
                 "project-stage",
                 "--bundle-root", str(copied_source / "payload"),

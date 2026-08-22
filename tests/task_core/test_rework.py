@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
+import sys
 import threading
 import unittest
 
@@ -161,7 +162,7 @@ class ReworkContracts(unittest.TestCase):
             FixedNonce(["e" * 48, *[f"repair-nonce-{index}" for index in range(20)]]),
         )
         prepared = bridge.prepare(*self.repo.cas(), automatic_decision(digest), FUTURE_TIME)
-        claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared, agentId="repair-agent", threadDigest="b" * 64), "repair-activation")
+        claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "repair-activation")
         self.assertNotEqual(old_state["lifecycle"]["offer"]["offerId"], claimed["offerId"])
         self.assertNotEqual(old_state["lifecycle"]["claim"]["claimId"], claimed["claimId"])
         self.assertNotEqual(old_state["lifecycle"]["claim"]["envelopeId"], claimed["envelopeId"])
@@ -389,6 +390,7 @@ class ReworkContracts(unittest.TestCase):
         )
         adapter_path.chmod(0o755)
         command = [
+            sys.executable,
             str(Path("canonical/payload/bin/gkd-task").resolve()),
             "rework",
             "--trusted-root", str(self.repo.main),

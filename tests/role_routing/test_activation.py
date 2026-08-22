@@ -210,7 +210,7 @@ class ActivationContracts(unittest.TestCase):
         expected_path = self.repo.root / "activation-request.json"
         expected_path.write_bytes(canonical_bytes(self.expected))
         command = [
-            str(Path("canonical/payload/bin/gkd-role").resolve()), "activation-record",
+            sys.executable, str(Path("canonical/payload/bin/gkd-role").resolve()), "activation-record",
             "--runtime-root", str(self.repo.runtime_root), "--expected", str(expected_path), "--nonce", "provider-nonce",
         ]
         env = dict(os.environ); env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -221,7 +221,7 @@ class ActivationContracts(unittest.TestCase):
         self.assertEqual(2, rejected.returncode)
         self.assertEqual("INVALID_ARGUMENTS", json.loads(rejected.stderr)["error"])
         task_command = [
-            str(Path("canonical/payload/bin/gkd-task").resolve()), "claim",
+            sys.executable, str(Path("canonical/payload/bin/gkd-task").resolve()), "claim",
             "--candidate-root", str(self.repo.candidate), "--task-path", self.repo.task_path,
             "--runtime-root", str(self.repo.runtime_root), "--expected-head", self.repo.head(),
             "--expected-revision", str(self.repo.state()["revision"]), "--envelope-id", self.handoff["envelopeId"],
@@ -242,7 +242,7 @@ class ActivationContracts(unittest.TestCase):
 
         claim = subprocess.run(
             [
-                str(Path("canonical/payload/bin/gkd-task").resolve()), "claim",
+                sys.executable, str(Path("canonical/payload/bin/gkd-task").resolve()), "claim",
                 "--candidate-root", str(self.repo.candidate), "--task-path", self.repo.task_path,
                 "--runtime-root", str(self.repo.runtime_root), "--expected-head", before_head,
                 "--expected-revision", str(before_revision), "--envelope-id", self.handoff["envelopeId"],

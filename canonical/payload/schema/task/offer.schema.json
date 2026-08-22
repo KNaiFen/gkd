@@ -79,7 +79,8 @@
             "roleName": {"const": "gkd_executor"},
             "bundleDigest": {"$ref": "#/$defs/sha256"},
             "routeDecisionDigest": {"$ref": "#/$defs/sha256"},
-            "routeGates": {"$ref": "#/$defs/gates"}
+            "routeGates": {"$ref": "#/$defs/gates"},
+            "hostContract": {"const": "host-spawn-acknowledgement-v1"}
           },
           "required": ["roleName", "bundleDigest", "routeDecisionDigest", "routeGates"]
         }

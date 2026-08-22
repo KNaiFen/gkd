@@ -123,6 +123,26 @@ class WaitingContracts(unittest.TestCase):
         mutated = deepcopy(self.state); mutated["unknown"] = True
         with self.assertRaisesRegex(TaskError, "INVALID_WAIT_STATE"):
             validate_wait_state(mutated)
+
+    def test_host_acknowledgement_wait_uses_task_name_handle_not_agent_identity(self) -> None:
+        identity = {
+            "taskId": "TASK-1",
+            "repository": "example.test/team/repo",
+            "head": "a" * 40,
+            "claimId": "b" * 64,
+            "executorTaskName": "gkd_executor_task_abc",
+            "executorAttemptDigest": "c" * 64,
+            "bundleDigest": bundle_digest(),
+        }
+        state = new_wait_state(identity, "2026-01-01T00:00:00Z")
+        self.assertEqual(2, state["schemaVersion"])
+        self.assertNotIn("agentId", state)
+        self.assertNotIn("sessionDigest", state)
+        for hour in range(1, 12):
+            observation = {"schemaVersion": 1, "kind": "healthy_timeout", "observedAt": (self.started + timedelta(hours=hour)).strftime("%Y-%m-%dT%H:%M:%SZ"), "timeoutMs": 3_600_000, "identity": identity}
+            state = transition(state, observation)["state"]
+        terminal = transition(state, {"schemaVersion": 1, "kind": "healthy_timeout", "observedAt": "2026-01-01T12:00:00Z", "timeoutMs": 3_600_000, "identity": identity})
+        self.assertEqual({"executorTaskName": "gkd_executor_task_abc", "once": True}, terminal["interrupt"])
         mutated = deepcopy(self.state); mutated["completedIntervals"] = 1
         with self.assertRaisesRegex(TaskError, "INVALID_WAIT_STATE"):
             validate_wait_state(mutated)

@@ -124,6 +124,8 @@ def validate_envelope(value: dict[str, Any]) -> None:
         keys = legacy_keys | {"roleName", "bundleDigest"}
         if "routeDecisionDigest" in value or "routeGates" in value:
             keys |= {"routeDecisionDigest", "routeGates"}
+            if "hostContract" in value:
+                keys.add("hostContract")
         require_keys(value, keys, "INVALID_LAUNCH_ENVELOPE")
         require_string(value["roleName"], "INVALID_LAUNCH_ENVELOPE")
         require_sha256(value["bundleDigest"], "INVALID_LAUNCH_ENVELOPE")
@@ -135,6 +137,11 @@ def validate_envelope(value: dict[str, Any]) -> None:
                 or not all(gate is True for gate in value["routeGates"].values())
             ):
                 raise TaskError("INVALID_LAUNCH_ENVELOPE")
+            if value.get("hostContract") is not None:
+                from .model import HOST_ACKNOWLEDGEMENT_CONTRACT
+
+                if value["hostContract"] != HOST_ACKNOWLEDGEMENT_CONTRACT:
+                    raise TaskError("INVALID_LAUNCH_ENVELOPE")
     else:
         require_keys(value, legacy_keys, "INVALID_LAUNCH_ENVELOPE")
     if value["schemaVersion"] != RUNTIME_SCHEMA_VERSION or value["kind"] != "launch-envelope":

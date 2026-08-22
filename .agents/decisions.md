@@ -363,3 +363,7 @@
 - [2026-08-22] `GKD-P1` released production migration 已通过 trusted-main apply/doctor。
   - Why: 从 `v0.1.1` Release asset 重建的隔离安装通过 verify；production plan 先固定受管 roles、Skills、config block、两份 legacy reviewer 缺失终态与 recovery surface，随后 apply 和 doctor 对同一 bundle 给出一致 digest。
   - Impact: bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef` 的 plan digest 为 `4345db67f85e394ab9492ea93d4c48c7b074ebceea61bd81e9128d648251c5f4`，inventory/managed-surface digest 为 `b316622f47ca774accb0156ede878e4eb7248f988a51cf100f181e753da0c2a4` / `e3c212d28747381f35ee11b364a10ae574dbaabe02e782336ed15baea58f1c05`。AIO、Secrets、paid runners 和 GitHub settings 未修改；AIO adoption 现可独立开始。
+
+- [2026-08-23] 用户选择将 automatic bridge 的信任合同限定为当前宿主可观察事实。
+  - Why: 现有宿主可提供一次 direct `gkd_executor` spawn 的确认和返回任务名，却不提供可机器绑定的 child thread、raw agent identity 或 host-effective runtime receipt；把缺失事实写进 bridge 会让 claim 建立在伪造字段上。
+  - Impact: `GKD-M2-K` 增加版本化 host-spawn acknowledgement，保留 bundle/catalog 的 configured role expectations 和已有 offer/route/CAS/delivery binding，以确定性 attempt handle 替代 raw identity。新 attempt 没有可绑定 terminal 时不得自动 reclaim，必须进入 manual recovery；历史记录按旧版本读取，不被重解释。

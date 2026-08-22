@@ -20,9 +20,10 @@ from gkd_task.errors import TaskError
 from gkd_task.model import validate_runtime_evidence
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
-from .activation import TrustedMainActivationAuthority, _instant
+from .activation import HOST_ACKNOWLEDGEMENT_EVIDENCE, TrustedMainActivationAuthority, _instant
 from .roles import role_catalog, role_record
 from .routing import validate_route_decision
+from gkd_task.model import HOST_ACKNOWLEDGEMENT_CONTRACT
 
 
 SPAWN_KEYS = {
@@ -30,6 +31,9 @@ SPAWN_KEYS = {
     "agentId", "threadDigest", "roleName", "roleDigest", "configDigest",
     "executionBundleDigest", "routeDecisionDigest", "model", "reasoningEffort",
     "sandbox", "runtimeSeconds", "activatedAt", "fallbackAttempted",
+}
+HOST_ACKNOWLEDGEMENT_KEYS = {
+    "schemaVersion", "status", "spawnCount", "taskName", "agentType", "forkTurns", "fallbackAttempted",
 }
 
 TERMINAL_RESULT_KEYS = {
@@ -114,7 +118,22 @@ class _TerminalEvidenceProvider:
         return value
 
 
-def validate_spawn_result(facts: dict[str, Any], expected: dict[str, Any]) -> None:
+def validate_spawn_result(facts: dict[str, Any], expected: dict[str, Any]) -> dict[str, Any]:
+    if expected.get("hostContract") == HOST_ACKNOWLEDGEMENT_CONTRACT:
+        require_keys(facts, HOST_ACKNOWLEDGEMENT_KEYS, "INVALID_SPAWN_RESULT")
+        for field in ("taskName", "agentType", "forkTurns"):
+            require_string(facts[field], "INVALID_SPAWN_RESULT")
+        if (
+            facts["schemaVersion"] != 2
+            or facts["status"] != "spawned"
+            or facts["spawnCount"] != 1
+            or facts["taskName"] != expected["spawnRequest"]["taskName"]
+            or facts["agentType"] != "gkd_executor"
+            or facts["forkTurns"] != "none"
+            or facts["fallbackAttempted"] is not False
+        ):
+            raise TaskError("SPAWN_RESULT_MISMATCH")
+        return {"taskName": facts["taskName"]}
     require_keys(facts, SPAWN_KEYS, "INVALID_SPAWN_RESULT")
     for field in ("taskName", "agentType", "forkTurns", "agentId", "roleName", "model", "reasoningEffort", "sandbox"):
         require_string(facts[field], "INVALID_SPAWN_RESULT")
@@ -140,6 +159,7 @@ def validate_spawn_result(facts: dict[str, Any], expected: dict[str, Any]) -> No
         or facts["runtimeSeconds"] != expected["role"]["runtimeSeconds"]
     ):
         raise TaskError("SPAWN_RESULT_MISMATCH")
+    return {"taskName": facts["taskName"]}
 
 
 class TrustedMainRuntimeBridge:
@@ -210,6 +230,7 @@ class TrustedMainRuntimeBridge:
             "gkd_executor",
             self.execution_bundle_digest,
             route_decision,
+            HOST_ACKNOWLEDGEMENT_CONTRACT,
         )
         handoff = service.handoff()
         context = service.automatic_claim_context(handoff["envelopeId"])
@@ -223,6 +244,7 @@ class TrustedMainRuntimeBridge:
             "roleName": context["roleName"],
             "roleDigest": context["roleDigest"],
             "configDigest": context["configDigest"],
+            "hostContract": context["hostContract"],
             "role": {
                 "model": role["model"],
                 "reasoningEffort": role["modelReasoningEffort"],
@@ -260,6 +282,7 @@ class TrustedMainRuntimeBridge:
             "routeDecisionDigest": context["routeDecisionDigest"],
             "roleDigest": context["roleDigest"],
             "configDigest": context["configDigest"],
+            "hostContract": context.get("hostContract"),
             "role": {
                 "model": role["model"],
                 "reasoningEffort": role["modelReasoningEffort"],
@@ -272,7 +295,7 @@ class TrustedMainRuntimeBridge:
                 "forkTurns": "none",
             },
         }
-        validate_spawn_result(spawn_result, expected_spawn)
+        acknowledged = validate_spawn_result(spawn_result, expected_spawn)
         activation_expected = {
             key: context[key]
             for key in (
@@ -281,10 +304,17 @@ class TrustedMainRuntimeBridge:
                 "routeDecisionDigest", "offerCreatedAt", "offerExpiresAt",
             )
         }
+        if context.get("hostContract") == HOST_ACKNOWLEDGEMENT_CONTRACT:
+            activation_expected["executorTaskName"] = acknowledged["taskName"]
         authority = TrustedMainActivationAuthority(self.runtime, catalog)
-        activation = authority.build(
-            activation_expected,
-            {
+        if context.get("hostContract") == HOST_ACKNOWLEDGEMENT_CONTRACT:
+            host_facts = {
+                "evidenceClass": HOST_ACKNOWLEDGEMENT_EVIDENCE,
+                "taskName": acknowledged["taskName"],
+                "acknowledgedAt": self.clock.now(),
+            }
+        else:
+            host_facts = {
                 "evidenceClass": "host-runtime-event",
                 "agentId": spawn_result["agentId"],
                 "threadDigest": spawn_result["threadDigest"],
@@ -293,9 +323,8 @@ class TrustedMainRuntimeBridge:
                 "sandbox": spawn_result["sandbox"],
                 "runtimeSeconds": spawn_result["runtimeSeconds"],
                 "activatedAt": spawn_result["activatedAt"],
-            },
-            activation_nonce,
-        )
+            }
+        activation = authority.build(activation_expected, host_facts, activation_nonce)
         provider = authority.provider(activation["activationId"], activation)
         result = self._service(provider).claim(expected_head, expected_revision, envelope_id)
         return {
@@ -332,6 +361,8 @@ class TrustedMainRuntimeBridge:
         claim = state["lifecycle"]["claim"]
         if state["lifecycle"]["phase"] != "implementing" or claim is None:
             raise TaskError("INVALID_TRANSITION")
+        if "executorAttemptDigest" in claim:
+            raise TaskError("HOST_TERMINAL_BINDING_UNAVAILABLE")
         offer = service._offer()
         expected_name = _task_name(state["taskId"], offer["offerId"], offer["epoch"])
         if (

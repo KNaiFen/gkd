@@ -71,10 +71,13 @@ interface. Public `gkd-role automatic-*` commands fail closed. `project-stage` r
 Skill, executor role/config and executor Skills from one pinned bundle into an
 explicit non-production Git project; `project-verify` checks its byte inventory
 and digests before use. The bridge binds the six-gate automatic route decision
-to offer, envelope, one exact direct `gkd_executor` spawn, activation, claim and
-recovery. It never exposes the capability or raw agent/thread identity in main
-output. The claim retains the immutable execution bundle digest, while delivery
-requires a separately generated candidate output bundle digest.
+to offer, envelope, one exact direct `gkd_executor` spawn acknowledgement,
+activation and claim. The acknowledgement contains only the returned exact task
+name and the direct-call contract; configured model/effort/sandbox/runtime come
+from the verified bundle and are not represented as host-effective observations.
+A deterministic executor-attempt handle replaces raw agent/thread identity for
+new attempts. The claim retains the immutable execution bundle digest, while
+delivery requires a separately generated candidate output bundle digest.
 
 The task state v2 extension adds trusted fixed-head rejection/rework without
 rewriting a delivered attempt. `gkd-task rework` requires a clean synchronized
@@ -86,11 +89,11 @@ remain stopped after delivery and cannot reject, accept, or resume themselves.
 
 Automatic spawn names are bounded to 128 ASCII characters and combine a
 sanitized task prefix with a digest of the exact offer and epoch. The same offer
-reconstructs the same name; a later automatic attempt cannot reuse it. The
-trusted-main-only `TrustedMainRuntimeBridge.reclaim_terminal` method accepts one
-normalized terminal or missing result, validates the active claim and terminal
-time, and passes only an in-memory evidence projection to the existing atomic
-reclaim transaction. Candidate and public CLI reclaim paths remain unavailable.
+reconstructs the same name; a later automatic attempt cannot reuse it. Legacy
+attempts retain trusted terminal reclaim under their recorded host-runtime
+contract. New host-acknowledgement attempts do not reclaim from an unbound host
+terminal event: trusted main blocks them for manual recovery. Candidate and
+public CLI reclaim paths remain unavailable.
 
 Manual remains the default. Automatic routing is operational only from a
 verified project staging rooted at an accepted bundle and through the
