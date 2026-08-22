@@ -41,4 +41,4 @@
 - [x] `GKD-M5-C`：PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a`，merge `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`；修复跨仓库 source/head 分离、canonical marker 与 eval-only L3，412 项 verifier、fixed-head CI 与独立 acceptance 通过。
 - [x] `GKD-M5` final promotion：sandbox PR #2 `GKD Canary` 通过；`v0.1.0` 已精确指向 `c14f166e0bee7d036b6e9ab0d5e014c40922fe59` 并发布同 SHA 资产。
 - [x] 用户已于2026-08-22明确授予生产 `~/.codex` 安装与 AIO 接入/旧实现迁移授权。
-- [ ] `GKD-P1` 候选提供 `0.1.1` production migration plan/apply/doctor/rollback/recover，temporary `migration-*` 继续拒绝生产根目录。候选 bundle digest 为 `a58373aaae9c78f164e358393df089c51949e731df3267cf8159d57d321bb629`，固定 base local verifier 已通过 418 项；仍待 delivery、PR fixed-head CI 和独立验收。不得据此实际写入生产目录、AIO、tag 或 Release。
+- [ ] `GKD-P1` epoch 2 候选提供 `0.1.1` production migration plan/apply/doctor/rollback/recover，temporary `migration-*` 继续拒绝生产根目录。两份 legacy CI reviewer role 由生产事务安全删除、恢复和 doctor 覆盖；global `AGENTS.md` policy 明确留给 P2。候选 bundle digest 为 `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef`，固定 base local verifier 已通过 418 项；仍待 delivery、PR fixed-head CI 和独立验收。不得据此实际写入生产目录、AIO、tag 或 Release。

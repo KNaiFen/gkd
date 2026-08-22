@@ -33,6 +33,9 @@ managed config block, preserve a private path-relative recovery record until
 terminal verification, and expose plan, apply, doctor, rollback and recovery
 results without configuration contents or an absolute home path. The older
 temporary `migration-*` commands remain production-forbidden.
+Its doctor certifies only that bounded transaction and explicitly reports
+`globalAgentsPolicy: outside_scope`; it neither reads, writes, nor certifies
+the user-specific global `AGENTS.md` policy reserved for P2.
 
 Evidence output must resolve outside the source, temporary installation and
 protected roots. Temporary installs are fully removed before the final

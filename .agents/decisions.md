@@ -339,3 +339,7 @@
 - [2026-08-22] `GKD-P1` 将生产迁移限定为声明的 GKD 角色、Skill、配置块和恢复面。
   - Why: 任务要求在真实 home 中提供可恢复安装，但禁止替换整个 home 或复制无关运行时数据。
   - Impact: 新接口独立于 temporary `migration-*`，先验证 bundle 与 staged 内容，再保存仅含相对路径和摘要的恢复 preimage；医生、回滚和恢复都拒绝 symlink、损坏或不可证明状态。候选仍不得实际写入生产 home、AIO、tag 或 Release。
+
+- [2026-08-22] `GKD-P1` epoch 2 将两份 legacy CI reviewer role 纳入生产事务，并将 global AGENTS policy 保留给 P2。
+  - Why: 独立验收发现生产事务未声明 `ci-reviewer.toml` 与 `ci_reviewer.toml` 的安全删除、恢复和 doctor 路径；同时 user-specific global AGENTS compression 已被重新划定为独立 P2 policy migration。
+  - Impact: P1 stage、recovery、rollback 与 doctor 现在覆盖两份 legacy role 的精确 preimage 和缺失终态；plan/doctor 明示 `globalAgentsPolicy: outside_scope`，portable bundle 不读取、写入或认证 global `AGENTS.md` 内容。

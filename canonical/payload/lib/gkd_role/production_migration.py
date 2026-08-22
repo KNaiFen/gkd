@@ -16,13 +16,14 @@ from gkd_bundle import BundleError, verify_bundle_root
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
 
-from .migration import MANAGED_BEGIN, MANAGED_END, _copy_skill
+from .migration import LEGACY_ROLES, MANAGED_BEGIN, MANAGED_END, _copy_skill
 from .roles import load_role_source, role_catalog, role_files
 
 
 RECOVERY_DIRECTORY = ".codex/.gkd-production-migration"
 RECOVERY_FILE = "recovery.json"
 ROLE_NAMES = ("gkd_acceptor.toml", "gkd_ci_reviewer.toml", "gkd_executor.toml")
+GLOBAL_AGENTS_POLICY = "outside_scope"
 
 
 def _production_home(value: Path) -> Path:
@@ -155,6 +156,7 @@ def _targets(source: dict[str, Any]) -> tuple[str, ...]:
             (
                 ".codex/config.toml",
                 *(f".codex/agents/{name}" for name in ROLE_NAMES),
+                *(f".codex/agents/{name}" for name in LEGACY_ROLES),
                 *(f".codex/skills/{name}" for name in source["skills"]),
             )
         )
@@ -208,6 +210,7 @@ def _plan_value(bundle_digest: str, source: dict[str, Any], catalog: dict[str, A
         "installRoles": sorted(role_files_from_catalog(catalog)),
         "installSkills": source["skills"],
         "disableDuplicateSkills": source["duplicateSkills"],
+        "globalAgentsPolicy": GLOBAL_AGENTS_POLICY,
         "managedTargets": list(targets),
         "recoverySurface": RECOVERY_DIRECTORY,
         "productionTarget": True,
@@ -370,6 +373,10 @@ def _replace_with_stage(home: Path, stage: Path, record: dict[str, str]) -> None
         shutil.rmtree(target)
     elif current["type"] == "file":
         target.unlink()
+    if record["type"] == "missing":
+        if _target_record(home, record["path"]) != record:
+            raise TaskError("PRODUCTION_APPLY_MISMATCH")
+        return
     target.parent.mkdir(parents=True, exist_ok=True)
     if record["type"] == "file":
         shutil.copy2(desired, target)
@@ -466,6 +473,7 @@ def doctor_production_migration(bundle_root: Path, home_value: Path, bundle_dige
         return {
             "schemaVersion": 1,
             "status": "production_recovery_required",
+            "globalAgentsPolicy": GLOBAL_AGENTS_POLICY,
             "planDigest": recovery["planDigest"],
             "beforeDigest": recovery["beforeDigest"],
         }
@@ -475,6 +483,7 @@ def doctor_production_migration(bundle_root: Path, home_value: Path, bundle_dige
     return {
         "schemaVersion": 1,
         "status": "production_migration_healthy",
+        "globalAgentsPolicy": GLOBAL_AGENTS_POLICY,
         "planDigest": plan["planDigest"],
         **verified,
     }

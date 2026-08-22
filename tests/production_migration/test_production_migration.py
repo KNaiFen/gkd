@@ -48,18 +48,25 @@ class ProductionMigrationContracts(unittest.TestCase):
     def test_plan_apply_and_doctor_manage_only_declared_surfaces(self) -> None:
         unrelated = self.home / ".codex" / "skills" / "unrelated-skill" / "SKILL.md"
         duplicate = self.home / ".agents" / "skills" / "code-review-and-quality" / "SKILL.md"
-        before = (unrelated.read_bytes(), duplicate.read_bytes())
+        global_agents = self.home / ".codex" / "AGENTS.md"
+        legacy_underscore = self.home / ".codex" / "agents" / "ci_reviewer.toml"
+        legacy_underscore.write_text('name = "ci_reviewer"\n', encoding="utf-8")
+        before = (unrelated.read_bytes(), duplicate.read_bytes(), global_agents.read_bytes())
         before_home = snapshot(self.home)
 
         plan = production_migration_plan(BUNDLE_ROOT, self.home, self.bundle)
         self.assertTrue(plan["productionTarget"])
         self.assertEqual(RECOVERY_DIRECTORY, plan["recoverySurface"])
         self.assertEqual(sorted(plan["managedTargets"]), plan["managedTargets"])
+        self.assertEqual("outside_scope", plan["globalAgentsPolicy"])
+        self.assertNotIn(".codex/AGENTS.md", plan["managedTargets"])
 
         applied = apply_production_migration(BUNDLE_ROOT, self.home, self.bundle)
         self.assertEqual("production_migration_applied", applied["status"])
         self.assertFalse((self.home / RECOVERY_DIRECTORY).exists())
-        self.assertEqual(before, (unrelated.read_bytes(), duplicate.read_bytes()))
+        self.assertEqual(before, (unrelated.read_bytes(), duplicate.read_bytes(), global_agents.read_bytes()))
+        self.assertFalse((self.home / ".codex" / "agents" / "ci-reviewer.toml").exists())
+        self.assertFalse(legacy_underscore.exists())
         after_home = snapshot(self.home)
         changed = {
             path
@@ -75,18 +82,36 @@ class ProductionMigrationContracts(unittest.TestCase):
 
         doctor = doctor_production_migration(BUNDLE_ROOT, self.home, self.bundle)
         self.assertEqual("production_migration_healthy", doctor["status"])
+        self.assertEqual("outside_scope", doctor["globalAgentsPolicy"])
         self.assertEqual(applied["inventoryDigest"], doctor["inventoryDigest"])
         self.assertEqual(applied["managedSurfaceDigest"], doctor["managedSurfaceDigest"])
 
+        global_agents.write_text("# P2 policy\n", encoding="utf-8")
+        self.assertEqual(
+            "production_migration_healthy",
+            doctor_production_migration(BUNDLE_ROOT, self.home, self.bundle)["status"],
+        )
+        legacy_underscore.write_text('name = "ci_reviewer"\n', encoding="utf-8")
+        with self.assertRaisesRegex(TaskError, "PRODUCTION_DOCTOR_MISMATCH"):
+            doctor_production_migration(BUNDLE_ROOT, self.home, self.bundle)
+
     def test_interruption_retains_exact_preimage_until_explicit_rollback(self) -> None:
+        legacy_underscore = self.home / ".codex" / "agents" / "ci_reviewer.toml"
+        legacy_underscore.write_text('name = "ci_reviewer"\n', encoding="utf-8")
         before = snapshot(self.home)
+        mutated_targets = 0
 
         def interrupt(phase: str, _path: Path) -> None:
+            nonlocal mutated_targets
             if phase == "target-mutated":
+                mutated_targets += 1
+            if mutated_targets == 3:
                 raise RuntimeError("injected-interruption")
 
         with self.assertRaisesRegex(RuntimeError, "injected-interruption"):
             apply_production_migration(BUNDLE_ROOT, self.home, self.bundle, interrupt)
+        self.assertFalse((self.home / ".codex" / "agents" / "ci-reviewer.toml").exists())
+        self.assertFalse(legacy_underscore.exists())
         with self.assertRaisesRegex(TaskError, "PRODUCTION_RECOVERY_REQUIRED"):
             apply_production_migration(BUNDLE_ROOT, self.home, self.bundle)
         self.assertEqual(
