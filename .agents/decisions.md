@@ -391,3 +391,7 @@
 - [2026-08-23] 已发布 `v0.1.2` 已通过 production migration apply/doctor。
   - Why: 只读 plan 表明当前 production GKD managed surface 可以由固定 bundle 以恢复面事务升级；旧 `v0.1.1` doctor mismatch 是预期 pre-upgrade 状态，而不是允许绕过的异常。
   - Impact: plan `4eb345aabe31f6e22a20be571a9bd805532defb0c48f74e148e4de924486aac1` 已 apply，doctor healthy，inventory/managed-surface 为 `3ad9c33dfffe484e3e717f55a06336be5490a2d37867c1b07a1ca7a349f5bdc2` / `99585366d99a1b8d0a445473c6e805956a0747f6acf07c34f630c199fe01bff7`。global AGENTS 继续 `outside_scope`；AIO 尚未写入。
+
+- [2026-08-23] `GKD-R3` 将消费仓库的 policy/origin 事实连续绑定到 automatic bridge。
+  - Why: 当前宿主只提供可验证的 direct spawn acknowledgement；自动路线还必须独立证明消费仓库的 `.gkd/policy.json`、Git origin、base branch、required checks 与 project inventory/route/task state 没有替换或漂移，不能由 agent 文字或 AIO 本地实现补足。
+  - Impact: PR #27 fixed head `42104c47d1dd74f3d0cb7133261d8bd358c86a27` 经独立审查、424 项本地 verifier 和 policy-backed `GKD Verify` terminal monitor 后，以 squash merge `b54d69b52c9b71d3e6ff7b3c8eb2793319ede7ba` 进入 main。任务使用手工 bootstrap exception，不创建或补造 claim、delivery、activation、receipt；R3 bundle 尚未发布，必须先走独立 release/restage，AIO 才能消费。
