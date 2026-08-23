@@ -395,3 +395,7 @@
 - [2026-08-23] `GKD-R3` 将消费仓库的 policy/origin 事实连续绑定到 automatic bridge。
   - Why: 当前宿主只提供可验证的 direct spawn acknowledgement；自动路线还必须独立证明消费仓库的 `.gkd/policy.json`、Git origin、base branch、required checks 与 project inventory/route/task state 没有替换或漂移，不能由 agent 文字或 AIO 本地实现补足。
   - Impact: PR #27 fixed head `42104c47d1dd74f3d0cb7133261d8bd358c86a27` 经独立审查、424 项本地 verifier 和 policy-backed `GKD Verify` terminal monitor 后，以 squash merge `b54d69b52c9b71d3e6ff7b3c8eb2793319ede7ba` 进入 main。任务使用手工 bootstrap exception，不创建或补造 claim、delivery、activation、receipt；R3 bundle 尚未发布，必须先走独立 release/restage，AIO 才能消费。
+
+- [2026-08-23] `GKD-R4` 已以稳定 `0.1.3` release candidate 接受 R3 policy/origin binding。
+  - Why: R3 已合并的 consumer-policy binding 必须先通过独立的稳定版本、完整回归、固定 head CI 和独立审查，才能成为可供 AIO restage 的发布输入；不能让消费仓库使用 canonical source 或未发布 bundle。
+  - Impact: PR #28 fixed head `7eea74239e3ea258f7f81e3f2eda2c14f69433fd` 以 squash `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af` 进入 main。`0.1.3` candidate bundle digest 为 `cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd`，两个 clean root 的 15 项 release contracts 和 424 项完整 verifier、policy-backed `GKD Verify` 均通过。Linux CI 暴露的 PID publication 与 temporary Git teardown 两个 fixture 竞态均仅在测试基础设施内做有界修复。任务保持手工 bootstrap 例外，没有补造 claim、delivery、activation 或 receipt；下一步仅可由 trusted main 对 exact merge SHA 运行既有 L3/L4、promotion 和发布资产 restage，生产/AIO 仍不写入。
