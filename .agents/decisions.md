@@ -399,3 +399,11 @@
 - [2026-08-23] `GKD-R4` 已以稳定 `0.1.3` release candidate 接受 R3 policy/origin binding。
   - Why: R3 已合并的 consumer-policy binding 必须先通过独立的稳定版本、完整回归、固定 head CI 和独立审查，才能成为可供 AIO restage 的发布输入；不能让消费仓库使用 canonical source 或未发布 bundle。
   - Impact: PR #28 fixed head `7eea74239e3ea258f7f81e3f2eda2c14f69433fd` 以 squash `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af` 进入 main。`0.1.3` candidate bundle digest 为 `cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd`，两个 clean root 的 15 项 release contracts 和 424 项完整 verifier、policy-backed `GKD Verify` 均通过。Linux CI 暴露的 PID publication 与 temporary Git teardown 两个 fixture 竞态均仅在测试基础设施内做有界修复。任务保持手工 bootstrap 例外，没有补造 claim、delivery、activation 或 receipt。trusted main 的 L3、sandbox PR #6 fixed-head L4、final provenance、annotated `v0.1.3` tag、Release asset 和 asset-local restage 全部精确绑定 `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af`；候选 worktree/任务分支、sandbox PR/branch 和所有 R4 temporary roots 已清理。production/AIO 未写入，AIO 现在只能先开始不写入 inventory。
+
+- [2026-08-23] R5 runner-resource binding 修复已发布为 `v0.1.4`。
+  - Why: AIO 的真实 host facts 曾被错误用于推断 GitHub-hosted runner capacity；R5 将 runner capacity 限定为 verified runner facts，R6 只将该修复升级为稳定发布物。
+  - Impact: PR #30 fixed head `399f9ef61ad207c23627b71aa86a2881cdb19e3c` 的完整 verifier 429/429、`GKD Verify`、L3/L4 和 asset-local verification 均通过，source merge/tag/Release target 为 `be1e515a64c4095676922c484555fb2a048da681`。bundle `cdaa791ace82a5e7c407b29a93a4211b852d7f364900bbcd8a549dbe918bf2a7` 与 asset `gkd-0.1.4-final-be1e515-a.tar.gz` SHA-256 `713fc828d234bc7ddd298cb68f5abfe1ede29f7891c283924cf3c3b98b2c0330` 可供 AIO restage。
+
+- [2026-08-23] R6 的 adapter acceptance 异常必须显式保留。
+  - Why: `gkd-task accept` 返回 `INVALID_GITHUB_RESPONSE` 后，adapter self-test 错误调用 merge，实际合并了已经独立验证的 fixed PR head；这不是可伪装为 canonical acceptance 成功的结果。
+  - Impact: 记录独立核验的合并与发布事实，但不倒填成功 acceptance。未来 adapter 自检只允许 `snapshot`；唯一 merge 写入必须由 `gkd-task accept` 发起。
