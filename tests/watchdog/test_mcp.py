@@ -275,7 +275,13 @@ class McpAdapterTests(unittest.TestCase):
                         while not pid_path.exists() and time.monotonic() < deadline:
                             time.sleep(0.01)
                         self.assertTrue(pid_path.exists())
-                        child_pid = int(pid_path.read_text(encoding="ascii"))
+                        for _ in range(100):
+                            raw_pid = pid_path.read_text(encoding="ascii")
+                            if raw_pid:
+                                break
+                            time.sleep(0.01)
+                        self.assertTrue(raw_pid)
+                        child_pid = int(raw_pid)
 
                         process.stdin.close()
                         process.wait(timeout=6)

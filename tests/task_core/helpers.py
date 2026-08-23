@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import errno
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from typing import Any
 
 from gkd_task.acceptance import MergeIndeterminate
@@ -137,6 +139,14 @@ class TaskRepo:
         run("git", "config", "user.email", "fixture@example.test", cwd=self.candidate)
 
     def close(self) -> None:
+        for _ in range(100):
+            try:
+                self.temporary.cleanup()
+                return
+            except OSError as error:
+                if error.errno != errno.ENOTEMPTY:
+                    raise
+                time.sleep(0.01)
         self.temporary.cleanup()
 
     def write_package(self, values: dict[str, str]) -> None:
