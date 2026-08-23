@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "task": "GKD-R6",
+  "outcome": "runner_binding_release_candidate_ready",
+  "fixedBase": "c38e3a3d5a88b87beb13ff38fdefb82fa3416f6e",
+  "bundleVersion": "0.1.4",
+  "candidateBundleDigest": "cdaa791ace82a5e7c407b29a93a4211b852d7f364900bbcd8a549dbe918bf2a7",
+  "evidenceDigest": "b5f1c85cf9e274e31cb9bebe96ee0276c5e3ee5a54679abad72d4c6d70377ef1",
+  "evidenceFileSha256": "9be6fdf6da5933b98f5957837c8db4ba63570a3757290cb8bc528530196632d3",
+  "determinism": {
+    "releaseContractRuns": 2,
+    "byteIdentical": true
+  },
+  "verification": {
+    "releaseContracts": 15,
+    "fullVerifierContracts": 429
+  },
+  "release": {
+    "tagName": "v0.1.4",
+    "historicalVersionsRetained": ["0.1.0", "0.1.1", "0.1.2", "0.1.3"]
+  },
+  "boundaries": {
+    "r5ResourceSemanticsChanged": false,
+    "workflowMutation": false,
+    "productionMutation": false,
+    "aioMutation": false,
+    "tagOrReleaseCreated": false,
+    "liveL3OrL4Run": false
+  }
+}
