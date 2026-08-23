@@ -40,6 +40,22 @@ class ResourceMutationContracts(unittest.TestCase):
             "tests.resource_scanner.test_resources.ResourceContracts.test_unknown_build_is_terminal_and_cleanup_does_not_change_it",
         )
 
+    def test_mutation_runner_source_gate_is_killed(self) -> None:
+        self.killed(
+            "recommendations.py",
+            '    if resource["source"] != "runner" or not facts["resource"]["complete"] or not runner["verified"]:\n',
+            '    if not facts["resource"]["complete"] or not runner["verified"]:\n',
+            "tests.resource_scanner.test_resources.ResourceContracts.test_non_runner_resource_facts_cannot_promote_runner_preset",
+        )
+
+    def test_mutation_runner_capacity_binding_is_killed(self) -> None:
+        self.killed(
+            "recommendations.py",
+            "    return capacity\n",
+            '    return "high-capacity"\n',
+            "tests.resource_scanner.test_resources.ResourceContracts.test_runner_bound_facts_select_current_capacity",
+        )
+
     def test_mutation_scanner_terminal_gate_is_killed(self) -> None:
         self.killed(
             "scanner.py",

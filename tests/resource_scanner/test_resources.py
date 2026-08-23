@@ -43,14 +43,53 @@ class ResourceContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "RESOURCE_PRESET_UNSUPPORTED"):
             select_preset("high-capacity", resource_facts(memoryBytes=4 * 1024**3))
 
-    def test_facts_and_recommendations_preserve_source_and_goal(self) -> None:
+    def test_runner_bound_facts_select_current_capacity(self) -> None:
         facts = parse_ci_facts(ci_facts(resource=resource_facts(availableDiskBytes=32 * 1024**3, memoryBytes=32 * 1024**3)))
         self.assertEqual("public", facts["visibility"])
         self.assertEqual("runner", facts["resource"]["source"])
         recommendation = recommend_ci(facts, "speed-first")
-        self.assertEqual("high-capacity", recommendation["preset"])
+        self.assertEqual("standard", recommendation["preset"])
+        self.assertEqual("retain-current-verified-runner", recommendation["runnerAction"])
         self.assertEqual("verified", recommendation["price"]["status"])
         self.assertEqual("verified", verify_runtime_price(ci_facts()["billing"])["status"])
+
+        high_capacity = ci_facts(
+            runner={"provider": "github", "kind": "github-hosted", "capacity": "high-capacity", "os": "linux", "verified": True},
+            resource=resource_facts(availableDiskBytes=32 * 1024**3, memoryBytes=32 * 1024**3),
+        )
+        self.assertEqual("high-capacity", recommend_ci(high_capacity, "speed-first")["preset"])
+
+    def test_non_runner_resource_facts_cannot_promote_runner_preset(self) -> None:
+        runner = {"provider": "github", "kind": "github-hosted", "capacity": "high-capacity", "os": "linux", "verified": True}
+        for source in ("host", "observed", "unknown"):
+            recommendation = recommend_ci(
+                ci_facts(
+                    runner=runner,
+                    resource=resource_facts(
+                        availableDiskBytes=32 * 1024**3,
+                        memoryBytes=32 * 1024**3,
+                        source=source,
+                    ),
+                ),
+                "speed-first",
+            )
+            self.assertEqual("resource-constrained", recommendation["preset"])
+            self.assertEqual("retain-current-verified-runner", recommendation["runnerAction"])
+
+    def test_runner_capacity_must_be_supported_by_runner_resource_facts(self) -> None:
+        recommendation = recommend_ci(
+            ci_facts(
+                runner={"provider": "github", "kind": "github-hosted", "capacity": "high-capacity", "os": "linux", "verified": True},
+                resource=resource_facts(),
+            ),
+            "speed-first",
+        )
+        self.assertEqual("resource-constrained", recommendation["preset"])
+
+    def test_recommendations_do_not_invent_runner_candidates(self) -> None:
+        facts = ci_facts()
+        for goal in ("speed-first", "balanced", "cost-aware"):
+            self.assertEqual("retain-current-verified-runner", recommend_ci(facts, goal)["runnerAction"])
 
     def test_unverified_price_is_not_claimed(self) -> None:
         billing = {"source": "provider-contract", "pricePerMinute": 0.01, "verified": False}

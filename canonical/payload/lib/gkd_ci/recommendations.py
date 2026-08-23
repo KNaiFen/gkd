@@ -152,19 +152,20 @@ def verify_runtime_price(value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _highest_supported_preset(facts: dict[str, Any]) -> str:
+def _runner_bound_preset(facts: dict[str, Any]) -> str:
     resource = deepcopy(facts["resource"])
     resource.pop("complete", None)
-    complete = all(resource.get(key) is not None for key in ("availableDiskBytes", "memoryBytes", "cpuCount")) and resource.get("verified") is True
-    if not complete:
+    runner = facts["runner"]
+    capacity = runner["capacity"]
+    if resource["source"] != "runner" or not facts["resource"]["complete"] or not runner["verified"]:
         return "resource-constrained"
-    for name in ("high-capacity", "standard"):
-        try:
-            select_preset(name, resource)
-        except TaskError:
-            continue
-        return name
-    return "resource-constrained"
+    if capacity not in PRESET_NAMES:
+        return "resource-constrained"
+    try:
+        select_preset(capacity, resource)
+    except TaskError:
+        return "resource-constrained"
+    return capacity
 
 
 def recommend_ci(
@@ -177,10 +178,11 @@ def recommend_ci(
     normalized = parse_ci_facts(facts)
     resource_facts = deepcopy(normalized["resource"])
     resource_facts.pop("complete", None)
+    runner_preset = _runner_bound_preset(normalized)
     if goal == "speed-first":
-        preset_name = _highest_supported_preset(normalized)
+        preset_name = runner_preset
     elif goal == "balanced":
-        preset_name = "standard" if normalized["resource"]["complete"] else "resource-constrained"
+        preset_name = "standard" if runner_preset in {"standard", "high-capacity"} else "resource-constrained"
     else:
         preset_name = "resource-constrained"
     try:
@@ -193,17 +195,14 @@ def recommend_ci(
             raise
     price = verify_runtime_price(normalized["billing"])
     runner = normalized["runner"]
+    runner_action = "retain-current-verified-runner" if runner["verified"] else "current-runner-verification-required"
     if goal == "cost-aware" and price["status"] != "verified":
-        runner_action = "retain-current-runner-unpriced"
         price_reason = "PRICE_VERIFICATION_REQUIRED"
     elif goal == "cost-aware":
-        runner_action = "choose-lowest-verified-cost-runner"
         price_reason = "VERIFIED_RUNTIME_PRICE"
     elif goal == "speed-first":
-        runner_action = "choose-highest-capacity-verified-runner"
         price_reason = "PRICE_NOT_USED_FOR_SPEED_GOAL"
     else:
-        runner_action = "choose-standard-verified-runner"
         price_reason = "BALANCED_RESOURCE_AND_COST"
     recommendation = {
         "schemaVersion": 1,

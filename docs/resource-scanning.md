@@ -10,7 +10,7 @@ M3-B 为通用 CI 工作流提供两组机器接口：资源/产物分类与固�
 
 ## Facts And Recommendations
 
-`gkd_ci.recommendations.parse_ci_facts` 接受 visibility、runner、policy、billing 和 resource 五类显式事实。`recommend_ci` 支持 `speed-first`、`balanced` 与 `cost-aware` 目标。价格只有在来源、币种、数值和检查时刻均存在且 `verified` 为 true 时才进入推荐；其他情况输出 `unverified`，不会声称价格或成本。
+`gkd_ci.recommendations.parse_ci_facts` 接受 visibility、runner、policy、billing 和 resource 五类显式事实。`recommend_ci` 支持 `speed-first`、`balanced` 与 `cost-aware` 目标。非保守 preset 只接受 `source=runner`、完整且已验证的资源事实，并且只能选择当前已验证 runner 声明且由这些资源支持的容量。host、observed 和 unknown 资源事实始终只描述各自来源，不能证明云端 runner 容量；未提供 runner 候选集合时，recommendation 只保留当前 runner，不会声明可选择更高容量或更低价格的 runner。价格只有在来源、币种、数值和检查时刻均存在且 `verified` 为 true 时才进入推荐；其他情况输出 `unverified`，不会声称价格或成本。
 
 ## Fixed Scanner
 
