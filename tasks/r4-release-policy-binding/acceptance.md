@@ -34,3 +34,10 @@ bootstrap exception。`task.json` 保持 planning，未创建或补造 offer、c
 合并本身没有创建 tag、GitHub Release、release asset、sandbox canary、production 或 AIO 写入。
 trusted main 只能以 exact merge SHA 运行既有 post-merge L3/L4、final record 和 promotion，随后
 从已发布的 exact `v0.1.3` asset isolated-restage project；在 restage 完成前不得开始 AIO adoption。
+
+## 候选清理
+
+验收记录提交并推送后，候选 worktree
+`/Users/knaifen/Documents/Codex/gkd-worktrees/r4-release-policy-binding`、本地
+`task/r4-release-policy-binding` 分支和同名远端分支均已删除。PR #28、squash merge、任务文档
+和验收记录保留为历史事实。
