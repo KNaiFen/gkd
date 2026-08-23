@@ -114,6 +114,20 @@ files = [
 ]
 
 [[components]]
+name = "github-acceptance-cli"
+kind = "executable"
+files = [
+  { source = "payload/bin/gkd-github-accept", target = "gkd/bin/gkd-github-accept", mode = "0755" },
+]
+
+[[components]]
+name = "github-acceptance-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_task/github_acceptance.py", target = "gkd/lib/gkd_task/github_acceptance.py", mode = "0644" },
+]
+
+[[components]]
 name = "finalization-cli"
 kind = "executable"
 files = [
