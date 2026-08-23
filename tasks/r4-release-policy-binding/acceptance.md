@@ -2,7 +2,7 @@
 
 ## 结论
 
-- Outcome: `accepted_pending_post_merge_release`
+- Outcome: `released_and_project_restage_verified`
 - Pull request: `KNaiFen/gkd#28`
 - Fixed base: `3133e35df8dd520e2976116e6468761eef6d84df`
 - Accepted fixed head: `7eea74239e3ea258f7f81e3f2eda2c14f69433fd`
@@ -29,11 +29,30 @@
 bootstrap exception。`task.json` 保持 planning，未创建或补造 offer、claim、delivery、activation
 或 receipt，也没有调用 public automatic lifecycle CLI。
 
-## 后续边界
+## 发布门与 Restage
 
-合并本身没有创建 tag、GitHub Release、release asset、sandbox canary、production 或 AIO 写入。
-trusted main 只能以 exact merge SHA 运行既有 post-merge L3/L4、final record 和 promotion，随后
-从已发布的 exact `v0.1.3` asset isolated-restage project；在 restage 完成前不得开始 AIO adoption。
+- Release candidate/L3 record digest：
+  `bd315e26c585ecc4412632385baaceea2d9979d95f8765c67846a24df8a34263` /
+  `ab28d7a76bafce21caf82359da2a2e6db90e0cb0e655f37710fefb34aaa1c222`。
+- L4 sandbox PR [#6](https://github.com/KNaiFen/gkd-sandbox/pull/6) fixed head 为
+  `2f322915d471218154902ae1931a89fc9c36f72a`，`GKD Canary` success。L4 request/observed
+  digest 为 `90a7db7a76c7f7589e1e87b2255f28d1a6820864c9e1995678284148b5274fa5` /
+  `fd00d16ae4715d1b23d4ebf8d77fe1b00b6da9205b6a38a947df455557fb6deb`。
+- Final record/provenance digest：
+  `8a5c4738d1748bf13b6f733f297d905bbd617d89f2e1ff179dd0dcb82f455dae` /
+  `57d146f2f5fda8c86d33d1c565d1536b5bf0cae777f010a88f8cf1b69b6e7c32`。
+- Annotated `v0.1.3` tag 与 GitHub Release 都精确指向 source merge
+  `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af`。asset
+  `gkd-0.1.3-final-2a63cd8.tar.gz` SHA-256 为
+  `9d9e6ea0fff64e0894af08a547b6798f1f6634e0e4cf4e174cd8dfc5c0179954`；回下载、解包和
+  asset-local install/verify 均返回 `0.1.3`、103 files 与 candidate bundle digest。
+- 旧 `v0.1.2` project staging 先以旧安装态 verified，再按 inventory 移除；回下载 asset
+  已重新 stage/verify project，inventory digest 为
+  `37cc3ab1cc1967583a404e1c992eac02bb6c7f29eabbb36ec5b7ac60dc0b6eda`，并包含 R3 的
+  `.gkd/policy.json` binding。
+
+production、AIO、GitHub settings、Secrets 和 paid runner 均未写入。AIO adoption 现在只可从
+已发布且已 restage 的 exact bundle 开始不写入 inventory/mapping。
 
 ## 候选清理
 
