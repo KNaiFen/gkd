@@ -54,9 +54,13 @@ bootstrap exception。`task.json` 保持 planning，未创建或补造 offer、c
 production、AIO、GitHub settings、Secrets 和 paid runner 均未写入。AIO adoption 现在只可从
 已发布且已 restage 的 exact bundle 开始不写入 inventory/mapping。
 
-## 候选清理
+## 清理
 
 验收记录提交并推送后，候选 worktree
 `/Users/knaifen/Documents/Codex/gkd-worktrees/r4-release-policy-binding`、本地
 `task/r4-release-policy-binding` 分支和同名远端分支均已删除。PR #28、squash merge、任务文档
 和验收记录保留为历史事实。
+
+sandbox PR #6 在 `GKD Canary` fixed-head success 后已关闭，`gkd-canary/2a63cd8ff2fc` 远端分支
+已删除。R4 的 temporary release/runtime/evidence/install roots 与 CI 日志均已删除；`v0.1.3`
+tag、Release、asset、main records 和 project-local staging 保留。
