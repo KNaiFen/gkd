@@ -6,6 +6,7 @@
 - Fixed base: `3133e35df8dd520e2976116e6468761eef6d84df`
 - Bootstrap planning/authorized head: `59b7adee9c1219c860f45bb28895aed157c5da4e`
 - Implementation/evidence commit: `987a6025d6df5a3d9df3003822a134f93b1f4a5e`
+- CI repair commit: `edeef46a267a4132cbb9dae4e3abf6e156b52c36`
 - Candidate version/bundle: `0.1.3` /
   `cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd`
 - Evidence digest/file SHA-256: `306b5d979b3c202352212b6852809457df1cff3694c22a15a2279c4237af0a1b` /
@@ -23,6 +24,9 @@ CLI 或私有 host bridge。
 - canonical version 从 `0.1.2` 升级为 `0.1.3`，并由生成器重建 manifest 与 lock。
 - release L1 property 同时验证历史 `0.1.1`、`0.1.2` 与候选 `0.1.3` 的精确 tag
   propagation；新 candidate fixture/evidence 标识为 `GKD-R4`。
+- 首个 fixed head 的 GitHub Linux run 证明 watchdog EOF test 在 fixture PID 文件创建与
+  写入之间存在读取竞态。测试现在有界等待现有 fixture 发布非空 PID 后再解析；watchdog
+  runtime、MCP server 与 fixture protocol 未改变。
 - R3 的 policy/origin 绑定、automatic bridge、route gates、release protocol、生产与
   AIO 都没有改变。
 
@@ -32,8 +36,10 @@ CLI 或私有 host bridge。
 
 `scripts/gkd-verify --base-sha 3133e35df8dd520e2976116e6468761eef6d84df`
 
-终态为 `pass`，共 `424/424`。release contracts 在两个不相交临时根各运行 `15/15`，
-输出逐字节一致；候选在独立临时根 install/verify 为 `0.1.3`、103 files 和上述 digest。
+首个 fixed head 的 `GKD Verify` failure 已由其日志定位为上述空 PID 读取；最小回归与修复后
+的同一完整 verifier 终态均为 `pass`，共 `424/424`。release contracts 在两个不相交临时根
+各运行 `15/15`，输出逐字节一致；候选在独立临时根 install/verify 为 `0.1.3`、103 files 和
+上述 digest。
 
 没有安装依赖，也没有 tag、Release、production、AIO、sandbox、GitHub settings、Secrets
 或付费 runner 写入。
