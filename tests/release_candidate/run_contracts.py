@@ -59,7 +59,7 @@ def main() -> int:
     )
     release_candidate = build_release_candidate(
         {
-            "version": "0.1.2",
+            "version": "0.1.3",
             "sourceSha": "a" * 40,
             "bundleDigest": "b" * 64,
             "evidenceDigest": "c" * 64,
@@ -105,7 +105,7 @@ def main() -> int:
         "machinePathsRetained": False,
         "outcome": "release_candidate_verification_ready",
         "schemaVersion": 1,
-        "task": "GKD-R2",
+        "task": "GKD-R4",
         "traceabilityDigest": digest_object(traceability),
     }
     evidence["evidenceDigest"] = digest_object(evidence)

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "task": "GKD-R4",
+  "outcome": "policy_binding_release_candidate_ready",
+  "fixedBase": "3133e35df8dd520e2976116e6468761eef6d84df",
+  "bundleVersion": "0.1.3",
+  "candidateBundleDigest": "cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd",
+  "evidenceDigest": "306b5d979b3c202352212b6852809457df1cff3694c22a15a2279c4237af0a1b",
+  "evidenceFileSha256": "782d743beb0494ecb033fbc9f406f7c5fb64340d0a63838e4c636ad25f3926de",
+  "determinism": {
+    "disjointTemporaryRoots": 2,
+    "byteIdentical": true
+  },
+  "verification": {
+    "releaseContracts": 15,
+    "fullVerifierContracts": 424,
+    "isolatedInstallFiles": 103
+  },
+  "release": {
+    "tagName": "v0.1.3",
+    "historicalVersionsRetained": ["0.1.0", "0.1.1", "0.1.2"]
+  },
+  "boundaries": {
+    "automaticLifecycleFabricated": false,
+    "productionMutation": false,
+    "aioMutation": false,
+    "tagOrReleaseCreated": false,
+    "liveL3OrL4Run": false
+  }
+}
