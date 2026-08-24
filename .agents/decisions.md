@@ -407,3 +407,7 @@
 - [2026-08-23] R6 的 adapter acceptance 异常必须显式保留。
   - Why: `gkd-task accept` 返回 `INVALID_GITHUB_RESPONSE` 后，adapter self-test 错误调用 merge，实际合并了已经独立验证的 fixed PR head；这不是可伪装为 canonical acceptance 成功的结果。
   - Impact: 记录独立核验的合并与发布事实，但不倒填成功 acceptance。未来 adapter 自检只允许 `snapshot`；唯一 merge 写入必须由 `gkd-task accept` 发起。
+
+- [2026-08-24] R7/R8 的失败历史与 R9 的验收修复必须分离保留。
+  - Why: R7 在 delivery 时以 implementation head 调用，触发 `HEAD_MISMATCH` 并保持 `executor_delivery_cas_mismatch` blocked；R8 的 immutable requirements 文件含末尾空行，fixed head `82afefdb1f143357741ba921b7602129cc74c020` 被 `git diff --check` 拒绝后由 canonical rework 退回 planning/epoch 1，不能补造 receipt。R9 才以新的 delivery 顺序和 GitHub adapter 修复了这两类流程缺口。
+  - Impact: R7/R8 不得标为 delivered、accepted 或 merged。PR #31 只可在已确认未合并后关闭并清理。R9 PR #32 fixed head `37bdb598091c6ae94a089bf0e4ca87d8f1746153` 已由 fixed-head `GKD Verify` 与 434 项 local verifier 覆盖，并由 canonical `gkd-task accept --merge` squash merge 为 `790d592d63c7c34a0047f136e18fa15238e722d6`。R9 source 仍是未发布的 `0.1.4`，后续必须从已发布的 v0.1.4 asset 建立独立 release task，不能把 source 当作发行物或 AIO 输入。
