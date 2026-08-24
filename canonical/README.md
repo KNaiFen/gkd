@@ -48,6 +48,12 @@ task state, planning and authorization gates, portable worktree resolution,
 offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
 The foundation `gkd-bundle` command surface remains unchanged.
 
+Trusted acceptance uses the installed `gkd-github-acceptance` executable as its
+GitHub REST adapter. It returns canonical newline-delimited snapshots, maps a
+merged pull request to its immutable PR head, and issues only exact-head squash
+merge requests. An adapter exit status of `75` leaves reconciliation to the
+trusted `gkd-task accept` path; executor self-tests never perform a real merge.
+
 `gkd-task bootstrap` requires an explicit fetched full base SHA, canonical
 repository identity, independent candidate path and reviewed three-document
 planning package. Runtime attachments, one-time capabilities, envelopes, claim
