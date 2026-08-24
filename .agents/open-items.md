@@ -57,5 +57,5 @@
 - [x] R7 保持 blocked：`gkd-r7-github-acceptance-adapter` 在 delivery 时误用 implementation head，得到 `HEAD_MISMATCH` / `executor_delivery_cas_mismatch`；没有 PR、push、merge、delivery 或 acceptance，绝不补造 lifecycle 记录。
 - [x] R8 保持 rejected：PR #31 fixed head `82afefdb1f143357741ba921b7602129cc74c020` 的 immutable requirements 文件末尾空行触发 `git diff --check`；canonical rework 后任务为 planning/epoch 1，blocked 原因 `planning_requirements_digest_immutable`，不得补造 receipt 或合并该 PR。
 - [x] R9 已修复并经 canonical acceptance 合并：新增 packaged GitHub acceptance adapter，支持 REST merged/closed、stdout 尾随换行、exact-head squash reconciliation，以及 implementation -> delivery-document -> deliver 顺序。PR #32 fixed head `37bdb598091c6ae94a089bf0e4ca87d8f1746153` 通过 fixed-head `GKD Verify` 和 434 项 verifier，并 merge 为 `790d592d63c7c34a0047f136e18fa15238e722d6`；source 版本仍为未发布 `0.1.4`。
-- [ ] 关闭未合并的 R8 PR #31，删除 R7/R8/R9 临时 worktree、分支、runtime 与 temporary root；不得影响 GKD main 或 AIO 原始工作目录。
+- [x] R9 收尾完成：PR #31 已确认未合并后关闭；R8/R9 远端任务分支、R7/R8/R9 candidate worktree、runtime、adapter/review 一次性输入与 temporary root 已删除，GKD main 和 AIO 原始目录未受影响。
 - [ ] 从已发布并已 verify 的 v0.1.4 asset 建立独立 R10 release task，将 R9 发布为新的稳定版本；全部 gate、merge、L3/L4、tag/Release、asset-local verify 和 isolated GKD project restage 后，才升级 AIO pin 并继续其 adapter policy、C、D 阶段。
