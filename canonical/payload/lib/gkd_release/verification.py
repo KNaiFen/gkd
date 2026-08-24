@@ -65,7 +65,7 @@ def run_l1_properties(traceability: dict[str, Any]) -> dict[str, Any]:
     validate_traceability(traceability)
     from .core import build_release_candidate, promotion_request
 
-    for version in ("0.1.1", "0.1.2", "0.1.3", "0.1.4"):
+    for version in ("0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5"):
         promotion = promotion_request(build_release_candidate(_release_fixture(traceability, version)))
         if promotion["targetSha"] != "a" * 40 or promotion["tagName"] != f"v{version}":
             raise TaskError("L1_PROPERTY_FAILED")

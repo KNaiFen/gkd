@@ -52,18 +52,18 @@ class ReleaseCandidateContracts(unittest.TestCase):
             promotion_request(record)
 
     def test_stable_version_propagates_and_nonstable_versions_fail_closed(self) -> None:
-        candidate = {"version":"0.1.4","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
-        self.assertEqual("v0.1.4", promotion_request(build_release_candidate(candidate))["tagName"])
-        for version in ("0.1", "0.01.4", "0.1.4-rc.1", "v0.1.4", ""):
+        candidate = {"version":"0.1.5","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
+        self.assertEqual("v0.1.5", promotion_request(build_release_candidate(candidate))["tagName"])
+        for version in ("0.1", "0.01.5", "0.1.5-rc.1", "v0.1.5", ""):
             with self.subTest(version=version):
                 invalid = dict(candidate, version=version)
                 with self.assertRaisesRegex(TaskError, "INVALID_RELEASE_CANDIDATE"):
                     build_release_candidate(invalid)
 
     def test_version_mutation_cannot_change_promotion_tag(self) -> None:
-        candidate = {"version":"0.1.4","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
+        candidate = {"version":"0.1.5","sourceSha":"a"*40,"bundleDigest":"b"*64,"evidenceDigest":"c"*64,"traceability":self.traceability,"layers":["L0","L1","L2","L3","L4"],"sandboxRepository":"github.com/KNaiFen/gkd-sandbox"}
         record = build_release_candidate(candidate)
-        record["version"] = "0.1.4-rc.1"
+        record["version"] = "0.1.5-rc.1"
         unsigned = dict(record)
         unsigned.pop("recordDigest")
         record["recordDigest"] = digest_object(unsigned)
