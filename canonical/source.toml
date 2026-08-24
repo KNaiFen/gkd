@@ -147,6 +147,7 @@ files = [
 name = "task-cli"
 kind = "executable"
 files = [
+  { source = "payload/bin/gkd-github-acceptance", target = "gkd/bin/gkd-github-acceptance", mode = "0755" },
   { source = "payload/bin/gkd-task", target = "gkd/bin/gkd-task", mode = "0755" },
 ]
 
@@ -161,6 +162,7 @@ files = [
   { source = "payload/lib/gkd_task/documents.py", target = "gkd/lib/gkd_task/documents.py", mode = "0644" },
   { source = "payload/lib/gkd_task/errors.py", target = "gkd/lib/gkd_task/errors.py", mode = "0644" },
   { source = "payload/lib/gkd_task/gitops.py", target = "gkd/lib/gkd_task/gitops.py", mode = "0644" },
+  { source = "payload/lib/gkd_task/github_acceptance.py", target = "gkd/lib/gkd_task/github_acceptance.py", mode = "0644" },
   { source = "payload/lib/gkd_task/locator.py", target = "gkd/lib/gkd_task/locator.py", mode = "0644" },
   { source = "payload/lib/gkd_task/migration.py", target = "gkd/lib/gkd_task/migration.py", mode = "0644" },
   { source = "payload/lib/gkd_task/model.py", target = "gkd/lib/gkd_task/model.py", mode = "0644" },
