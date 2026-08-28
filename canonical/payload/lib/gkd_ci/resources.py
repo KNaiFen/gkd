@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from gkd_task.canonical import CREDENTIAL_RE, canonical_bytes, digest_object, require_keys
+from gkd_task.canonical import CREDENTIAL_RE, digest_object
 from gkd_task.errors import TaskError
 
 
@@ -112,7 +112,6 @@ def select_preset(name: str | None = None, resource_facts: dict[str, Any] | None
         "resourceFacts": facts,
         "presetDigest": digest_object({"name": selected, **details}),
     }
-
 
 def _artifact_name(value: Any) -> str:
     if not isinstance(value, str) or not value or len(value) > 128 or CREDENTIAL_RE.search(value):
@@ -227,10 +226,3 @@ def classify_artifacts(
         "outcome": outcome,
         "reason": reason,
     }
-
-
-def canonical_resource_plan(value: dict[str, Any]) -> bytes:
-    """Encode a resource plan without retaining commands or external paths."""
-
-    require_keys(value, {"schemaVersion", "artifactClass", "artifacts", "peakBytes", "preset", "outcome", "reason"}, "RESOURCE_PLAN_INVALID")
-    return canonical_bytes(value)

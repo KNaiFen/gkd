@@ -9,10 +9,10 @@ from unittest import mock
 from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
 from gkd_task.locator import resolve_candidate
-from gkd_task.migration import make_legacy_v1, migrate_v1
+from gkd_task.migration import migrate_v1
 from gkd_task.model import record_acceptance_state, record_completion_state
 from gkd_task.runtime import RuntimeStore
-from tests.task_core.helpers import FIXED_TIME, REVIEWER_DIGEST, TaskRepo, run
+from tests.task_core.helpers import FIXED_TIME, REVIEWER_DIGEST, TaskRepo, make_legacy_v1, run
 
 
 class RuntimeTransactionContracts(unittest.TestCase):

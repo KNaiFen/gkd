@@ -97,22 +97,19 @@ class InstallationContracts(unittest.TestCase):
             gkd_bundle.verify(self.boundary, target)
 
     def test_verify_detects_mode_drift(self) -> None:
-        target = self._installed()
-        os.chmod(target / "gkd/bin/gkd-bundle", 0o644)
-        with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_MODE"):
-            gkd_bundle.verify(self.boundary, target)
-
-    def test_verify_detects_every_metadata_mode_mutation(self) -> None:
-        metadata_paths = (
-            gkd_bundle.SCHEMA_TARGET,
-            gkd_bundle.MANIFEST_TARGET,
-            gkd_bundle.LOCK_TARGET,
-            gkd_bundle.INSTALL_TARGET,
+        drift_cases = (("executable", "gkd/bin/gkd-bundle", 0o644),) + tuple(
+            ("metadata", path, 0o755)
+            for path in (
+                gkd_bundle.SCHEMA_TARGET,
+                gkd_bundle.MANIFEST_TARGET,
+                gkd_bundle.LOCK_TARGET,
+                gkd_bundle.INSTALL_TARGET,
+            )
         )
-        for index, metadata_path in enumerate(metadata_paths):
-            with self.subTest(path=metadata_path):
-                target = self._installed(f"metadata-{index}")
-                os.chmod(target / metadata_path, 0o755)
+        for index, (kind, relative_path, mode) in enumerate(drift_cases):
+            with self.subTest(kind=kind, path=relative_path):
+                target = self._installed(f"mode-drift-{index}")
+                os.chmod(target / relative_path, mode)
                 with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_MODE"):
                     gkd_bundle.verify(self.boundary, target)
 
