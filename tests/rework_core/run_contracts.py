@@ -104,6 +104,7 @@ def main() -> int:
         )
         tests = list(_flatten(suite))
         identifiers = sorted(test.id() for test in tests)
+        test_ids = identifiers
         if len(identifiers) != len(set(identifiers)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
         if args.canonical_results is None:

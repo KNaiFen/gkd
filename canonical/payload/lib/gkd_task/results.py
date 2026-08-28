@@ -143,7 +143,9 @@ def load_canonical_results(results_dir: Path, scope: str, repository: Path, expe
     _validate_scope(result, scope, manifest, manifest["verifierDigest"])
     ids = [item["id"] for item in result["tests"]]
     if expected_ids is not None:
-        _require(ids == sorted(expected_ids), "CANONICAL_RESULT_TEST_IDS_MISMATCH")
+        expected = sorted(expected_ids)
+        _require(len(expected) == len(set(expected)), "CANONICAL_RESULT_TEST_IDS_INVALID")
+        _require(ids == expected, "CANONICAL_RESULT_TEST_IDS_MISMATCH")
     _require(result["status"] == "pass" and all(item["status"] == "pass" for item in result["tests"]), "CANONICAL_RESULT_TEST_FAILURE")
     return result
 

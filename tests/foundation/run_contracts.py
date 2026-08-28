@@ -7,9 +7,10 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
 import unittest
 
-from gkd_task.results import CanonicalResultError, load_canonical_results
+from gkd_task.results import CanonicalResultError, canonical_bytes, load_canonical_results
 
 
 CONTRACT_SUFFIXES = {
@@ -100,7 +101,11 @@ def main() -> int:
             return 1
         success_ids = result.success_ids
     else:
-        load_canonical_results(args.canonical_results, "foundation", repository, discovered_ids)
+        try:
+            load_canonical_results(args.canonical_results, "foundation", repository, discovered_ids)
+        except CanonicalResultError as error:
+            sys.stderr.buffer.write(canonical_bytes({"error": error.code, "status": "error"}))
+            return 2
         success_ids = set(discovered_ids)
     test_ids = sorted(success_ids)
     evidence = {

@@ -46,6 +46,14 @@ def _inside(path: Path, parent: Path) -> bool:
         return False
 
 
+def _flatten(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -81,6 +89,19 @@ def main() -> int:
 
         before = gkd_bundle._snapshot_protected(protected)
         tempfile.tempdir = str(temporary)
+        all_tests = list(
+            test
+            for test in _flatten(
+                unittest.defaultTestLoader.discover(
+                    str(repository / "tests" / "task_core"),
+                    pattern="test_*.py",
+                    top_level_dir=str(repository),
+                )
+            )
+        )
+        all_test_ids = sorted(test.id() for test in all_tests)
+        if len(all_test_ids) != len(set(all_test_ids)):
+            raise TaskError("DUPLICATE_CONTRACT_ID")
         suite = unittest.TestSuite(
             unittest.defaultTestLoader.loadTestsFromName(identifier)
             for identifier in CONTRACTS
@@ -90,7 +111,7 @@ def main() -> int:
             if not result.wasSuccessful():
                 return 1
         else:
-            canonical = load_canonical_results(args.canonical_results, "task-core", repository)
+            canonical = load_canonical_results(args.canonical_results, "task-core", repository, all_test_ids)
             available = {item["id"] for item in canonical["tests"]}
             if any(identifier not in available for identifier in CONTRACTS):
                 raise CanonicalResultError("CANONICAL_RESULT_TEST_IDS_MISMATCH")

@@ -7,10 +7,33 @@ import argparse
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+LIBRARY = ROOT / "canonical" / "payload" / "lib"
+sys.dont_write_bytecode = True
+for _path in (LIBRARY, ROOT / "src", ROOT):
+    sys.path.insert(0, str(_path))
 
 import gkd_bundle
 from gkd_task.results import CanonicalResultError, SCOPE_NAMES, canonical_bytes, digest_object, load_canonical_results
+
+
+SCOPE_PATHS = {
+    "m5-release-candidate": "tests/release_candidate",
+    "m4-finalization": "tests/finalization",
+    "m3-ci-policy": "tests/ci_policy",
+    "m3-resource-scanner": "tests/resource_scanner",
+    "m3-review-core": "tests/review_core",
+    "task-core": "tests/task_core",
+    "role-routing": "tests/role_routing",
+    "runtime-bridge": "tests/runtime_bridge",
+    "p1-production-migration": "tests/production_migration",
+    "foundation": "tests/foundation",
+    "watcher-core-and-live-negative": "tests/watchdog",
+}
 
 
 def _directory(path: Path, code: str) -> Path:
@@ -27,6 +50,26 @@ def _within(path: Path, parent: Path) -> bool:
         return False
 
 
+def _flatten(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
+def _expected_ids(repository: Path, scope: str) -> list[str]:
+    suite = unittest.defaultTestLoader.discover(
+        str(repository / SCOPE_PATHS[scope]),
+        pattern="test_*.py",
+        top_level_dir=str(repository),
+    )
+    ids = sorted(test.id() for test in _flatten(suite))
+    if len(ids) != len(set(ids)):
+        raise CanonicalResultError("CANONICAL_RESULT_TEST_IDS_INVALID")
+    return ids
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--canonical-results", type=Path, required=True)
@@ -35,7 +78,7 @@ def main() -> int:
     parser.add_argument("--protected-root", type=Path, required=True)
     args = parser.parse_args()
     try:
-        repository = Path(__file__).resolve().parents[2]
+        repository = ROOT
         results_dir = _directory(args.canonical_results, "CANONICAL_RESULT_MISSING")
         temporary = _directory(args.temporary_root, "INVALID_TEMPORARY_ROOT")
         protected = _directory(args.protected_root, "INVALID_PROTECTED_ROOT")
@@ -47,7 +90,10 @@ def main() -> int:
         if output.is_symlink() or output.is_dir() or any(_within(output, root) or _within(root, output) for root in (repository, results_dir, temporary, protected)):
             raise CanonicalResultError("EVIDENCE_OUTPUT_OVERLAP")
         before = gkd_bundle._snapshot_protected(protected)
-        consumed = {scope: load_canonical_results(results_dir, scope, repository) for scope in SCOPE_NAMES}
+        consumed = {
+            scope: load_canonical_results(results_dir, scope, repository, _expected_ids(repository, scope))
+            for scope in SCOPE_NAMES
+        }
         if any(temporary.iterdir()):
             raise CanonicalResultError("TEMPORARY_ROOT_NOT_CLEAN")
         after = gkd_bundle._snapshot_protected(protected)
@@ -97,4 +143,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
