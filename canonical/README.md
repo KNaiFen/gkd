@@ -48,10 +48,12 @@ task state, planning and authorization gates, portable worktree resolution,
 offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
 The foundation `gkd-bundle` command surface remains unchanged.
 
-The repository verifier keeps its default invocation and scope list. With an
-explicit `--results-dir`, it runs each scope once and writes a versioned,
-path-free canonical result manifest plus one result per scope. Evidence runners
-may consume that directory with `--canonical-results`; they re-check the
+The repository verifier keeps its default invocation and runs only the core
+scopes. With an explicit `--results-dir`, it runs each scope once and writes a
+versioned, path-free canonical result manifest plus one result per scope.
+Watcher core and the M-1C live probe are available only through the explicit
+historical lane `scripts/gkd-verify-historical`; adding `--probe` requests the
+host-capability probe and never turns an unsupported host into a pass. Evidence runners may consume that directory with `--canonical-results`; they re-check the
 current fixed head, base ancestry, environment, test IDs/statuses and digests
 before running their own protected-surface, temporary-root and output checks.
 

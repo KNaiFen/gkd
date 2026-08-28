@@ -15,7 +15,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-SCOPE_NAMES = (
+CORE_SCOPE_NAMES = (
     "m5-release-candidate",
     "m4-finalization",
     "m3-ci-policy",
@@ -26,8 +26,11 @@ SCOPE_NAMES = (
     "runtime-bridge",
     "p1-production-migration",
     "foundation",
+)
+HISTORICAL_SCOPE_NAMES = (
     "watcher-core-and-live-negative",
 )
+SCOPE_NAMES = CORE_SCOPE_NAMES + HISTORICAL_SCOPE_NAMES
 
 
 class CanonicalResultError(ValueError):
@@ -102,7 +105,7 @@ def _validate_manifest(value: dict[str, Any]) -> None:
     _require(isinstance(value["headSha"], str) and SHA1_RE.fullmatch(value["headSha"]), "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(isinstance(value["verifierDigest"], str) and SHA256_RE.fullmatch(value["verifierDigest"]), "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(value["environment"] == environment_summary(), "CANONICAL_RESULT_ENVIRONMENT_MISMATCH")
-    _require(value["scopes"] == list(SCOPE_NAMES), "CANONICAL_RESULT_SCOPE_MISMATCH")
+    _require(value["scopes"] in (list(CORE_SCOPE_NAMES), list(HISTORICAL_SCOPE_NAMES), list(SCOPE_NAMES)), "CANONICAL_RESULT_SCOPE_MISMATCH")
     digest = value["manifestDigest"]
     unsigned = dict(value)
     unsigned.pop("manifestDigest")
@@ -140,6 +143,7 @@ def load_canonical_results(results_dir: Path, scope: str, repository: Path, expe
     _require(manifest["headSha"] == current_head(repository), "CANONICAL_RESULT_HEAD_MISMATCH")
     _require(_is_ancestor(repository, manifest["baseSha"], manifest["headSha"]), "CANONICAL_RESULT_BASE_MISMATCH")
     result, _ = _read(results_dir / f"{scope}.json", "CANONICAL_RESULT_MISSING")
+    _require(scope in manifest["scopes"], "CANONICAL_RESULT_SCOPE_MISMATCH")
     _validate_scope(result, scope, manifest, manifest["verifierDigest"])
     ids = [item["id"] for item in result["tests"]]
     if expected_ids is not None:
@@ -167,13 +171,13 @@ def write_scope_result(path: Path, *, base_sha: str, head_sha: str, scope: str, 
     return value
 
 
-def write_manifest(path: Path, *, base_sha: str, head_sha: str, verifier_digest: str) -> dict[str, Any]:
+def write_manifest(path: Path, *, base_sha: str, head_sha: str, verifier_digest: str, scopes: list[str] | None = None) -> dict[str, Any]:
     value: dict[str, Any] = {
         "baseSha": base_sha,
         "environment": environment_summary(),
         "headSha": head_sha,
         "schemaVersion": SCHEMA_VERSION,
-        "scopes": list(SCOPE_NAMES),
+        "scopes": list(SCOPE_NAMES if scopes is None else scopes),
         "verifierDigest": verifier_digest,
     }
     value["manifestDigest"] = digest_object(value)

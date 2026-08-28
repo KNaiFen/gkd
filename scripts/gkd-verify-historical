@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Run the explicit historical watcher verification lane."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+LIBRARY = ROOT / "canonical" / "payload" / "lib"
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(LIBRARY))
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+
+from gkd_task.results import HISTORICAL_SCOPE_NAMES, canonical_bytes, current_head, write_manifest, write_scope_result
+
+
+SCOPE = HISTORICAL_SCOPE_NAMES[0]
+SHA1_LENGTH = 40
+
+
+def _flatten(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
+class RecordingResult(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.statuses: dict[str, str] = {}
+
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        self.statuses[test.id()] = "pass"
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        self.statuses[test.id()] = "fail"
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        self.statuses[test.id()] = "error"
+
+    def addSkip(self, test, reason):
+        super().addSkip(test, reason)
+        self.statuses[test.id()] = "skip"
+
+
+def _probe() -> dict[str, object]:
+    if shutil.which("codex") is None:
+        return {"requested": True, "outcome": "unsupported", "error": "HOST_CAPABILITY_UNAVAILABLE"}
+    with tempfile.TemporaryDirectory(prefix="gkd-historical-probe-") as directory:
+        output = Path(directory) / "live-results.json"
+        command = [sys.executable, str(ROOT / "probes/app-server-watcher/live_probe.py"), "--output", str(output)]
+        completed = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        if completed.returncode != 0 or not output.is_file():
+            return {"requested": True, "outcome": "unsupported", "error": "HOST_CAPABILITY_UNAVAILABLE"}
+        try:
+            value = json.loads(output.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return {"requested": True, "outcome": "unsupported", "error": "HOST_CAPABILITY_UNAVAILABLE"}
+        if value.get("outcome") != "unsupported":
+            return {"requested": True, "outcome": "unsupported", "error": "HOST_CAPABILITY_UNAVAILABLE"}
+        return {"requested": True, "outcome": "unsupported", "error": "HOST_CAPABILITY_UNAVAILABLE"}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base-sha", required=True)
+    parser.add_argument("--results-dir", type=Path, required=True)
+    parser.add_argument("--evidence-output", type=Path, required=True)
+    parser.add_argument("--probe", action="store_true", help="explicitly run the host-capability live probe")
+    args = parser.parse_args()
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+    os.environ["PYTHONPATH"] = os.pathsep.join((str(ROOT / "src"), str(LIBRARY), str(ROOT)))
+    if len(args.base_sha) != SHA1_LENGTH or any(character not in "0123456789abcdef" for character in args.base_sha):
+        print(canonical_bytes({"error": "BASE_SHA_INVALID", "status": "error"}).decode(), end="")
+        return 2
+    head = current_head(ROOT)
+    ancestor = subprocess.run(("git", "-C", str(ROOT), "merge-base", "--is-ancestor", args.base_sha, head), check=False)
+    if ancestor.returncode != 0:
+        print(canonical_bytes({"error": "BASE_SHA_NOT_ANCESTOR", "status": "error"}).decode(), end="")
+        return 2
+    if args.results_dir.exists() and (args.results_dir.is_symlink() or not args.results_dir.is_dir() or any(args.results_dir.iterdir())):
+        print(canonical_bytes({"error": "RESULTS_DIR_INVALID", "status": "error"}).decode(), end="")
+        return 2
+    args.results_dir.mkdir(parents=True, exist_ok=True)
+    suite = unittest.defaultTestLoader.discover(str(ROOT / "tests/watchdog"), pattern="test_*.py", top_level_dir=str(ROOT))
+    tests = list(_flatten(suite))
+    result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2, warnings="error", resultclass=RecordingResult).run(suite)
+    verifier_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    scope_result = write_scope_result(
+        args.results_dir / f"{SCOPE}.json",
+        base_sha=args.base_sha,
+        head_sha=head,
+        scope=SCOPE,
+        tests=[{"id": test.id(), "status": result.statuses.get(test.id(), "error")} for test in tests],
+        verifier_digest=verifier_digest,
+    )
+    manifest = write_manifest(args.results_dir / "manifest.json", base_sha=args.base_sha, head_sha=head, verifier_digest=verifier_digest, scopes=[SCOPE])
+    probe = _probe() if args.probe else {"requested": False, "outcome": "not_run", "error": None}
+    evidence = {
+        "baseSha": args.base_sha,
+        "canonicalResultsDigest": manifest["manifestDigest"],
+        "headSha": head,
+        "probe": probe,
+        "resultDigest": scope_result["resultDigest"],
+        "scope": SCOPE,
+        "tests": len(tests),
+        "outcome": "historical_watcher_ready" if result.wasSuccessful() else "historical_watcher_failed",
+    }
+    args.evidence_output.parent.mkdir(parents=True, exist_ok=True)
+    args.evidence_output.write_bytes(canonical_bytes(evidence))
+    print(canonical_bytes({"canonicalResultsDigest": manifest["manifestDigest"], "evidenceDigest": hashlib.sha256(canonical_bytes(evidence)).hexdigest(), "outcome": evidence["outcome"], "probe": probe["outcome"], "tests": len(tests)}).decode(), end="")
+    return 0 if result.wasSuccessful() else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
