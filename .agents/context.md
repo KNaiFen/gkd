@@ -8,11 +8,11 @@
 
 - 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；生产当前由 trusted main 对 `v0.1.2` 完成最近一次 migration 验证。
 - AIO adoption 的 B4、C、D 已完成；后续生产或 AIO 普通产品改动、GitHub settings/Secrets、付费 runner、tag/Release 仍须单独明确授权。
-- O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 `gkd-o2-context-cleanup` 正在执行。
+- O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 已于 2026-08-28 以 merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 完成。
 
 ## Next task
 
-- O3 验证结果复用只能在 O2 accepted merge SHA 确定后启动；当前 bundle、生产安装、AIO 和历史决策记录不因 O2 改动。
+- O3 验证结果复用现在可以从 O2 accepted merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 启动；当前 bundle、生产安装、AIO 和历史决策记录不因 O2 改动。
 
 ## Historical facts
 

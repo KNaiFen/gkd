@@ -439,3 +439,7 @@
 - [2026-08-28] GKD-O1 已完成独立验收并合并。
   - Why: 五个 helper 在 runtime/CLI 无调用，foundation mode drift 测试可合并表达而不减少边界覆盖；这是精简默认 payload 的最低风险切片。
   - Impact: PR #34 fixed head `6bd1850ceebd760ea68708805caaec5ee51931e5` 经独立 acceptor、433/433 verifier 与固定头 CI 通过后，由 trusted main 以 canonical `gkd-task accept --merge` 合并为 `eacd9652134a767902d74da5b4b3d084fa122dfa`。实现仅改变 helper/test/manifest lock；生产、AIO、settings、Secrets、runner、tag/Release 均未触碰。Python 3.9、macOS `/tmp` symlink、手工 route JSON 漏字段和 executor 未自动建 PR 等摩擦记录在 O1 retrospective，作为后续 O2-O8 的改进输入。
+
+- [2026-08-28] GKD-O2 已通过 canonical rework、独立验收并合并。
+  - Why: epoch 0 的 fixed-head monitor 因 symlink checkout path 在任何 PR observation 前返回 `CHECKOUT_PATH_SYMLINK`，按 fail-closed 规则不得在同一 attempt 重试；必须退役旧 attempt 并用新 epoch 修正真实 checkout 路径。
+  - Impact: epoch 1 新 offer/claim 交付 PR #35 fixed head `65df2e00fbc9651ae20745381cfa2e966bd2d54b`，Python 3.14 status/doctor、真实路径 `GKD Verify` monitor 和独立 acceptor 均通过，trusted main 以 `gkd-task accept --merge` squash merge 为 `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb`。O2 只改 `.agents/context.md` 与 task records；旧 rejection、bundle digest、生产/AIO/settings/Secrets/runner/tag/Release 边界均保留。
