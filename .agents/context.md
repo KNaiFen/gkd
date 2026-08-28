@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 验证结果复用现在可以从 O2 accepted merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 启动；当前 bundle、生产安装、AIO 和历史决策记录不因 O2 改动。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O3 acceptance/retrospective 已落盘。O4 watcher/probe 历史 lane 可从该 accepted merge 启动；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因 O3 改动。
 
 ## Historical facts
 

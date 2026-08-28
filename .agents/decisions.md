@@ -443,3 +443,7 @@
 - [2026-08-28] GKD-O2 已通过 canonical rework、独立验收并合并。
   - Why: epoch 0 的 fixed-head monitor 因 symlink checkout path 在任何 PR observation 前返回 `CHECKOUT_PATH_SYMLINK`，按 fail-closed 规则不得在同一 attempt 重试；必须退役旧 attempt 并用新 epoch 修正真实 checkout 路径。
   - Impact: epoch 1 新 offer/claim 交付 PR #35 fixed head `65df2e00fbc9651ae20745381cfa2e966bd2d54b`，Python 3.14 status/doctor、真实路径 `GKD Verify` monitor 和独立 acceptor 均通过，trusted main 以 `gkd-task accept --merge` squash merge 为 `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb`。O2 只改 `.agents/context.md` 与 task records；旧 rejection、bundle digest、生产/AIO/settings/Secrets/runner/tag/Release 边界均保留。
+
+- [2026-08-28] GKD-O3 验证结果复用已通过三轮 canonical rework、独立验收并合并。
+  - Why: 默认验证器的多个 scope 重复执行相同 task-core 合同，增加耗时、证据体积和失败面；统一结果必须同时保证完整 test-ID 绑定、固定 head/digest 绑定和缺失/篡改 fail-closed。
+  - Impact: PR #36 fixed head `3b2252a72c6fd3d4ebdaac50aac845e744b5193e` 在修复五项首轮缺陷及一项二轮缺陷后，通过 433/433 verifier、双 evidence、固定头 CI 和独立 acceptor，并由 trusted main squash merge 为 `9009b089fb811eceaf91ada8b60397b39a451f97`。结果 schema/producer/consumer 已成为默认验证路径；旧 epoch/claim 不可复用，生产、AIO、设置、Secrets、runner、tag/Release 均未改动。后续 O4 将把 watcher/probe 降为显式历史 lane，不删除其历史证据。
