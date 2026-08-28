@@ -32,4 +32,5 @@
 3. 默认与 historical lane 的 scope/test ID、base/head、verifier digest 和结果 manifest 均可验证；结果消费者对缺失、未知、篡改和 head/digest drift 继续拒绝。
 4. watcher core、native probe、M-1B/M-1C 历史相关测试覆盖不下降；至少两次 historical evidence 生成结果逐字节一致。
 5. candidate bundle、manifest/lock、README 和 task delivery 事实一致；固定头 `GKD Verify` 与独立 acceptor 通过。
-6. 变更不引入绝对本机路径、用户名、凭据、新依赖或生产/AIO/GitHub settings 副作用。\n
+6. 变更不引入绝对本机路径、用户名、凭据、新依赖或生产/AIO/GitHub settings 副作用。
+
