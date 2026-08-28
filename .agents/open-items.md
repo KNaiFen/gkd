@@ -72,3 +72,5 @@
 - [x] GKD-O4 首轮候选已交付但被独立验收拒绝：fixed head `6ebf189ee2189a722c3e389b25a09f27c9360698` 的默认 386/10、historical 47/1、watcher/native 与 host fail-closed 证据通过，但 EOF 空行和 result manifest 声明漂移触发拒绝；canonical rework 进入 epoch 1 后，implementing 状态出现文档 digest 自举死锁，按受控恢复交付并再次拒绝，旧任务最终以 `immutable_requirements_document_digest` blocked，PR #37 已关闭。
 - [x] GKD-O4-R1 retry 已按独立验收拒绝并关闭：fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的默认 386/10、historical 两次 47/1、host `HOST_CAPABILITY_UNAVAILABLE` 和 bundle 分离均通过，但 lifecycle history 的 claimed 时间 `2026-08-29T00:00:00Z` 晚于 delivered 时间 `2026-08-28T22:50:50Z`，trusted status/doctor 与 canonical rework 均返回 `INVALID_TASK_STATE`；PR #38 的 `GKD Verify` 终态为 `REQUIRED_CHECK_FAILED`，未合并。
 - [ ] O4 重启前修复任务状态时间/交付门禁：明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性；需独立任务、独立 fixed head 和验收，不得手改旧 O4 状态。
+
+- [ ] `GKD-GATE-REPAIR` 已立项：任务包位于 `tasks/gkd-gate-repair`，基线为 `69cd40d`；完成 canonical executor、独立 acceptor、trusted-main 合并和 closeout 后，才能恢复 O4。

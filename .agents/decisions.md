@@ -455,3 +455,7 @@
 - [2026-08-29] GKD-O4-R1 retry 因 lifecycle 时间逆序和 fixed-head CI 失败保持 blocked。
   - Why: retry fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的 watcher 分层、386/10 默认验证、两次 47/1 historical 验证与 host fail-closed 均通过，但 `task.json` 的 claimed 事件时间 `2026-08-29T00:00:00Z` 晚于 delivered 事件 `2026-08-28T22:50:50Z`。trusted validator 因 history 非单调返回 `INVALID_TASK_STATE`，独立 rework 也无法进入前置校验；PR #38 的唯一 fixed-head CI 终态为 `REQUIRED_CHECK_FAILED`。
   - Impact: PR #38 未合并，任务分支、候选 worktree、runtime 和 review 临时根已清理。O4 不得继续重试；必须另立时间单调性/交付门禁修复任务，明确逻辑时钟、跨进程时间来源和 CI 终态绑定后再重启。
+
+- [2026-08-29] 立项 `GKD-GATE-REPAIR` 作为 O4 重启前置任务。
+  - Why: O4 两次固定头候选分别暴露了规划文档 digest 自举死锁、跨进程 wall-clock 逆序和 delivery result manifest 声明漂移；这些是 canonical task/acceptance 的共性门禁，不能在旧 O4 状态上手工修补。
+  - Impact: 新任务从 trusted main `69cd40d` 独立 bootstrap，范围仅包括持久逻辑顺序、planning 文档 digest refresh transition 和 delivery manifest 双向绑定；完成前 O4/O5-O8 不继续，生产、AIO、GitHub settings/Secrets、付费 runner、tag/Release 和已发布 bundle 均不触碰。
