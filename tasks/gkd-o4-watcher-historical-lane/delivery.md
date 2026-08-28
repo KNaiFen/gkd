@@ -3,7 +3,7 @@
 ## 结果
 
 - Outcome: `watcher_historical_lane_ready`
-- Fixed base: `9009b089fb811eceaf91ada8b60397b39a451f97`\n- Claim base head: `41d5d6afe8cd8299bd7de0350759a62ec4348535`\n- Claim: `526b76d13fe5d0ad1e70586f1130bfe39ef86225912df54223379d7dc8d8e9eb`\n- Implementation head: `cdd7bffd4ad1a1f202e9ae81d52bad5c8749f292`
+- Fixed base: `9009b089fb811eceaf91ada8b60397b39a451f97`\n- Claim base head: `41d5d6afe8cd8299bd7de0350759a62ec4348535`\n- Claim: `526b76d13fe5d0ad1e70586f1130bfe39ef86225912df54223379d7dc8d8e9eb`\n- Implementation head: `ff4992757344d9a87f864ad09c4c679c02a53d0a`
 
 默认 `scripts/gkd-verify --base-sha <full-sha>` 现在只运行 10 个核心 scope，不导入或启动
 watcher/probe；`--historical` 是显式的 watcher/probe 历史入口，只运行原有
