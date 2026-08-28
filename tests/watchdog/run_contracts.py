@@ -106,6 +106,14 @@ CONTRACT_TEST_SUFFIXES = {
 }
 
 
+def _flatten(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
 class RecordingResult(unittest.TextTestResult):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
