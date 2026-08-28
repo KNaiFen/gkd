@@ -9,6 +9,8 @@ GKD 工作流的规范源码、版本管理与专属验证仓库。
 Canonical CLI、project staging 与 automatic runtime bridge 要求 Python 3.11 或更高版本。
 
 仓库 CI policy 位于 `.gkd/policy.json`。本地与 pull request 验证共用
-`scripts/gkd-verify --base-sha <full-sha>`，只需要 Python、Git 和标准库。
-需要供 evidence runner 复用时，可显式传入 `--results-dir <directory>`；各 scope
-runner 使用 `--canonical-results <directory>` 消费同一份固定结果。
+`scripts/gkd-verify --base-sha <full-sha>` 默认只运行核心 scope，只需要 Python、Git 和标准库。
+watcher/probe 历史合同使用显式的 `scripts/gkd-verify --historical --base-sha <full-sha>`
+单独运行并生成独立结果 manifest，不会被默认入口导入或启动。需要供 evidence runner
+复用时，可显式传入 `--results-dir <directory>`；各 scope runner 使用
+`--canonical-results <directory>` 消费同一份固定结果。

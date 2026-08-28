@@ -32,7 +32,6 @@ SCOPE_PATHS = {
     "runtime-bridge": "tests/runtime_bridge",
     "p1-production-migration": "tests/production_migration",
     "foundation": "tests/foundation",
-    "watcher-core-and-live-negative": "tests/watchdog",
 }
 
 

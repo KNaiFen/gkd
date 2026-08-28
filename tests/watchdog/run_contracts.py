@@ -192,17 +192,22 @@ def main() -> int:
             "tests": [_matching(success_ids, suffix) for suffix in suffixes],
         }
 
-    runtime = capture("codex")
-    codex_version = runtime["codexVersion"]
-    schema_digest = runtime["protocol"]["schemaDigestSha256"]
-    if codex_version != EXPECTED_CODEX_VERSION:
-        raise RuntimeError("Codex version changed")
-    if schema_digest != EXPECTED_SCHEMA_DIGEST:
-        raise RuntimeError("app-server schema digest changed")
-    if runtime["configuration"]["model"] != "gpt-5.6-sol":
-        raise RuntimeError("declared model changed")
-    if runtime["configuration"]["reasoningEffort"] != "xhigh":
-        raise RuntimeError("declared reasoning effort changed")
+    try:
+        runtime = capture("codex")
+        codex_version = runtime["codexVersion"]
+        schema_digest = runtime["protocol"]["schemaDigestSha256"]
+        if codex_version != EXPECTED_CODEX_VERSION:
+            raise RuntimeError("codex version changed")
+        if schema_digest != EXPECTED_SCHEMA_DIGEST:
+            raise RuntimeError("app-server schema digest changed")
+        if runtime["configuration"]["model"] != "gpt-5.6-sol":
+            raise RuntimeError("declared model changed")
+        if runtime["configuration"]["reasoningEffort"] != "xhigh":
+            raise RuntimeError("declared reasoning effort changed")
+        tool_timeout = _tool_timeout_surface("codex")
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError, subprocess.SubprocessError):
+        print(canonical_json({"error": "HOST_CAPABILITY_UNAVAILABLE", "status": "error"}))
+        return 2
 
     test_ids = sorted(success_ids)
     evidence = {
@@ -216,7 +221,7 @@ def main() -> int:
                 "reasoningEffort"
             ],
             "schemaDigestSha256": schema_digest,
-            "mcpToolTimeoutSec": _tool_timeout_surface("codex"),
+            "mcpToolTimeoutSec": tool_timeout,
             "evidenceClass": "declaration_not_live_connection",
         },
         "tests": {

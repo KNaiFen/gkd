@@ -7,6 +7,21 @@
     { "$ref": "#/$defs/scope" }
   ],
   "$defs": {
+    "scopeName": {
+      "enum": [
+        "m5-release-candidate",
+        "m4-finalization",
+        "m3-ci-policy",
+        "m3-resource-scanner",
+        "m3-review-core",
+        "task-core",
+        "role-routing",
+        "runtime-bridge",
+        "p1-production-migration",
+        "foundation",
+        "watcher-core-and-live-negative"
+      ]
+    },
     "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "environment": {
@@ -38,7 +53,7 @@
         "headSha": { "$ref": "#/$defs/sha1" },
         "manifestDigest": { "$ref": "#/$defs/sha256" },
         "schemaVersion": { "const": 1 },
-        "scopes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "scopes": { "type": "array", "items": { "$ref": "#/$defs/scopeName" }, "minItems": 1 },
         "verifierDigest": { "$ref": "#/$defs/sha256" }
       }
     },
@@ -52,7 +67,7 @@
         "headSha": { "$ref": "#/$defs/sha1" },
         "resultDigest": { "$ref": "#/$defs/sha256" },
         "schemaVersion": { "const": 1 },
-        "scope": { "type": "string", "minLength": 1 },
+        "scope": { "$ref": "#/$defs/scopeName" },
         "status": { "enum": ["pass", "fail"] },
         "tests": { "type": "array", "items": { "$ref": "#/$defs/test" }, "minItems": 1 },
         "verifierDigest": { "$ref": "#/$defs/sha256" }
