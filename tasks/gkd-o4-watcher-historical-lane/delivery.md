@@ -3,10 +3,7 @@
 ## 结果
 
 - Outcome: `watcher_historical_lane_ready`
-- Fixed base: `fe5fae5ecd1500f65d5bad100dc66084f8d72472`
-- Claim base head: `129f9d96fee52f9877649a4da849da888233c410`
-- Claim: `67fb061d34bff29b9cd5738e1e65d56678e2d7d6995b6997535edfefc3e96fe2`
-- Implementation head: `e8145f74ac23a71682c2592f3b178addc748e163`
+- Fixed base: `9009b089fb811eceaf91ada8b60397b39a451f97`\n- Claim base head: `41d5d6afe8cd8299bd7de0350759a62ec4348535`\n- Claim: `526b76d13fe5d0ad1e70586f1130bfe39ef86225912df54223379d7dc8d8e9eb`\n- Implementation head: `cdd7bffd4ad1a1f202e9ae81d52bad5c8749f292`
 
 默认 `scripts/gkd-verify --base-sha <full-sha>` 现在只运行 10 个核心 scope，不导入或启动
 watcher/probe；`--historical` 是显式的 watcher/probe 历史入口，只运行原有
@@ -18,9 +15,7 @@ Codex/protocol 声明时，historical runner 返回固定 `HOST_CAPABILITY_UNAVA
 
 - Execution bundle digest: `06095243b2199672243b559e0af2798fb9e051e33281775b98bc68c8b16ac48a`
 - Candidate output bundle digest: `911a6cf373adfa5dafce5570c05d1c6fad70f34bcc590a7b39f3a230ab132c97`
-- Default verifier: 386 tests, 10 scopes, result manifest `d78cca617aa689111b0ebd6039618be14d0aef3373186563fe7074ece6ff4f77`
-- Historical verifier: 47 tests, 1 scope, result manifest `3c2fd7370fc0d6de736250c46402ecbe76a7147128a3fc27dbfaa90154584518`
-- Historical watcher result digest (two byte-identical runs): `ebd72ba949f1c99d21f7e3e278fbbfa22a4102572229c7f0acc543d8ae6ccf18`
+- Default verifier: 386 tests, 10 scopes, result manifest `83c2e2ca3d0ef3853481789054b32c2d60f078ce1eaf28f45a0d94531c5bd477`\n- Historical verifier: 47 tests, 1 scope, result manifest `6d6e0515effb51c3c2f02aeace13e348f5cf2b00525b3a910f0a319ae04bf1d9`\n- Historical watcher result digest (two byte-identical runs): `2cb11743c79f86d35329f0f5a4fb4b76a038a1383cc7cdbdb3d812845ae0765b`
 - Stable host-capability diagnostic digest (two runs): `b0739841da2d3b5618512b7d31921038f3266128284d2f6cb80c46d376edc2fb`
 
 默认与 historical verifier 均在 Python 3.14 下通过；watcher 47 项、manifest/packaging 定向回归
