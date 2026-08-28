@@ -435,3 +435,7 @@
 - [2026-08-28] 采用分阶段 GKD 工作流精简计划 O1-O8。
   - Why: 审查确认当前问题主要是核心、兼容、历史和可选能力共用默认安装/验证边界；直接删核心会破坏既有承诺，必须先做低风险清理，再拆验证 lane 和 optional pack。
   - Impact: `gkd-workflow-optimization-plan-2026-08-28.md` 固化目标形态、依赖、验收和停止条件。O1 先处理无调用 helper 与 foundation mode 测试表达；每项独立 fixed head、独立验收、独立 closeout，生产/AIO/已发布资产保持不变。
+
+- [2026-08-28] GKD-O1 已完成独立验收并合并。
+  - Why: 五个 helper 在 runtime/CLI 无调用，foundation mode drift 测试可合并表达而不减少边界覆盖；这是精简默认 payload 的最低风险切片。
+  - Impact: PR #34 fixed head `6bd1850ceebd760ea68708805caaec5ee51931e5` 经独立 acceptor、433/433 verifier 与固定头 CI 通过后，由 trusted main 以 canonical `gkd-task accept --merge` 合并为 `eacd9652134a767902d74da5b4b3d084fa122dfa`。实现仅改变 helper/test/manifest lock；生产、AIO、settings、Secrets、runner、tag/Release 均未触碰。Python 3.9、macOS `/tmp` symlink、手工 route JSON 漏字段和 executor 未自动建 PR 等摩擦记录在 O1 retrospective，作为后续 O2-O8 的改进输入。
