@@ -6,7 +6,7 @@
 
 ## Current state
 
-- 已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；production migration 最近一次已由 trusted main 对 `v0.1.2` 验证通过。
+- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；生产当前由 trusted main 对 `v0.1.2` 完成最近一次 migration 验证。
 - AIO adoption 的 B4、C、D 已完成；后续生产或 AIO 普通产品改动、GitHub settings/Secrets、付费 runner、tag/Release 仍须单独明确授权。
 - O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 `gkd-o2-context-cleanup` 正在执行。
 
@@ -15,6 +15,9 @@
 - O3 验证结果复用只能在 O2 accepted merge SHA 确定后启动；当前 bundle、生产安装、AIO 和历史决策记录不因 O2 改动。
 
 ## Historical facts
+
+完整历史索引：`.agents/decisions.md`、`.agents/open-items.md` 以及各任务的 `acceptance.md` 与 `retrospective.md`。
+
 - M5 final: version `0.1.0`, bundle digest `6dd423ab0662ba0563d222cc07f35cfdd508d00fffaa893a9d9355783df2dba9`; final record digest `0ecb8a607d4f2f460e12237a1c3ec7a17f2ef8a2c3b6ed47e83e0ee6baadf807`; L3 digest `c7e72d0fe6a0031248765d516f105018ef0e592fd37a66cd0495c59e2ea305a8`; sandbox PR #2 head `98f31a24739418b4855870ec848c269208b760d8`, L4 digest `8ea764e63c6f97996f2d74d9de5e949b9d52d40d62cd2ebfc3db84016530f0d5`, `GKD Canary` passed. Tag `v0.1.0` and GitHub Release target the exact main merge SHA; asset `gkd-0.1.0-final-c14f166.tar.gz` SHA-256 is `fbbdbc526d699bd4fe3744edb65733ea246dc080046fa05e77c46359ad16ebd1`.
 - Constraints: 完整 GKD 测试只在开发 GKD 或形成 GKD release candidate 时运行；消费项目的普通产品代码和文档变更不运行该测试套件。
 - P1 final: candidate output bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef`，独立 `scripts/gkd-verify --base-sha f060e8342c5c74beacf4e6e429aea54207699b61` 的 418 项通过，PR #23 `GKD Verify` 对固定头成功；squash tree 与候选树一致。post-merge L3/L4、deterministic asset 和 `v0.1.1` Release 均绑定 `ded7a727fb391b8b7062fc531d03c9b6942c834a`，摘要在 `evidence/p1-production-migration/summary.json`。trusted-main production apply 后，doctor 对同一 `0.1.1` bundle 返回 healthy，摘要在 `evidence/p1-production-migration/production-summary.json`；P1 doctor 只报告 `globalAgentsPolicy: outside_scope`，不读取、写入或认证用户级 global `AGENTS.md`。
