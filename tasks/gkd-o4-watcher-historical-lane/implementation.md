@@ -8,5 +8,4 @@
 
 executor 修改前须搜索所有 `SCOPES`、watcher/probe runner 调用点和 manifest 生成入口，先建立默认/历史测试基线，再做最小分层。不得用删除测试、跳过失败或硬编码 `pass` 缩短默认结果；若发现默认入口与公开 CLI 兼容性冲突，停止并记录 finding。
 
-交付时记录实际默认 scope 集合、历史 scope 集合、两次 evidence 摘要、candidate bundle digest、固定 head 和清理结果。缺少真实宿主能力时必须保留可复现的 fail-closed 结果，不把平台不可观测性改写为支持结论。
-
+交付时记录实际默认 scope 集合、历史 scope 集合、两次 evidence 摘要、candidate bundle digest、固定 head 和清理结果。缺少真实宿主能力时必须保留可复现的 fail-closed 结果，不把平台不可观测性改写为支持结论。\n
