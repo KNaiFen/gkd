@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O3 acceptance/retrospective 已落盘。O4 watcher/probe 历史 lane 可从该 accepted merge 启动；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因 O3 改动。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O3 acceptance/retrospective 已落盘。O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。下一步须先建立时间单调性/交付门禁修复决定，再重启 O4；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因 O4 改动。
 
 ## Historical facts
 

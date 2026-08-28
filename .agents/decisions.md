@@ -447,3 +447,11 @@
 - [2026-08-28] GKD-O3 验证结果复用已通过三轮 canonical rework、独立验收并合并。
   - Why: 默认验证器的多个 scope 重复执行相同 task-core 合同，增加耗时、证据体积和失败面；统一结果必须同时保证完整 test-ID 绑定、固定 head/digest 绑定和缺失/篡改 fail-closed。
   - Impact: PR #36 fixed head `3b2252a72c6fd3d4ebdaac50aac845e744b5193e` 在修复五项首轮缺陷及一项二轮缺陷后，通过 433/433 verifier、双 evidence、固定头 CI 和独立 acceptor，并由 trusted main squash merge 为 `9009b089fb811eceaf91ada8b60397b39a451f97`。结果 schema/producer/consumer 已成为默认验证路径；旧 epoch/claim 不可复用，生产、AIO、设置、Secrets、runner、tag/Release 均未改动。后续 O4 将把 watcher/probe 降为显式历史 lane，不删除其历史证据。
+
+- [2026-08-29] GKD-O4 首轮实现被拒绝，且 implementing 文档 digest 暴露状态机自举死锁。
+  - Why: fixed head `6ebf189ee2189a722c3e389b25a09f27c9360698` 的默认/历史验证行为符合目标，但三份规划文档 EOF 空行和 delivery manifest/result 声明漂移被独立验收拒绝。canonical rework 后，executor 修正文档会使 claim 冻结的 document digest 失配；状态机在 implementing 阶段没有受信更新 requirements digest 的入口，status/rework/block 均无法读取状态。
+  - Impact: 旧 attempt 不沿同一 claim 重试。trusted main 仅恢复冻结文档字节、记录一次受控 delivery 和第二次独立拒绝，随后以 `immutable_requirements_document_digest` block 终止旧任务并关闭 PR #37；该恢复不是成功验收或合并。
+
+- [2026-08-29] GKD-O4-R1 retry 因 lifecycle 时间逆序和 fixed-head CI 失败保持 blocked。
+  - Why: retry fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的 watcher 分层、386/10 默认验证、两次 47/1 historical 验证与 host fail-closed 均通过，但 `task.json` 的 claimed 事件时间 `2026-08-29T00:00:00Z` 晚于 delivered 事件 `2026-08-28T22:50:50Z`。trusted validator 因 history 非单调返回 `INVALID_TASK_STATE`，独立 rework 也无法进入前置校验；PR #38 的唯一 fixed-head CI 终态为 `REQUIRED_CHECK_FAILED`。
+  - Impact: PR #38 未合并，任务分支、候选 worktree、runtime 和 review 临时根已清理。O4 不得继续重试；必须另立时间单调性/交付门禁修复任务，明确逻辑时钟、跨进程时间来源和 CI 终态绑定后再重启。
