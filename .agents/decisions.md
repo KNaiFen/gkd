@@ -431,3 +431,7 @@
 - [2026-08-25] AIO D CI/release adapter 已完成失败尝试隔离、v3 canonical acceptance、merge 与 records-only closeout。
   - Why: D v1 的 immutable lifecycle EOF 与 `ci-gate` 失败、D v2 的 stale quality-gate selftest 与 fixed-head required-check identity ambiguity 都是不可沿旧 head 重试的真实流程事实；v2 由 canonical `gkd-task block` 标记 blocked，PR #181/#182 均未合并并关闭。
   - Impact: fresh v3 从已发布并 verify 的 v0.1.5 bundle digest `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`、新 isolated runtime 和 exact executor 开始。PR #183 fixed head `27c9d9a8d350e1a67a2c2a162e80f65c91277a27` 通过独立 local verifier、canonical repository + relative `.gkd/policy.json` 的 3600 秒 monitor（`ci-gate`/`pr-title` success）与无 finding acceptance，merge `1c4ffe456244339eac2f0dfd9772dda1fe3becc8`；records-only PR #184 fixed head `15ac37dfaff5846b0258ac256e2645e905011b80` 通过 3600 秒 monitor，merge `259b95b76f719510f67f76a3fb5d85b73d6e4448`。D 只改 AIO workflow、`.gkd`、scripts、operations/task records，未触碰产品、Trellis、settings、Secrets、付费 runner、tag/Release、deployment 或原始未跟踪 adoption plan 目录；完成后清理 v3 candidate/runtime/temp root。
+
+- [2026-08-28] 采用分阶段 GKD 工作流精简计划 O1-O8。
+  - Why: 审查确认当前问题主要是核心、兼容、历史和可选能力共用默认安装/验证边界；直接删核心会破坏既有承诺，必须先做低风险清理，再拆验证 lane 和 optional pack。
+  - Impact: `gkd-workflow-optimization-plan-2026-08-28.md` 固化目标形态、依赖、验收和停止条件。O1 先处理无调用 helper 与 foundation mode 测试表达；每项独立 fixed head、独立验收、独立 closeout，生产/AIO/已发布资产保持不变。
