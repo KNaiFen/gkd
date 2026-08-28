@@ -11,6 +11,7 @@ import unittest
 from gkd_release.core import build_release_candidate
 from gkd_release.verification import build_l3_trusted_main_record, run_l1_properties, validate_l3_trusted_main_record
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
+from gkd_task.results import CanonicalResultError, load_canonical_results
 
 
 def _flatten(suite: unittest.TestSuite):
@@ -40,6 +41,7 @@ def _group(identifier: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
     suite = unittest.defaultTestLoader.discover(
@@ -51,9 +53,16 @@ def main() -> int:
     test_ids = sorted(test.id() for test in tests)
     if len(test_ids) != len(set(test_ids)):
         return 2
-    result = unittest.TextTestRunner(stream=None, verbosity=0, warnings="error").run(suite)
-    if not result.wasSuccessful():
-        return 1
+    if args.canonical_results is None:
+        result = unittest.TextTestRunner(stream=None, verbosity=0, warnings="error").run(suite)
+        if not result.wasSuccessful():
+            return 1
+    else:
+        try:
+            load_canonical_results(args.canonical_results, "m5-release-candidate", repository, test_ids)
+        except CanonicalResultError as error:
+            print(canonical_bytes({"error": error.code, "status": "error"}).decode(), end="")
+            return 2
     traceability = json.loads(
         (repository / "canonical/payload/fixtures/release/traceability.json").read_text(encoding="utf-8")
     )

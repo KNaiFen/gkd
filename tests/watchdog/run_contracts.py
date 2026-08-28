@@ -17,6 +17,7 @@ from gkd_watchdog.constants import (
 )
 from gkd_watchdog.model import canonical_json
 from probes.multiagentv2.native_probe import capture
+from gkd_task.results import CanonicalResultError, load_canonical_results
 
 
 CONTRACT_TEST_SUFFIXES = {
@@ -151,6 +152,7 @@ def _tool_timeout_surface(codex: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
 
     suite = unittest.defaultTestLoader.discover(
@@ -161,11 +163,19 @@ def main() -> int:
         resultclass=RecordingResult,
         warnings="error",
     )
-    result = runner.run(suite)
-    if not result.wasSuccessful():
-        return 1
-
-    success_ids = result.success_ids
+    test_ids = sorted(test.id() for test in _flatten(suite))
+    if args.canonical_results is None:
+        result = runner.run(suite)
+        if not result.wasSuccessful():
+            return 1
+        success_ids = result.success_ids
+    else:
+        try:
+            load_canonical_results(args.canonical_results, "watcher-core-and-live-negative", Path(__file__).resolve().parents[2], test_ids)
+        except CanonicalResultError as error:
+            print(canonical_json({"error": error.code, "status": "error"}), file=sys.stderr, end="")
+            return 2
+        success_ids = set(test_ids)
     contracts = {}
     for contract, suffixes in CONTRACT_TEST_SUFFIXES.items():
         contracts[contract] = {
@@ -201,7 +211,7 @@ def main() -> int:
             "evidenceClass": "declaration_not_live_connection",
         },
         "tests": {
-            "count": result.testsRun,
+            "count": len(test_ids),
             "idDigestSha256": hashlib.sha256(
                 "\n".join(test_ids).encode("utf-8")
             ).hexdigest(),
@@ -220,7 +230,7 @@ def main() -> int:
     args.output.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    print(canonical_json({"outcome": evidence["outcome"], "tests": result.testsRun}))
+    print(canonical_json({"outcome": evidence["outcome"], "tests": len(test_ids)}))
     return 0
 
 

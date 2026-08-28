@@ -9,6 +9,7 @@ from pathlib import Path
 import unittest
 
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
+from gkd_task.results import CanonicalResultError, load_canonical_results
 
 
 def _flatten(suite: unittest.TestSuite):
@@ -22,6 +23,7 @@ def _flatten(suite: unittest.TestSuite):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
     suite = unittest.defaultTestLoader.discover(str(repository / "tests" / "review_core"), pattern="test_*.py", top_level_dir=str(repository))
@@ -30,9 +32,16 @@ def main() -> int:
     if len(test_ids) != len(set(test_ids)):
         print(canonical_bytes({"error": "DUPLICATE_CONTRACT_ID", "status": "error"}).decode(), end="")
         return 2
-    result = unittest.TextTestRunner(stream=None, verbosity=0, warnings="error").run(suite)
-    if not result.wasSuccessful():
-        return 1
+    if args.canonical_results is None:
+        result = unittest.TextTestRunner(stream=None, verbosity=0, warnings="error").run(suite)
+        if not result.wasSuccessful():
+            return 1
+    else:
+        try:
+            load_canonical_results(args.canonical_results, "m3-review-core", repository, test_ids)
+        except CanonicalResultError as error:
+            print(canonical_bytes({"error": error.code, "status": "error"}).decode(), end="")
+            return 2
     lock = json.loads((repository / "canonical" / "manifest.lock.json").read_text(encoding="utf-8"))
     evidence = {
         "schemaVersion": 1,

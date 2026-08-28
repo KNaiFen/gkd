@@ -17,6 +17,7 @@ import gkd_bundle
 from gkd_role.project import remove_project, stage_project
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
+from gkd_task.results import CanonicalResultError, load_canonical_results
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
 from tests.role_routing.run_contracts import _snapshot_tree
@@ -67,6 +68,7 @@ def main() -> int:
     parser.add_argument("--temporary-root", type=Path, required=True)
     parser.add_argument("--protected-root", type=Path, required=True)
     parser.add_argument("--aio-root", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     try:
         repository = Path(__file__).resolve().parents[2]
@@ -95,9 +97,12 @@ def main() -> int:
         test_ids = sorted(test.id() for test in tests)
         if len(test_ids) != len(set(test_ids)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
-        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
-        if not result.wasSuccessful():
-            return 1
+        if args.canonical_results is None:
+            result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
+            if not result.wasSuccessful():
+                return 1
+        else:
+            load_canonical_results(args.canonical_results, "runtime-bridge", repository, test_ids)
 
         first_project = temporary / "evidence-project-a"
         second_project = temporary / "evidence-project-b"
@@ -214,7 +219,7 @@ def main() -> int:
             )
         )
         return 0
-    except TaskError as error:
+    except (TaskError, CanonicalResultError) as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError):
