@@ -1,5 +1,7 @@
 # Open Items
 
+- [x] 2026-08-28 子代理回收修正：停用无条件 `SubagentStop` mailbox-drain hook；全局 `AGENTS.md` 仅保留基于明确容量错误、权威快照、单次 followup 和消息/terminal ack 的人工恢复路径。未改变 Codex 并发上限、GKD bundle 或项目发布状态。
+
 - [x] `gkd_core_implementation` 已于2026-08-18明确授权；按hybrid B从里程碑-1人工执行交接开始。
 - [x] 已创建 `KNaiFen/gkd` 与 `KNaiFen/gkd-sandbox`；源码基线已推送，sandbox保持空仓库。
 - [x] `GKD-M-1A` 在 `codex-cli 0.147.0` 输出版本绑定的 `native_insufficient`；fixed head `bd8332a` 已独立验收并通过PR #1合并为 `0cc09e9`。

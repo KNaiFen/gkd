@@ -1,5 +1,7 @@
 # Context
 
+- Subagent 生命周期修正（2026-08-28）：全局 `SubagentStop` mailbox-drain hook 已停用，兼容脚本改为无操作；用户级 `AGENTS.md` 现在只允许基于明确容量错误、权威驻留/mailbox 快照和一次性消息确认的人工恢复。该配置不属于 GKD bundle，未改变 Codex 并发上限或项目发布状态。
+
 - Goal: 建立可版本化、可安装、可专门验证的 GKD canonical distribution source。
 - Next task: adoption 计划的 B4、C、D 已全部完成；后续没有已授权的 AIO 普通产品改动。若继续扩展，必须另行形成明确 task 与授权，并继续从已发布并 verify 的 v0.1.5 asset 建立隔离 runtime，不复制通用 GKD 逻辑。
 - Current state: M3/M4/M5 已完成。M4 fixed head `2b9dbfe5aa8003926eed2ef89e562e245859cdf0` 由 PR #19 merge 为 `44e413937df8e05045d907af2630185bc4fb9bcc`；M5-A PR #20 fixed head `8d61c478594efd9e03c85be7462a2fd856c7a121` 由 merge `3f0a60feaa724e37163d207678917f140312cfdc` 进入 main；M5-B PR #21 fixed head `20e905f9f93b100c13969da5ec2be3d96e54213a` 由 merge `c1de724d686af291cb1ffcf0a2cb12d6621244c6` 进入 main；M5-C PR #22 fixed head `8dd3cc720119e3079b37b34631c7542dc50ad71a` 由 merge `c14f166e0bee7d036b6e9ab0d5e014c40922fe59` 进入 main。release source/tag target 为 `c14f166e0bee7d036b6e9ab0d5e014c40922fe59`；`GKD-P1` candidate `c352bdf8c90fdc614830dfdffa937a616292d1b1` 由 PR #23 squash merge 为 `ded7a727fb391b8b7062fc531d03c9b6942c834a`。`v0.1.1` tag/Release 与资产都精确绑定该 P1 source SHA；当前 main/origin main 同步由 closeout 提交维护。生产目录和 AIO 仍未写入。

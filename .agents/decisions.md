@@ -1,5 +1,9 @@
 # Decisions
 
+- [2026-08-28] 停用自动 SubagentStop mailbox-drain，并收紧槽位异常恢复。
+  - Why: `SubagentStop` 的 `decision: "block"` 只会无条件创建一次 continuation prompt；事件没有 mailbox 状态、消息生命周期确认或 unload 事实。该 hook 延长线程驻留并可能制造 queue-only mailbox，放大 #32353 的 `thread limit reached`。`followup_task` 也不是 close/reap，不能从模型提示推断槽位已释放。
+  - Impact: 用户级 `hooks.json` 不再注册 `SubagentStop`，兼容脚本只输出空 JSON；用户级 `AGENTS.md` 改为仅在明确容量错误和权威快照成立时，对明确 blocker 最多执行一次 followup，并要求 terminal/unloaded 与消息 ack；无证据时转为 `capacity_unknown`/`manual_recovery_required`，不重试。该次全局配置变更按用户明确授权执行，不改变 GKD bundle 或 Codex 并发上限。
+
 - [2026-08-17] 建立独立 GKD 开发仓库。
   - Why: 将 GKD 的 Skills、roles、脚本、schema、安装与测试从消费项目中分离，并使用 Git 管理版本。
   - Impact: 后续经批准的 GKD 实现和专属测试进入本仓库；消费项目只保存固定版本、digest 和项目 adapter。
