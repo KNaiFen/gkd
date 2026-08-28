@@ -6,7 +6,7 @@
 - Fixed base: `992c4dfddc2f5cb6c337d07d5407297bc1d1996c`
 - Claim base head: `dc3b85425e1b0332b549ceb9c1f2b0448020b0d3`
 - Claim: `ba97dd58513c3675941791a86df4b59145b2b0b83cde6dbf9d15c7b145acd0ef`
-- Implementation head: `7643c0ec5f07ee4b8301d4b0d8da84850ab96a0b`
+- Implementation head: `1f30cdb4f00c8a8eea414fc0be1491b54ad129bf`
 
 本交付建立了版本化 canonical scope result：`gkd-verify --results-dir`
 对 11 个 scope 的行为测试各执行一次，写出绑定 base/head、scope、完整 test ID、
@@ -20,9 +20,9 @@ manifest/lock、路径和凭据边界保持不变；watcher/probe、fixture、op
 
 - Execution bundle digest: `273873360cb7e3115a54dfef7e6840611457cc8c4d3af80384670b32630f1dc0`
 - Candidate output bundle digest: `06095243b2199672243b559e0af2798fb9e051e33281775b98bc68c8b16ac48a`
-- Canonical results manifest digest: `62ebbe2d61f2c8bd3f583b85814d26b690057a9b24e7b7428c2f9ec62f4574ce`
-- O3 evidence digest (two runs): `10d660679fd52ec7e6866b51b88b050e80f2e08884cc0ded0e06531dc37f9270`
-- O3 evidence file SHA-256 (two runs): `dbf2b65e4384da8d63bd260350a56dd91661960b9f1667677ddf2020c2d1ae08`
+- Canonical results manifest digest: `b2361f90d1a752d185b1d83d4b9a606d4407aa38f8a5c3f4d8f950a79f52cd26`
+- O3 evidence digest (two runs): `416c4c4a340cbfd34b40d37746888363959abd03a4eb5d9bf8771470f5740408`
+- O3 evidence file SHA-256 (two runs): `d555fedca01eff7bcfeaf9e263af0901cb747f9f6fc16aad7dac9d1562a4b41a`
 
 完整 verifier 返回 433/433：`foundation` 52、`m3-ci-policy` 29、
 `m3-resource-scanner` 19、`m3-review-core` 11、`m4-finalization` 9、
@@ -30,7 +30,9 @@ manifest/lock、路径和凭据边界保持不变；watcher/probe、fixture、op
 `runtime-bridge` 39、`task-core` 135、`watcher-core-and-live-negative` 47。
 两个独立根的 O3 evidence 均为 `verifier_result_reuse_ready`、433 tests，逐字节一致；
 task-core 与 foundation consumer 均成功且无 unittest 输出，证明行为测试由 canonical
-runner 执行一次后被消费。
+runner 执行一次后被消费。watchdog consumer 的缺失结果返回
+`CANONICAL_RESULT_MISSING`，未知 test ID 变异返回 `CANONICAL_RESULT_TEST_IDS_MISMATCH`，
+均为 exit 2 且不写 evidence。
 
 ## 验证
 
@@ -41,8 +43,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/gkd-verify --base-sha 992c4dfddc2f5
 PYTHONDONTWRITEBYTECODE=1 python3 -B tests/verification_results/run_evidence.py --canonical-results <results-dir> --output <output> --temporary-root <temporary-root> --protected-root <protected-root>
 ```
 
-验证使用 Python 3.14.6；未安装依赖。结果和 evidence 输出不含机器绝对路径、凭据、
-原始日志或 runtime 身份。
+验证使用 Python 3.14.6；未安装依赖。完整 verifier 返回 433/433：`foundation` 52、
+`m3-ci-policy` 29、`m3-resource-scanner` 19、`m3-review-core` 11、`m4-finalization` 9、
+`m5-release-candidate` 15、`p1-production-migration` 6、`role-routing` 71、
+`runtime-bridge` 39、`task-core` 135、`watcher-core-and-live-negative` 47。结果和 evidence
+输出不含机器绝对路径、凭据、原始日志或 runtime 身份。
 
 ## 停止边界
 
