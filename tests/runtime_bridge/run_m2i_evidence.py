@@ -17,6 +17,7 @@ import gkd_bundle
 from gkd_role.routing import decide_route
 from gkd_task.canonical import FixedNonce, atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
+from gkd_task.results import CanonicalResultError, load_canonical_results
 from tests.role_routing.run_contracts import _snapshot_tree
 from tests.runtime_bridge.helpers import BUNDLE_ROOT, bundle_digest, ready_bridge, spawn_result, terminal_result
 from tests.task_core.helpers import TaskRepo
@@ -55,6 +56,7 @@ def main() -> int:
     parser.add_argument("--temporary-root", type=Path, required=True)
     parser.add_argument("--protected-root", type=Path, required=True)
     parser.add_argument("--aio-root", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     try:
         repository = Path(__file__).resolve().parents[2]
@@ -76,9 +78,12 @@ def main() -> int:
         before_aio = _snapshot_tree(aio)
         tempfile.tempdir = os.fspath(temporary)
         test_ids = sorted(TEST_NAMES)
-        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=1).run(_suite())
-        if not result.wasSuccessful():
-            return 1
+        if args.canonical_results is None:
+            result = unittest.TextTestRunner(stream=sys.stderr, verbosity=1).run(_suite())
+            if not result.wasSuccessful():
+                return 1
+        else:
+            load_canonical_results(args.canonical_results, "runtime-bridge", repository, list(TEST_NAMES))
 
         repo = TaskRepo()
         try:
@@ -162,7 +167,7 @@ def main() -> int:
         atomic_write(output, encoded)
         sys.stdout.buffer.write(canonical_bytes({"outcome": evidence["outcome"], "tests": len(test_ids), "evidenceDigest": evidence["evidenceDigest"]}))
         return 0
-    except TaskError as error:
+    except (TaskError, CanonicalResultError) as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError):

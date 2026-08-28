@@ -15,6 +15,7 @@ import unittest
 import gkd_bundle
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, sha256_bytes
 from gkd_task.errors import TaskError
+from gkd_task.results import CanonicalResultError, load_canonical_results
 
 
 def _flatten(suite: unittest.TestSuite):
@@ -68,6 +69,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--temporary-root", type=Path, required=True)
     parser.add_argument("--protected-root", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     try:
         repository_root = Path(__file__).resolve().parents[2]
@@ -94,12 +96,16 @@ def main() -> int:
         identifiers = [_contract_id(test) for test in tests]
         if len(identifiers) != len(set(identifiers)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
+        raw_test_ids = [test.id() for test in tests]
         groups: dict[str, list[str]] = {}
         for test, identifier in zip(tests, identifiers, strict=True):
             groups.setdefault(_group(test), []).append(identifier)
-        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
-        if not result.wasSuccessful():
-            return 1
+        if args.canonical_results is None:
+            result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
+            if not result.wasSuccessful():
+                return 1
+        else:
+            load_canonical_results(args.canonical_results, "task-core", repository_root, raw_test_ids)
         if any(temporary_root.iterdir()):
             raise TaskError("TEMPORARY_ROOT_NOT_CLEAN")
         after = gkd_bundle._snapshot_protected(protected_root)
@@ -143,7 +149,7 @@ def main() -> int:
             )
         )
         return 0
-    except TaskError as error:
+    except (TaskError, CanonicalResultError) as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):

@@ -20,6 +20,7 @@ from gkd_role.roles import context_manifest, role_catalog
 from gkd_role.routing import m2a_route_evidence
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
+from gkd_task.results import CanonicalResultError, load_canonical_results
 from tests.role_routing.helpers import build_migration_home
 
 
@@ -184,6 +185,7 @@ def main() -> int:
     parser.add_argument("--protected-root", type=Path, required=True)
     parser.add_argument("--aio-root", type=Path, required=True)
     parser.add_argument("--handshake", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     try:
         repository = Path(__file__).resolve().parents[2]
@@ -208,9 +210,12 @@ def main() -> int:
         test_ids = sorted(test.id() for test in tests)
         if len(test_ids) != len(set(test_ids)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
-        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
-        if not result.wasSuccessful():
-            return 1
+        if args.canonical_results is None:
+            result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
+            if not result.wasSuccessful():
+                return 1
+        else:
+            load_canonical_results(args.canonical_results, "role-routing", repository, test_ids)
         lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
         bundle_digest = lock["contentDigest"]
         catalog = role_catalog(bundle_root, bundle_digest)
@@ -275,7 +280,7 @@ def main() -> int:
         atomic_write(output, encoded)
         sys.stdout.buffer.write(canonical_bytes({"outcome": evidence["outcome"], "tests": evidence["tests"]["count"], "contentDigest": bundle_digest, "evidenceDigest": evidence["evidenceDigest"]}))
         return 0
-    except TaskError as error:
+    except (TaskError, CanonicalResultError) as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError):

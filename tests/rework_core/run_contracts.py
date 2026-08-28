@@ -15,6 +15,7 @@ import unittest
 import gkd_bundle
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
+from gkd_task.results import CanonicalResultError, load_canonical_results
 from tests.role_routing.run_contracts import _snapshot_tree
 
 
@@ -63,6 +64,7 @@ def main() -> int:
     parser.add_argument("--temporary-root", type=Path, required=True)
     parser.add_argument("--protected-root", type=Path, required=True)
     parser.add_argument("--aio-root", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     parser.add_argument("--implementation-head", required=True)
     args = parser.parse_args()
     try:
@@ -102,11 +104,15 @@ def main() -> int:
         )
         tests = list(_flatten(suite))
         identifiers = sorted(test.id() for test in tests)
+        test_ids = identifiers
         if len(identifiers) != len(set(identifiers)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
-        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
-        if not result.wasSuccessful():
-            return 1
+        if args.canonical_results is None:
+            result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
+            if not result.wasSuccessful():
+                return 1
+        else:
+            load_canonical_results(args.canonical_results, "task-core", repository, test_ids)
         if any(temporary.iterdir()):
             raise TaskError("TEMPORARY_ROOT_NOT_CLEAN")
 
@@ -172,7 +178,7 @@ def main() -> int:
             )
         )
         return 0
-    except TaskError as error:
+    except (TaskError, CanonicalResultError) as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError):

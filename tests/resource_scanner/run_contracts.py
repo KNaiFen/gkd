@@ -11,6 +11,7 @@ import unittest
 
 import gkd_bundle
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
+from gkd_task.results import CanonicalResultError, load_canonical_results
 
 
 class RecordingResult(unittest.TextTestResult):
@@ -36,6 +37,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
     suite = unittest.defaultTestLoader.discover(
@@ -48,9 +50,12 @@ def main() -> int:
     if len(test_ids) != len(set(test_ids)):
         print(canonical_bytes({"error": "DUPLICATE_CONTRACT_ID", "status": "error"}).decode(), file=sys.stderr, end="")
         return 2
-    result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2, resultclass=RecordingResult, warnings="error").run(suite)
-    if not result.wasSuccessful():
-        return 1
+    if args.canonical_results is None:
+        result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2, resultclass=RecordingResult, warnings="error").run(suite)
+        if not result.wasSuccessful():
+            return 1
+    else:
+        load_canonical_results(args.canonical_results, "m3-resource-scanner", repository, test_ids)
     lock = json.loads((repository / "canonical" / "manifest.lock.json").read_text(encoding="utf-8"))
     groups: dict[str, list[str]] = {}
     for identifier in test_ids:

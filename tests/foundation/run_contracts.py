@@ -7,7 +7,10 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
 import unittest
+
+from gkd_task.results import CanonicalResultError, canonical_bytes, load_canonical_results
 
 
 CONTRACT_SUFFIXES = {
@@ -53,6 +56,14 @@ CONTRACT_SUFFIXES = {
 }
 
 
+def _flatten(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
 class RecordingResult(unittest.TextTestResult):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -73,36 +84,49 @@ def _matching(success_ids: set[str], suffix: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--canonical-results", type=Path)
     args = parser.parse_args()
+    repository = Path(__file__).resolve().parents[2]
     suite = unittest.defaultTestLoader.discover(
         "tests/foundation", pattern="test_*.py", top_level_dir="."
     )
     runner = unittest.TextTestRunner(
         verbosity=2, resultclass=RecordingResult, warnings="error"
     )
-    result = runner.run(suite)
-    if not result.wasSuccessful():
-        return 1
-    test_ids = sorted(result.success_ids)
+    tests = list(_flatten(suite))
+    discovered_ids = [test.id() for test in tests]
+    if args.canonical_results is None:
+        result = runner.run(suite)
+        if not result.wasSuccessful():
+            return 1
+        success_ids = result.success_ids
+    else:
+        try:
+            load_canonical_results(args.canonical_results, "foundation", repository, discovered_ids)
+        except CanonicalResultError as error:
+            sys.stderr.buffer.write(canonical_bytes({"error": error.code, "status": "error"}))
+            return 2
+        success_ids = set(discovered_ids)
+    test_ids = sorted(success_ids)
     evidence = {
         "schemaVersion": 1,
         "task": "GKD-M0-A",
         "outcome": "pass",
         "tests": {
-            "count": result.testsRun,
+            "count": len(test_ids),
             "idDigestSha256": hashlib.sha256("\n".join(test_ids).encode("utf-8")).hexdigest(),
         },
         "contracts": {
             contract: {
                 "status": "pass",
-                "tests": [_matching(result.success_ids, suffix) for suffix in suffixes],
+                "tests": [_matching(success_ids, suffix) for suffix in suffixes],
             }
             for contract, suffixes in sorted(CONTRACT_SUFFIXES.items())
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"outcome": "pass", "tests": result.testsRun}, sort_keys=True))
+    print(json.dumps({"outcome": "pass", "tests": len(test_ids)}, sort_keys=True))
     return 0
 
 
