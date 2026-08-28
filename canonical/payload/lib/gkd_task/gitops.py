@@ -257,13 +257,3 @@ def commit_exact(root: Path, paths: list[str], message: str) -> str:
         raise TaskError("UNEXPECTED_STAGED_PATH")
     git(root, "commit", "-m", message, "--", *normalized, code="GIT_COMMIT_FAILED")
     return head(root)
-
-
-def fixed_tree_paths(root: Path, commit: str, prefix: str) -> list[str]:
-    require_sha1(commit, "INVALID_GIT_HEAD")
-    relative_path(prefix, "INVALID_FIXED_TREE_PATH")
-    try:
-        raw = git(root, "ls-tree", "-r", "--name-only", "-z", commit, "--", prefix).decode("utf-8")
-    except UnicodeDecodeError:
-        raise TaskError("CANDIDATE_INVALID") from None
-    return sorted(value for value in raw.split("\x00") if value)

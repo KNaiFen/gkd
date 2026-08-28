@@ -36,20 +36,6 @@ def validate_legacy_v1(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_LEGACY_STATE")
 
 
-def make_legacy_v1(state: dict[str, Any], worktree_path: str | None, archived: bool) -> dict[str, Any]:
-    validate_state(state)
-    value = {
-        "schemaVersion": 1,
-        "kind": "legacy-v1-task-path",
-        "task": deepcopy(state),
-        "worktreePath": worktree_path,
-        "archived": archived,
-    }
-    value["legacyDigest"] = digest_object(value)
-    validate_legacy_v1(value)
-    return value
-
-
 def migrate_v1(
     git_root: Path,
     task_path: str,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from typing import Any
 
@@ -170,8 +169,3 @@ def validate_scanner_result(value: dict[str, Any]) -> None:
             or finding["redaction"] != "full-value"
         ):
             raise TaskError("SCANNER_RESULT_INVALID")
-
-
-def scanner_result_digest(value: dict[str, Any]) -> str:
-    validate_scanner_result(value)
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()

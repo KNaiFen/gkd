@@ -6,7 +6,7 @@ from copy import deepcopy
 import re
 from typing import Any
 
-from gkd_task.canonical import CREDENTIAL_RE, canonical_bytes, digest_object, require_keys, require_sha256
+from gkd_task.canonical import CREDENTIAL_RE, digest_object, require_keys, require_sha256
 from gkd_task.errors import TaskError
 
 
@@ -86,8 +86,3 @@ def build_adapter(adapter_name: str, repositories: list[dict[str, Any]]) -> dict
 def adapter_digest(value: dict[str, Any]) -> str:
     validate_adapter(value)
     return value["adapterDigest"]
-
-
-def canonical_adapter(value: dict[str, Any]) -> bytes:
-    validate_adapter(value)
-    return canonical_bytes(value)

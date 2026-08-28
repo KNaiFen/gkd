@@ -16,7 +16,7 @@ from typing import Any
 from gkd_task.acceptance import MergeIndeterminate
 from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes, digest_object
 from gkd_task.documents import PLAN_MATERIAL_SECTIONS
-from gkd_task.model import read_state
+from gkd_task.model import read_state, validate_state
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService, bootstrap_task
 from tests.task_core.evidence_support import FixtureEvidenceProvider, make_fixture_evidence
@@ -28,6 +28,19 @@ ROLE_DIGEST = hashlib.sha256(b"role-policy-v1").hexdigest()
 CONFIG_DIGEST = hashlib.sha256(b"role-config-v1").hexdigest()
 SESSION_DIGEST = hashlib.sha256(b"session-v1").hexdigest()
 REVIEWER_DIGEST = hashlib.sha256(b"independent-reviewer").hexdigest()
+
+
+def make_legacy_v1(state: dict[str, Any], worktree_path: str | None, archived: bool) -> dict[str, Any]:
+    validate_state(state)
+    value = {
+        "schemaVersion": 1,
+        "kind": "legacy-v1-task-path",
+        "task": deepcopy(state),
+        "worktreePath": worktree_path,
+        "archived": archived,
+    }
+    value["legacyDigest"] = digest_object(value)
+    return value
 
 
 def run(*args: str, cwd: Path | None = None) -> str:

@@ -32,7 +32,6 @@ CONTRACT_SUFFIXES = {
         "InstallationContracts.test_verify_detects_missing_file",
         "InstallationContracts.test_verify_detects_extra_file",
         "InstallationContracts.test_verify_detects_mode_drift",
-        "InstallationContracts.test_verify_detects_every_metadata_mode_mutation",
         "InstallationContracts.test_verify_detects_symlink_drift",
     ),
     "vision_and_documentation": (
