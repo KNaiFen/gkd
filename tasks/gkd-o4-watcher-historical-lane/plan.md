@@ -80,4 +80,3 @@
 - 修改前搜索所有 `SCOPES`、watcher/probe runner 调用点和 manifest 生成入口，建立默认/历史测试基线。
 - 默认入口不得通过删除测试、跳过失败或硬编码 `pass` 缩短验证；历史 lane 失败必须保留可复现原因。
 - 交付记录默认/历史 scope 集合、两次 evidence、candidate bundle digest、固定 head 和清理结果，不跨入 O5-O8。
-
