@@ -31,8 +31,3 @@
 3. `scripts/gkd-verify --base-sha <full-base-sha>` 通过，输出无 protected surface、临时目录或路径泄漏漂移。
 4. 两次独立 evidence 运行字节一致，candidate output bundle digest 与 delivery document 绑定固定 head。
 5. 变更不引入仓库名、用户名、绝对路径、token、secret 或新的依赖；旧发布资产不被修改。
-
-## Evidence
-
-- 记录完整 base SHA、candidate head、删除/迁移的符号、测试 ID、verifier exit code、两次 evidence digest、candidate bundle digest 和最终 acceptance 结果。
-- 若发现 helper 实际被外部 Python 调用，立即停止删除，改为弃用标记并在 findings 中说明，不扩大 O1 范围。
