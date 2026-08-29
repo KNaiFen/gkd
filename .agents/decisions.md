@@ -507,3 +507,7 @@
 - [2026-08-30] `GKD-GATE-REPAIR-R6` 已通过独立验收并合并。
   - Why: PR #44 fixed head `c8efd9a18563df4965f70ee352841304075b9786` 的 Python 3.9.6 与 3.14.6 各 444 项完整 verifier、11 个 scope、fixed-head `GKD Verify`、逻辑顺序、planning refresh 和 implementation fixed-tree result/evidence sidecar 都通过独立复核。
   - Impact: canonical acceptance 以 squash merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0` 进入 main，review digest 为 `7eb1f3eb7e739e7e2777c0c1405970f9eae1514cff490f419df19f3ae2062bae`。后续 O4 必须以 R6 收尾后的全新 trusted main 建立，旧 O4 lifecycle 继续只读归档。
+
+- [2026-08-30] `GKD-GATE-REPAIR-R6` 收尾清理完成。
+  - Why: candidate worktree 在删除前保持 clean 并固定于已验收 head；squash merge 使 task branch 不具备 Git 的普通祖先合并关系，已在验收记录存在后显式删除。
+  - Impact: candidate worktree、本地/远端 `task/gkd-gate-repair-r6` 已删除；machine-local runtime 已移入可恢复 Trash。主线和生产/AIO 均未改动。
