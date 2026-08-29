@@ -1347,6 +1347,9 @@ class TaskService:
             document_parent = git(self.candidate_root, "rev-parse", f"{expected_head}^", code="INVALID_DELIVERY_DOCUMENT").decode("ascii").strip()
         except UnicodeDecodeError:
             raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
+        implementation_head = document_parent
+        if automatic_delivery and _tree_path_exists(self.candidate_root, document_parent, result_manifest_path or "") and changed_paths(self.candidate_root, document_parent) == [result_manifest_path]:
+            implementation_head = git(self.candidate_root, "rev-parse", f"{document_parent}^", code="INVALID_DELIVERY_DOCUMENT").decode("ascii").strip()
         if not automatic_delivery:
             if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
                 raise TaskError("INVALID_DELIVERY_DOCUMENT")
@@ -1419,8 +1422,8 @@ class TaskService:
                     or manifest["repository"] != state["repository"]["identity"]
                     or manifest["taskBranch"] != state["repository"]["taskBranch"]
                     or manifest["baseSha"] != state["repository"]["baseSha"]
-                    or manifest["implementationHead"] != document_parent
-                    or manifest["deliveryHead"] != document_parent
+                    or manifest["implementationHead"] != implementation_head
+                    or manifest["deliveryHead"] != implementation_head
                     or manifest["claimId"] != claim["claimId"]
                     or manifest["executionBundleDigest"] != claim["executionBundleDigest"]
                     or manifest["candidateOutputBundleDigest"] != candidate_output_bundle_digest
@@ -1439,7 +1442,7 @@ class TaskService:
                 {
                     "status": "delivered",
                     "revision": updated["revision"],
-                    "implementationHead": document_parent,
+                "implementationHead": implementation_head,
                     "deliveryDocumentCommit": expected_head,
                 },
             )

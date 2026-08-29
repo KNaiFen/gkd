@@ -178,9 +178,12 @@ def _validate_delivery_sequence(
         raise TaskError("CANDIDATE_INVALID") from None
     changed_document_paths = changed_paths(candidate_root, document_commit)
     manifest_in_parent = automatic and _tree_path_exists(candidate_root, document_parent, manifest_path)
+    implementation_anchor = document_parent
+    if manifest_in_parent and changed_paths(candidate_root, document_parent) == [manifest_path]:
+        implementation_anchor = git(candidate_root, "rev-parse", f"{document_parent}^", code="CANDIDATE_INVALID").decode("ascii").strip()
     if (
         final_parent != document_commit
-        or document_parent != implementation_head
+        or implementation_anchor != implementation_head
         or not is_ancestor(candidate_root, claim_base_head, implementation_head)
         or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
         or (changed_document_paths != expected_document_paths and not (manifest_in_parent and changed_document_paths == [expected_path]))
