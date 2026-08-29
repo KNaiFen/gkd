@@ -7,7 +7,7 @@
 ## User Decisions
 
 - 用户已选择完整 Python 3.9 兼容移植；这替代 R5 后“最低解释器或完整移植”的待决项。
-- 本任务从 trusted main `5a34cc7562774dd862e8068f6be61dac0d2495d5` 建立。GKD-GATE-REPAIR attempt 0 至 R5 与 O4 是只读历史，禁止复用其 offer、claim、activation、delivery 或 PR。
+- 本任务从 trusted main `f4ec2461f3314a9246b3d0f5ba25eb67b693e862` 建立。GKD-GATE-REPAIR attempt 0 至 R5 与 O4 是只读历史，禁止复用其 offer、claim、activation、delivery 或 PR。
 - 一个精确 `gkd_executor` 交付、一个独立 `gkd_acceptor` 验收、trusted main 合并和收尾；不使用 nested agent、解释器路径 fallback 或外部依赖。
 - 只修改 GKD canonical、合同测试、任务记录和相关文档。生产、AIO、GitHub settings/Secrets、付费 runner、tag/Release、已发布资产保持不变。
 
