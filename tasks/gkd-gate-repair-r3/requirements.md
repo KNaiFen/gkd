@@ -32,4 +32,3 @@
 4. sidecar 位于 final implementation commit；delivery document 是唯一下一提交；state delivery implementation head、sidecar implementation head、delivery document parent 与 fixed output bundle digest 完全一致。delivery 后没有候选提交。
 5. task-core、runtime bridge、rework、packaging 和 mutation/negative contracts 通过；独立 acceptor 的 exact-head CI 使用相对 `.gkd/policy.json` 并成功。
 6. 不出现绝对路径、凭据、新依赖或生产/AIO/GitHub settings 副作用。
-

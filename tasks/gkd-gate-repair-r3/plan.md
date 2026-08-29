@@ -67,4 +67,3 @@
 
 - 先复核 R2 的 old acceptance ancestry 和 unbound digest finding，再实现最小兼容改动。
 - 最终 implementation commit 必须含 source、schema、tests、bundle/lock、sidecar；其直接下一提交只能是 delivery.md，之后立即 deliver 并停止。
-
