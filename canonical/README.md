@@ -49,8 +49,10 @@ task state, planning and authorization gates, portable worktree resolution,
 offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
 The foundation `gkd-bundle` command surface remains unchanged.
 
-The repository verifier keeps its default invocation and scope list. With an
-explicit `--results-dir`, it runs each scope once and writes a versioned,
+The repository verifier keeps its default invocation and core scope list.
+`scripts/gkd-verify --lane historical` is the explicit watcher/probe historical
+lane; it never runs from the default command. With an explicit `--results-dir`,
+each lane runs its scopes once and writes a versioned,
 path-free canonical result manifest plus one result per scope. Evidence runners
 may consume that directory with `--canonical-results`; they re-check the
 current fixed head, base ancestry, environment, test IDs/statuses and digests

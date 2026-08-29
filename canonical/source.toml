@@ -197,7 +197,7 @@ files = [
 ]
 
 [[components]]
-name = "verification-results"
+name = "verification-results-and-lanes"
 kind = "library"
 files = [
   { source = "payload/schema/verification-results.schema.json", target = "gkd/schema/verification-results.schema.json", mode = "0644" },

@@ -9,8 +9,12 @@ GKD 工作流的规范源码、版本管理与专属验证仓库。
 Canonical CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。
 
 仓库 CI policy 位于 `.gkd/policy.json`。本地与 pull request 验证共用
-`scripts/gkd-verify --base-sha <full-sha>`，只需要 Python、Git 和标准库。
+`scripts/gkd-verify --base-sha <full-sha>`，只需要 Python、Git 和标准库。默认
+lane 只运行核心合同；watcher/probe 历史合同必须显式使用
+`scripts/gkd-verify --lane historical --base-sha <full-sha>`。
 需要供 evidence runner 复用时，可显式传入 `--results-dir <directory>`；各 scope
 runner 使用 `--canonical-results <directory>` 消费同一份固定结果。automatic
 delivery 可额外使用 `--summary-output <path>` 生成待固定树校验的 canonical
-verifier summary。
+verifier summary。historical lane 可使用 `--historical-evidence-output <path>`
+生成 core evidence，并仅在显式传入 `--host-capability-probe-output <path>` 时
+执行 host-capability probe；不可观察的 host 会留下 `unsupported` 诊断。

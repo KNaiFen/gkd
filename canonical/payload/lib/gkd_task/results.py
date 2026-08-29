@@ -15,7 +15,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-SCOPE_NAMES = (
+DEFAULT_SCOPE_NAMES = (
     "m5-release-candidate",
     "m4-finalization",
     "m3-ci-policy",
@@ -26,8 +26,14 @@ SCOPE_NAMES = (
     "runtime-bridge",
     "p1-production-migration",
     "foundation",
+)
+
+HISTORICAL_SCOPE_NAMES = (
     "watcher-core-and-live-negative",
 )
+
+# Existing consumers import this name for the default verifier contract.
+SCOPE_NAMES = DEFAULT_SCOPE_NAMES
 
 
 class CanonicalResultError(ValueError):
@@ -95,14 +101,14 @@ def _read(path: Path, code: str) -> tuple[dict[str, Any], bytes]:
     return value, raw
 
 
-def _validate_manifest(value: dict[str, Any]) -> None:
+def _validate_manifest(value: dict[str, Any], scope_names: tuple[str, ...]) -> None:
     _require(set(value) == {"baseSha", "environment", "headSha", "manifestDigest", "schemaVersion", "scopes", "verifierDigest"}, "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(value["schemaVersion"] == SCHEMA_VERSION, "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(isinstance(value["baseSha"], str) and SHA1_RE.fullmatch(value["baseSha"]), "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(isinstance(value["headSha"], str) and SHA1_RE.fullmatch(value["headSha"]), "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(isinstance(value["verifierDigest"], str) and SHA256_RE.fullmatch(value["verifierDigest"]), "CANONICAL_RESULT_SCHEMA_INVALID")
     _require(value["environment"] == environment_summary(), "CANONICAL_RESULT_ENVIRONMENT_MISMATCH")
-    _require(value["scopes"] == list(SCOPE_NAMES), "CANONICAL_RESULT_SCOPE_MISMATCH")
+    _require(value["scopes"] == list(scope_names), "CANONICAL_RESULT_SCOPE_MISMATCH")
     digest = value["manifestDigest"]
     unsigned = dict(value)
     unsigned.pop("manifestDigest")
@@ -133,10 +139,15 @@ def _validate_scope(value: dict[str, Any], scope: str, manifest: dict[str, Any],
 
 def load_canonical_results(results_dir: Path, scope: str, repository: Path, expected_ids: list[str] | None = None) -> dict[str, Any]:
     """Load and validate one scope result against this checkout's fixed head."""
-    _require(scope in SCOPE_NAMES, "CANONICAL_RESULT_SCOPE_INVALID")
+    if scope in DEFAULT_SCOPE_NAMES:
+        scope_names = DEFAULT_SCOPE_NAMES
+    elif scope in HISTORICAL_SCOPE_NAMES:
+        scope_names = HISTORICAL_SCOPE_NAMES
+    else:
+        raise CanonicalResultError("CANONICAL_RESULT_SCOPE_INVALID")
     _require(results_dir.is_dir() and not results_dir.is_symlink(), "CANONICAL_RESULT_MISSING")
     manifest, _ = _read(results_dir / "manifest.json", "CANONICAL_RESULT_MISSING")
-    _validate_manifest(manifest)
+    _validate_manifest(manifest, scope_names)
     _require(manifest["headSha"] == current_head(repository), "CANONICAL_RESULT_HEAD_MISMATCH")
     _require(_is_ancestor(repository, manifest["baseSha"], manifest["headSha"]), "CANONICAL_RESULT_BASE_MISMATCH")
     result, _ = _read(results_dir / f"{scope}.json", "CANONICAL_RESULT_MISSING")
@@ -167,13 +178,13 @@ def write_scope_result(path: Path, *, base_sha: str, head_sha: str, scope: str, 
     return value
 
 
-def write_manifest(path: Path, *, base_sha: str, head_sha: str, verifier_digest: str) -> dict[str, Any]:
+def write_manifest(path: Path, *, base_sha: str, head_sha: str, verifier_digest: str, scope_names: tuple[str, ...] = DEFAULT_SCOPE_NAMES) -> dict[str, Any]:
     value: dict[str, Any] = {
         "baseSha": base_sha,
         "environment": environment_summary(),
         "headSha": head_sha,
         "schemaVersion": SCHEMA_VERSION,
-        "scopes": list(SCOPE_NAMES),
+        "scopes": list(scope_names),
         "verifierDigest": verifier_digest,
     }
     value["manifestDigest"] = digest_object(value)

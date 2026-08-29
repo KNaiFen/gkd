@@ -21,23 +21,33 @@ sys.path.insert(0, str(LIBRARY))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from gkd_task.results import write_manifest, write_scope_result
+from gkd_task.results import (
+    DEFAULT_SCOPE_NAMES,
+    HISTORICAL_SCOPE_NAMES,
+    canonical_bytes,
+    write_manifest,
+    write_scope_result,
+)
 
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-SCOPES = (
-    ("m5-release-candidate", "tests/release_candidate"),
-    ("m4-finalization", "tests/finalization"),
-    ("m3-ci-policy", "tests/ci_policy"),
-    ("m3-resource-scanner", "tests/resource_scanner"),
-    ("m3-review-core", "tests/review_core"),
-    ("task-core", "tests/task_core"),
-    ("role-routing", "tests/role_routing"),
-    ("runtime-bridge", "tests/runtime_bridge"),
-    ("p1-production-migration", "tests/production_migration"),
-    ("foundation", "tests/foundation"),
-    ("watcher-core-and-live-negative", "tests/watchdog"),
-)
+SCOPE_PATHS = {
+    "m5-release-candidate": "tests/release_candidate",
+    "m4-finalization": "tests/finalization",
+    "m3-ci-policy": "tests/ci_policy",
+    "m3-resource-scanner": "tests/resource_scanner",
+    "m3-review-core": "tests/review_core",
+    "task-core": "tests/task_core",
+    "role-routing": "tests/role_routing",
+    "runtime-bridge": "tests/runtime_bridge",
+    "p1-production-migration": "tests/production_migration",
+    "foundation": "tests/foundation",
+    "watcher-core-and-live-negative": "tests/watchdog",
+}
+LANE_SCOPES = {
+    "default": DEFAULT_SCOPE_NAMES,
+    "historical": HISTORICAL_SCOPE_NAMES,
+}
 
 
 def _git(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -116,12 +126,85 @@ def _run_scope(name: str, relative: str, *, base_sha: str | None = None, head_sh
     return 0 if result.wasSuccessful() else 1
 
 
+def _historical_diagnostic(output: Path, results_dir: Path, reason: str) -> None:
+    manifest = json.loads((results_dir / "manifest.json").read_text(encoding="utf-8"))
+    output.write_bytes(
+        canonical_bytes(
+            {
+                "canonicalResultsDigest": manifest["manifestDigest"],
+                "outcome": "unsupported",
+                "reason": reason,
+                "schemaVersion": 1,
+            }
+        )
+    )
+
+
+def _run_historical_evidence(results_dir: Path, output: Path) -> str:
+    command = [
+        sys.executable,
+        "-B",
+        str(ROOT / "tests" / "watchdog" / "run_contracts.py"),
+        "--output",
+        str(output),
+        "--canonical-results",
+        str(results_dir),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=os.environ.copy(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return "core_ready_for_live_gate"
+    _historical_diagnostic(output, results_dir, "HOST_CAPABILITY_UNAVAILABLE")
+    return "unsupported"
+
+
+def _run_host_capability_probe(output: Path) -> str:
+    command = [
+        sys.executable,
+        "-B",
+        str(ROOT / "probes" / "app-server-watcher" / "live_probe.py"),
+        "--output",
+        str(output),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=os.environ.copy(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return json.loads(output.read_text(encoding="utf-8"))["outcome"]
+    output.write_bytes(
+        canonical_bytes(
+            {
+                "outcome": "unsupported",
+                "reason": "HOST_CAPABILITY_UNAVAILABLE",
+                "schemaVersion": 1,
+            }
+        )
+    )
+    return "unsupported"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-sha")
     parser.add_argument("--results-dir", type=Path)
     parser.add_argument("--summary-output", type=Path)
-    parser.add_argument("--scope-internal", choices=[name for name, _ in SCOPES], help=argparse.SUPPRESS)
+    parser.add_argument("--lane", choices=sorted(LANE_SCOPES), default="default")
+    parser.add_argument("--historical-evidence-output", type=Path)
+    parser.add_argument("--host-capability-probe-output", type=Path)
+    parser.add_argument("--scope-internal", choices=sorted(SCOPE_PATHS), help=argparse.SUPPRESS)
     parser.add_argument("--result-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--head-sha", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -129,8 +212,11 @@ def main() -> int:
     verification_paths = (ROOT / "src", LIBRARY, ROOT)
     os.environ["PYTHONPATH"] = os.pathsep.join(str(path) for path in verification_paths)
     if args.scope_internal is not None:
-        relative = dict(SCOPES)[args.scope_internal]
+        relative = SCOPE_PATHS[args.scope_internal]
         return _run_scope(args.scope_internal, relative, base_sha=args.base_sha, head_sha=args.head_sha, result_output=args.result_output)
+    if (args.historical_evidence_output is not None or args.host_capability_probe_output is not None) and args.lane != "historical":
+        print(json.dumps({"error": "HISTORICAL_LANE_REQUIRED", "status": "error"}, sort_keys=True))
+        return 2
     if args.base_sha is None:
         print(json.dumps({"error": "BASE_SHA_INVALID", "status": "error"}, sort_keys=True))
         return 2
@@ -159,7 +245,8 @@ def main() -> int:
         if summary_output.is_symlink() or summary_output.exists() or not summary_output.parent.is_dir():
             print(json.dumps({"error": "SUMMARY_OUTPUT_INVALID", "status": "error"}, sort_keys=True))
             return 2
-    for name, _ in SCOPES:
+    scope_names = LANE_SCOPES[args.lane]
+    for name in scope_names:
         result_output = results_dir / f"{name}.json" if results_dir is not None else None
         command = [sys.executable, "-B", str(Path(__file__).resolve()), "--scope-internal", name]
         if results_dir is not None:
@@ -203,8 +290,16 @@ def main() -> int:
             base_sha=args.base_sha,
             head_sha=head_sha,
             verifier_digest=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            scope_names=scope_names,
         )
         payload["canonicalResultsDigest"] = manifest["manifestDigest"]
+    if args.historical_evidence_output is not None:
+        if results_dir is None or not passed:
+            print(json.dumps({"error": "HISTORICAL_RESULTS_REQUIRED", "status": "error"}, sort_keys=True))
+            return 2
+        payload["historicalEvidenceOutcome"] = _run_historical_evidence(results_dir, args.historical_evidence_output)
+    if args.host_capability_probe_output is not None:
+        payload["hostCapabilityProbeOutcome"] = _run_host_capability_probe(args.host_capability_probe_output)
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
     if summary_output is not None:
         summary_output.write_text(encoded, encoding="utf-8")
