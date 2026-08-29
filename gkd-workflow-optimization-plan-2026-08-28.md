@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O3 与 P0 已完成。P0 的首个 attempt 与 R1 均按 fail-closed block 保存；R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`，Python 3.9.6/3.14.6 双解释器 439 项验证和真实 claim-to-deliver 均闭合。GKD-GATE-REPAIR-R6 已通过独立验收并 merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0`，逻辑顺序、planning refresh 与 delivery result-manifest 绑定门禁均已落地。当前启动项为全新 `GKD-O4-WATCHER-HISTORICAL-LANE-R2`；不得复用 O4 的旧 lifecycle。
+O1-O3 与 P0 已完成。P0 的首个 attempt 与 R1 均按 fail-closed block 保存；R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`，Python 3.9.6/3.14.6 双解释器 439 项验证和真实 claim-to-deliver 均闭合。GKD-GATE-REPAIR-R6 已通过独立验收并 merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0`，逻辑顺序、planning refresh 与 delivery result-manifest 绑定门禁均已落地。`GKD-O4-WATCHER-HISTORICAL-LANE-R2` 的分层实现、双解释器 verifier 与 fixed-head CI 均通过，但旧 result consumer 将 watcher scope 误作默认强制集合，导致 acceptance/rework 以 `INVALID_VERIFIER_RESULTS` / `CANDIDATE_INVALID` 拒绝且无法写入 rework。当前启动项为全新 `GKD-O4-WATCHER-HISTORICAL-LANE-R3`：只补足 lane-aware result consumer/acceptance，不得复用 R2 lifecycle 或扩大到 O5。
