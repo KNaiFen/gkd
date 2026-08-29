@@ -471,3 +471,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR-R2` 证明 sidecar 必须遵守旧 delivery ancestry，且 digest 必须来自实际文件。
   - Why: R2 的 state 已能被 trusted main 读取，438/438 verifier 和 PR #41 fixed-head CI 成功；但 sidecar 被单独提交，使 delivery document 的父提交不等于 state implementationHead，旧 acceptance/rework 按 hard gate 返回 `CANDIDATE_INVALID`。此外 service 未从 canonical verifier/evidence 重新计算 sidecar 中的 digest。
   - Impact: R2 保持 rejected 并关闭。R3 将 sidecar 合入最后 implementation commit，保持该 commit 为 delivery document 的直接父提交，并让 automatic deliver 以结构化实际 results/evidence 输入验证其 digest；task state 继续保持旧字段。
+
+- [2026-08-29] `GKD-GATE-REPAIR-R3` 因 Git 内容寻址自引用 canonical block。
+  - Why: R3 要求 sidecar 位于 final implementation commit 且写入该 commit SHA。sidecar 字节决定 tree SHA，tree SHA 决定 commit SHA；该自指无法由普通 commit/amend 构造。R2 的后置 sidecar 规避递归但违反 old acceptance direct-parent gate。
+  - Impact: trusted main 以 `gkd-task block` 记录 `sidecar-self-referential-implementation-head`，没有生成实现、delivery、PR 或 merge。R4 必须取消 sidecar 自报 SHA，使用已有 lifecycle implementationHead 和 fixed tree 定位并验证 sidecar，state 形状保持兼容。

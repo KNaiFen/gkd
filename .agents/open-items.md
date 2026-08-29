@@ -81,3 +81,6 @@
 
 - [x] `GKD-GATE-REPAIR-R2` 已被独立验收拒绝：PR #41 fixed head `feada4cb6a5980a2ba901643c1e313d35056b500` 未合并。438/438、trusted status/doctor 和 fixed-head CI 均通过，但 sidecar 位于 implementation 与 delivery document 之间，违反 old acceptance ancestry；result/evidence digest 也未由服务重算绑定。不得复用旧 attempt。
 - [ ] `GKD-GATE-REPAIR-R3`：sidecar 成为 delivery document 的直接父 implementation head 一部分，自动 delivery 重算并绑定真实 verifier result/evidence digest；通过后才能重启 O4。
+
+- [x] `GKD-GATE-REPAIR-R3` 已在 implementation 前 canonical block：block head `3b48fca22b452b577eb1009f0049b19f3edc7c06`，reason `sidecar-self-referential-implementation-head`。sidecar 自报自身所在 commit SHA 在 Git 内容寻址中不可构造；未创建 PR、未交付、未合并。
+- [ ] `GKD-GATE-REPAIR-R4`：从已有 delivery implementation head 和 fixed tree 推导 sidecar，删除自指字段；保持 state 兼容并绑定真实 verifier result/evidence，完成后才能重启 O4。

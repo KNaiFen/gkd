@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0、R1、R2 均被独立验收拒绝；R2 已解决 self-hosting state 和 CI，但 sidecar 提交位置违反旧 delivery ancestry，且 result/evidence digest 未绑定实际文件。下一步建立 R3：sidecar 放入最后 implementation commit，并在 deliver 时重算真实 results/evidence；完成前不重启 O4。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0、R1、R2 被独立验收拒绝，R3 在 implementation 前被 canonical block：要求 sidecar 自报其所在 implementation commit SHA 形成 Git 内容寻址自引用。下一步 R4 从现有 delivery implementation head/fixed tree 推导 sidecar，不再写入自指字段；完成前不重启 O4。
 
 ## Historical facts
 
