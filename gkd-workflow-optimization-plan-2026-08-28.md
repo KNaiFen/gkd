@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O3 已完成。P0 的首个 attempt 与 R1 均按 fail-closed block 保存；R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`，Python 3.9.6/3.14.6 双解释器 439 项验证和真实 claim-to-deliver 均闭合。当前启动项为 `GKD-GATE-REPAIR-R6`；它完成后才能重启 O4，不得跨项合并。
+O1-O3 与 P0 已完成。P0 的首个 attempt 与 R1 均按 fail-closed block 保存；R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`，Python 3.9.6/3.14.6 双解释器 439 项验证和真实 claim-to-deliver 均闭合。GKD-GATE-REPAIR-R6 已通过独立验收并 merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0`，逻辑顺序、planning refresh 与 delivery result-manifest 绑定门禁均已落地。当前启动项为全新 `GKD-O4-WATCHER-HISTORICAL-LANE-R2`；不得复用 O4 的旧 lifecycle。

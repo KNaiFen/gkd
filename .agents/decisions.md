@@ -502,4 +502,8 @@
 
 - [2026-08-30] `GKD-GATE-REPAIR-R6` 候选以 revision 为逻辑顺序并固定 automatic delivery artifact chain。
   - Why: O4 历史 retry 证明 wall-clock 不能作为跨进程先后依据，旧任务还缺少 planning document refresh 和可从 implementation fixed tree 复核的实际 verifier/evidence sidecar。
-  - Impact: candidate payload 以 task-state 提交序列校验 revision/head/record 关系，保留 legacy-v1 import 与 prepared transaction recovery；新增 planning-only CAS refresh，automatic delivery/acceptance/rework 统一重算固定树 result/evidence/manifest 摘要。R6 task state 保持既有形状；生产、AIO、settings、Secrets、runner、tag/Release 未变，候选等待 canonical delivery 与独立验收。
+  - Impact: candidate payload 以 task-state 提交序列校验 revision/head/record 关系，保留 legacy-v1 import 与 prepared transaction recovery；新增 planning-only CAS refresh，automatic delivery/acceptance/rework 统一重算固定树 result/evidence/manifest 摘要。R6 task state 保持既有形状；生产、AIO、settings、Secrets、runner、tag/Release 未变。
+
+- [2026-08-30] `GKD-GATE-REPAIR-R6` 已通过独立验收并合并。
+  - Why: PR #44 fixed head `c8efd9a18563df4965f70ee352841304075b9786` 的 Python 3.9.6 与 3.14.6 各 444 项完整 verifier、11 个 scope、fixed-head `GKD Verify`、逻辑顺序、planning refresh 和 implementation fixed-tree result/evidence sidecar 都通过独立复核。
+  - Impact: canonical acceptance 以 squash merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0` 进入 main，review digest 为 `7eb1f3eb7e739e7e2777c0c1405970f9eae1514cff490f419df19f3ae2062bae`。后续 O4 必须以 R6 收尾后的全新 trusted main 建立，旧 O4 lifecycle 继续只读归档。
