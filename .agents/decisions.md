@@ -487,3 +487,7 @@
 - [2026-08-29] 用户选择完整 Python 3.9 兼容作为 executor runtime 基线。
   - Why: 实际 `gkd_executor` 默认解析系统 Python 3.9.6；要求用户或环境切换到本机 Python 3.14 既不可移植，也不能保证未来 executor 可运行。R5 证明修复单一 API 不足以覆盖完整 verifier、bundle 与历史 lane。
   - Impact: 先独立建立 `GKD-PY39-COMPAT`，系统移除 shipped/reachable Python 3.10/3.11 API 依赖，内置完整且带许可的 TOML compatibility facade，并以系统 Python 3.9 完整验证。该任务不得混入逻辑时钟、planning refresh、delivery sidecar 或 state schema；只有其 accepted merge 后才新建 GKD-GATE-REPAIR-R6，O4 保持暂停。
+
+- [2026-08-29] `GKD-PY39-COMPAT` 首个 automatic attempt 因 executor 无终态卸载而 canonical block。
+  - Why: executor 已被运行时回收且没有任何 terminal 消息；candidate 只有 claim commit，工作树干净，无实现、delivery document、final state 或 PR。主代理不能从非机器绑定的用户观察补造 terminal、reclaim 或 delivery。
+  - Impact: trusted main 以 reason `executor_unloaded_without_terminal_delivery` 将 revision 5 固化为 blocked revision 6，block head 为 `1c1a2f9f65492dc18a054faf0af2cddf4202d739`，分支已推送。该 attempt 不验收、不合并、不复用 claim；从新的 trusted main 创建 `GKD-PY39-COMPAT-R1`。

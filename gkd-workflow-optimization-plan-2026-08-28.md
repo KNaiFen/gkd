@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O3 已完成。当前启动项为 P0 `GKD-PY39-COMPAT`：它是 gate-repair 与 O4 重启的 runtime 前置任务。P0 通过独立验收并合并后，才建立新的 GKD-GATE-REPAIR-R6；不得跨项合并。
+O1-O3 已完成。P0 的首个 `GKD-PY39-COMPAT` automatic attempt 已因 executor 无终态卸载而 canonical block；当前启动项为新 attempt `GKD-PY39-COMPAT-R1`。P0 通过独立验收并合并后，才建立新的 GKD-GATE-REPAIR-R6；不得跨项合并。

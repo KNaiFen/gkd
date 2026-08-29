@@ -90,4 +90,5 @@
 
 - [x] `GKD-GATE-REPAIR-R5` 已被独立验收拒绝：PR #42 fixed head `e45681000d7e89792e6e0cd850d2847e78673d36` 未合并。Python 3.9 status/doctor 已恢复，438 verifier、CI、sidecar/artifact 链通过；但 Python 3.9 全量 verifier/bundle仍因 `tomllib` 与 `dataclass(slots=True)` 失败，canonical rework 返回未写入的 `FILESYSTEM_ERROR`。
 - [x] Runtime support decision：用户已选择完整 Python 3.9 payload 兼容移植，不接受依赖本机解释器路径的最低版本方案。
-- [ ] `GKD-PY39-COMPAT`：系统移除 shipped/reachable Python 3.10/3.11 API 依赖，内置带许可的完整 TOML compatibility facade，并以系统 Python 3.9 完整 verifier/bundle 验收；accepted merge 后才创建 R6，O4 继续暂停。
+- [x] `GKD-PY39-COMPAT` 首个 automatic attempt 已 canonical block：claim 后 executor 无终态卸载，block head `1c1a2f9f65492dc18a054faf0af2cddf4202d739`、revision 6，未产生实现、delivery、PR 或 merge，不得复用该 claim。
+- [ ] `GKD-PY39-COMPAT-R1`：从最新 trusted main 重新执行完整 Python 3.9 compatibility 移植；系统移除 shipped/reachable Python 3.10/3.11 API 依赖，内置带许可的完整 TOML compatibility facade，并以系统 Python 3.9 完整 verifier/bundle 验收；accepted merge 后才创建 R6，O4 继续暂停。
