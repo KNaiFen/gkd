@@ -3,6 +3,7 @@
   "$id": "https://gkd.dev/schema/verification-results.schema.json",
   "title": "Canonical verification results",
   "oneOf": [
+    { "$ref": "#/$defs/legacyManifest" },
     { "$ref": "#/$defs/manifest" },
     { "$ref": "#/$defs/scope" }
   ],
@@ -29,6 +30,22 @@
       }
     },
     "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseSha", "environment", "headSha", "lane", "manifestDigest", "profile", "schemaVersion", "scopes", "verifierDigest"],
+      "properties": {
+        "baseSha": { "$ref": "#/$defs/sha1" },
+        "environment": { "$ref": "#/$defs/environment" },
+        "headSha": { "$ref": "#/$defs/sha1" },
+        "manifestDigest": { "$ref": "#/$defs/sha256" },
+        "lane": { "enum": ["default", "historical"] },
+        "profile": { "enum": ["core", "watcher"] },
+        "schemaVersion": { "const": 2 },
+        "scopes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "verifierDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "legacyManifest": {
       "type": "object",
       "additionalProperties": false,
       "required": ["baseSha", "environment", "headSha", "manifestDigest", "schemaVersion", "scopes", "verifierDigest"],

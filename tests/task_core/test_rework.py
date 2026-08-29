@@ -58,7 +58,7 @@ class ReworkContracts(unittest.TestCase):
             failure_hook=failure_hook,
         )
 
-    def _automatic_delivery(self) -> tuple[dict[str, object], dict[str, object], str]:
+    def _automatic_delivery(self, lane: str = "default", profile: str = "core") -> tuple[dict[str, object], dict[str, object], str]:
         self.repo.ready_and_authorized()
         digest = bundle_digest()
         stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)
@@ -80,7 +80,7 @@ class ReworkContracts(unittest.TestCase):
         )
         claimed = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "automatic-activation")
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root), FixedClock(FIXED_TIME))
-        self.repo.deliver(service, claimed["claimId"], OUTPUT_BUNDLE_DIGEST)
+        self.repo.deliver(service, claimed["claimId"], OUTPUT_BUNDLE_DIGEST, lane, profile)
         return prepared, claimed, self.repo.head()
 
     def test_rework_preserves_exact_attempt_and_only_commits_coordination_files(self) -> None:
@@ -130,6 +130,11 @@ class ReworkContracts(unittest.TestCase):
         self.assertEqual(OUTPUT_BUNDLE_DIGEST, attempt["delivery"]["candidateOutputBundleDigest"])
         self.assertEqual(claim_receipt["receiptDigest"], attempt["claimReceiptDigest"])
         self.assertEqual(activation_receipt["receiptDigest"], attempt["activationReceiptDigest"])
+
+    def test_rework_accepts_a_complete_historical_lane(self) -> None:
+        _, _, candidate_head = self._automatic_delivery("historical", "watcher")
+        result = self._rework(candidate_head)
+        self.assertEqual("reworked", result["status"])
 
     def test_fresh_automatic_attempt_uses_new_epoch_offer_claim_and_can_be_accepted(self) -> None:
         _, _, old_head = self._automatic_delivery()

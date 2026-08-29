@@ -172,6 +172,30 @@ class GateRepairContracts(unittest.TestCase):
             )
         self.assertEqual(before, self.repo.state()["revision"])
 
+    def test_automatic_delivery_rejects_lane_profile_drift_without_state_write(self) -> None:
+        service, claim_id = self._automatic_claim()
+        self.repo.prepare_automatic_artifacts(OUTPUT_BUNDLE_DIGEST)
+        manifest_path = self.repo.task_root / "result-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["profile"] = "watcher"
+        manifest["manifestDigest"] = digest_object({key: value for key, value in manifest.items() if key != "manifestDigest"})
+        manifest_path.write_bytes(canonical_bytes(manifest))
+        run("git", "add", f"{self.repo.task_path}/result-manifest.json", cwd=self.repo.candidate)
+        run("git", "commit", "--amend", "--no-edit", cwd=self.repo.candidate)
+        document_path, document_digest = self.repo.prepare_delivery_document()
+        before = self.repo.state()["revision"]
+        with self.assertRaisesRegex(TaskError, "INVALID_RESULT_MANIFEST"):
+            service.deliver(
+                *self.repo.cas(),
+                claim_id,
+                OUTPUT_BUNDLE_DIGEST,
+                document_path,
+                document_digest,
+                f"{self.repo.task_path}/verification-results.json",
+                f"{self.repo.task_path}/verification-evidence.json",
+            )
+        self.assertEqual(before, self.repo.state()["revision"])
+
     def test_automatic_delivery_requires_artifacts_in_the_implementation_commit(self) -> None:
         service, claim_id = self._automatic_claim()
         document_path, document_digest = self.repo.prepare_delivery_document()
