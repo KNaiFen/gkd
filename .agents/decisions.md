@@ -519,3 +519,7 @@
 - [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R2` 拒绝尝试已清理。
   - Why: PR #45 已确认未 merge，candidate tree 固定于被拒绝 head 且干净；其 lifecycle 无法受信 rework，不能保留为可恢复执行状态。
   - Impact: PR 已关闭，本地/远端 task branch 与 candidate worktree 已删除，runtime 和 planning package 移入可恢复 Trash；R3 必须从记录该事实后的 trusted main 建立。
+
+- [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R3` 在实现前受信 block。
+  - Why: bridge claim 已成功，但 executor 的第一项 status 调用依赖未注入 PATH 的裸 `gkd-task`，返回 `command not found`。没有实现提交、delivery、PR、CI 或 merge；这不是 O4 功能或 verifier finding。
+  - Impact: trusted `gkd-task block` 以 reason `executor_cli_path_unavailable` 在 revision 5/head `4272612eb4a4e6ddd5a4145e7e0da9f85c904f86` 固化旧 attempt。R4 用新的 lifecycle，并在 executor request 中提供 accepted bundle 的绝对 `gkd-task` CLI 路径；不修改 bundle 或放宽执行门禁。
