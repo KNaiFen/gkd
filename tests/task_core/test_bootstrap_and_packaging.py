@@ -6,8 +6,9 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-import tomllib
 import unittest
+
+import gkd_toml as tomllib
 
 import gkd_bundle
 from gkd_task.canonical import FixedClock

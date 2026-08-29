@@ -85,7 +85,7 @@ class LiveProbeError(RuntimeError):
     """The probe cannot safely establish a required live fact."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class LiveBinding:
     scenario: str
     task_id: str

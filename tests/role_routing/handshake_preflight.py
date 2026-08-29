@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import tomllib
+
+import gkd_toml as tomllib
 
 import gkd_bundle
 from gkd_role.roles import load_role_source, locked_bundle_digest, role_catalog, role_files, role_record

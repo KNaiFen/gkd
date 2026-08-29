@@ -60,7 +60,7 @@ class DefaultCommandResolver:
         return (executable,)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RuntimeFacts:
     codex_version: str
     schema_digest: str

@@ -98,7 +98,9 @@ def main() -> int:
             raise TaskError("DUPLICATE_CONTRACT_ID")
         raw_test_ids = [test.id() for test in tests]
         groups: dict[str, list[str]] = {}
-        for test, identifier in zip(tests, identifiers, strict=True):
+        if len(tests) != len(identifiers):
+            raise TaskError("CONTRACT_TEST_COUNT_MISMATCH")
+        for test, identifier in zip(tests, identifiers):
             groups.setdefault(_group(test), []).append(identifier)
         if args.canonical_results is None:
             result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)

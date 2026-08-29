@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
-import tomllib
+import gkd_toml as tomllib
 from typing import Any
 
 from gkd_bundle import BundleError, verify_bundle_root

@@ -319,8 +319,11 @@ def main(argv: list[str] | None = None) -> int:
     except TaskError as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
-    except (OSError, UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError):
+    except (OSError, UnicodeDecodeError):
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": "FILESYSTEM_ERROR"}))
+        return 2
+    except (ValueError, TypeError, KeyError, OverflowError):
+        sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": "INTERNAL_ERROR"}))
         return 2
     sys.stdout.buffer.write(canonical_bytes(result))
     return 0

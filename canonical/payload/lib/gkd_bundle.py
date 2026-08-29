@@ -12,7 +12,7 @@ import shutil
 import stat
 import sys
 import tempfile
-import tomllib
+import gkd_toml as tomllib
 from typing import Any
 
 
@@ -1174,8 +1174,11 @@ def main(argv: list[str] | None = None) -> int:
     except BundleError as error:
         print(canonical_bytes({"status": "error", "error": error.code}).decode("utf-8"), end="", file=sys.stderr)
         return 2
-    except (OSError, UnicodeDecodeError, ValueError):
+    except (OSError, UnicodeDecodeError):
         print(canonical_bytes({"status": "error", "error": "FILESYSTEM_ERROR"}).decode("utf-8"), end="", file=sys.stderr)
+        return 2
+    except (ValueError, TypeError, KeyError, OverflowError):
+        print(canonical_bytes({"status": "error", "error": "INTERNAL_ERROR"}).decode("utf-8"), end="", file=sys.stderr)
         return 2
     print(canonical_bytes(result).decode("utf-8"), end="")
     return 0

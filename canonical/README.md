@@ -6,8 +6,9 @@ outputs and must never be edited by hand. The current `0.1.5` bundle is a stable
 release candidate whose exact source, bundle, evidence, assets, and provenance
 remain bound until trusted-main promotion.
 
-The canonical CLI, project staging, and automatic runtime bridge require
-Python 3.11 or newer.
+The canonical CLI, project staging, and automatic runtime bridge support
+Python 3.9 or newer. TOML parsing uses the standard library on Python 3.11+
+and the bundled, MIT-licensed Tomli 2.0.1 compatibility parser on Python 3.9.
 
 The content digest is SHA-256 over newline-delimited canonical JSON records,
 sorted by canonical source path. Each record binds path, file type, mode and

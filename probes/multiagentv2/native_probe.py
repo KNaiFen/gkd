@@ -11,10 +11,16 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
-import tomllib
 from typing import Any, Callable, Iterable, Mapping, Sequence
+
+
+PAYLOAD_LIBRARY = Path(__file__).resolve().parents[2] / "canonical" / "payload" / "lib"
+sys.path.insert(0, str(PAYLOAD_LIBRARY))
+
+import gkd_toml as tomllib
 
 
 TWELVE_HOURS_MS = 43_200_000

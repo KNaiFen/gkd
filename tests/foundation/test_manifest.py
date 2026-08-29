@@ -4,9 +4,10 @@ import json
 import os
 from pathlib import Path
 import tempfile
-import tomllib
 import unittest
 from unittest import mock
+
+import gkd_toml as tomllib
 
 from tests.foundation.helpers import copy_source, gkd_bundle
 

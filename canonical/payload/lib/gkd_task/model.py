@@ -424,14 +424,14 @@ def _history_relationships(value: dict[str, Any]) -> None:
     retired_claims = lifecycle["retiredClaims"]
     if len(retirement_events) != lifecycle["epoch"] or len(retirement_events) != len(retired_claims):
         raise TaskError("INVALID_TASK_STATE")
-    for event, retired in zip(retirement_events, retired_claims, strict=True):
+    for event, retired in zip(retirement_events, retired_claims):
         if event["type"] != "reworked" and event["recordDigest"] != digest_object(retired):
             raise TaskError("INVALID_TASK_STATE")
     rework_events = [event for event in history if event["type"] == "reworked"]
     rejected_attempts = lifecycle.get("rejectedAttempts", [])
     if len(rework_events) != len(rejected_attempts) or any(
         event["recordDigest"] != digest_object(attempt)
-        for event, attempt in zip(rework_events, rejected_attempts, strict=True)
+        for event, attempt in zip(rework_events, rejected_attempts)
     ):
         raise TaskError("INVALID_TASK_STATE")
 

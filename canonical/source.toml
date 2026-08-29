@@ -114,6 +114,18 @@ files = [
 ]
 
 [[components]]
+name = "toml-compat-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_toml/LICENSE", target = "gkd/lib/gkd_toml/LICENSE", mode = "0644" },
+  { source = "payload/lib/gkd_toml/__init__.py", target = "gkd/lib/gkd_toml/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_toml/_parser.py", target = "gkd/lib/gkd_toml/_parser.py", mode = "0644" },
+  { source = "payload/lib/gkd_toml/_re.py", target = "gkd/lib/gkd_toml/_re.py", mode = "0644" },
+  { source = "payload/lib/gkd_toml/_types.py", target = "gkd/lib/gkd_toml/_types.py", mode = "0644" },
+  { source = "payload/lib/gkd_toml/py.typed", target = "gkd/lib/gkd_toml/py.typed", mode = "0644" },
+]
+
+[[components]]
 name = "finalization-cli"
 kind = "executable"
 files = [
