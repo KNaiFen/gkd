@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O3 已完成。P0 的 `GKD-PY39-COMPAT` 首个 attempt 因 executor 无终态卸载 block，R1 虽完成 Python 3.9 双解释器验证却因 `CLAIM_RECEIPT_UNAVAILABLE` 在 canonical deliver 前 block；当前启动项为新 attempt `GKD-PY39-COMPAT-R2`。P0 通过独立验收并合并后，才建立新的 GKD-GATE-REPAIR-R6；不得跨项合并。
+O1-O3 已完成。P0 的首个 attempt 与 R1 均按 fail-closed block 保存；R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`，Python 3.9.6/3.14.6 双解释器 439 项验证和真实 claim-to-deliver 均闭合。当前启动项为 `GKD-GATE-REPAIR-R6`；它完成后才能重启 O4，不得跨项合并。

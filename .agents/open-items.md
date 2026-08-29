@@ -71,7 +71,7 @@
 - [x] GKD-O3 验证结果复用已完成：PR #36 fixed head `3b2252a72c6fd3d4ebdaac50aac845e744b5193e` 经三轮 canonical rework、433/433 verifier、双 evidence、固定头 `GKD Verify` 与独立 acceptor 后，以 squash merge `9009b089fb811eceaf91ada8b60397b39a451f97` 进入 main；结果 manifest、缺失/未知/篡改/漂移负向合同均通过，O3 acceptance/retrospective 已落盘。下一项为 O4 watcher/probe 历史 lane。
 - [x] GKD-O4 首轮候选已交付但被独立验收拒绝：fixed head `6ebf189ee2189a722c3e389b25a09f27c9360698` 的默认 386/10、historical 47/1、watcher/native 与 host fail-closed 证据通过，但 EOF 空行和 result manifest 声明漂移触发拒绝；canonical rework 进入 epoch 1 后，implementing 状态出现文档 digest 自举死锁，按受控恢复交付并再次拒绝，旧任务最终以 `immutable_requirements_document_digest` blocked，PR #37 已关闭。
 - [x] GKD-O4-R1 retry 已按独立验收拒绝并关闭：fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的默认 386/10、historical 两次 47/1、host `HOST_CAPABILITY_UNAVAILABLE` 和 bundle 分离均通过，但 lifecycle history 的 claimed 时间 `2026-08-29T00:00:00Z` 晚于 delivered 时间 `2026-08-28T22:50:50Z`，trusted status/doctor 与 canonical rework 均返回 `INVALID_TASK_STATE`；PR #38 的 `GKD Verify` 终态为 `REQUIRED_CHECK_FAILED`，未合并。
-- [ ] O4 重启前修复任务状态时间/交付门禁：先完成 Python 3.9 compatibility 前置任务；随后明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性。每项均需独立 fixed head 和验收，不得手改旧 O4 状态。
+- [ ] O4 重启前修复任务状态时间/交付门禁：Python 3.9 compatibility 前置任务已完成；随后明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性。每项均需独立 fixed head 和验收，不得手改旧 O4 状态。
 
 - [x] `GKD-GATE-REPAIR` attempt 0 已完成独立验收并拒绝：PR #39 fixed head `1952745266a84e02ca86c8a2cb8d55e4a590afd4` 未合并；delivery 后追加提交、trusted validator/schema 不兼容、packaging expected-set 漏更新和 bundle/result digest 漂移均已记录在 `tasks/gkd-gate-repair/acceptance.md` 与 `retrospective.md`。不得沿同一 claim/head 重试。
 - [ ] `GKD-GATE-REPAIR-R1`：从当前 trusted main 新建任务，确保所有 schema/validator/packaging/digest 修复在 delivery 前完成并经 trusted validator 可读，再重启 O4。
@@ -92,4 +92,5 @@
 - [x] Runtime support decision：用户已选择完整 Python 3.9 payload 兼容移植，不接受依赖本机解释器路径的最低版本方案。
 - [x] `GKD-PY39-COMPAT` 首个 automatic attempt 已 canonical block：claim 后 executor 无终态卸载，block head `1c1a2f9f65492dc18a054faf0af2cddf4202d739`、revision 6，未产生实现、delivery、PR 或 merge，不得复用该 claim。
 - [x] `GKD-PY39-COMPAT-R1` 已 canonical block：Python 3.9 与 3.14.6 的 437 项 verifier、bundle/CLI/project verify/native probe 均通过，但 exact bridge claim 后 `gkd-task deliver` 返回 `CLAIM_RECEIPT_UNAVAILABLE`。block head `a4ba5ce968388629770a1a8a9d8941449f7150eb`、revision 6，未产生 delivery/PR/merge，不得复用 lifecycle。
-- [ ] `GKD-PY39-COMPAT-R2`：从最新 trusted main 重建完整 Python 3.9 compatibility 移植，并新增 exact bridge claim 到系统 Python 3.9 canonical deliver 的正向/篡改合同；runtime receipt 只能由 canonical bridge/service 处理。accepted merge 后才创建 R6，O4 继续暂停。
+- [x] `GKD-PY39-COMPAT-R2` 已通过独立 acceptance 并合并：PR #43 fixed head `4215f394aaef3a05611aaad2470a30348bf76a0b`，merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`；Python 3.9.6/3.14.6 完整 verifier 均为 439 项，fresh bridge claim-to-deliver 与 receipt drift fail-closed 通过。R2 acceptance/retrospective 已落盘，candidate/runtime 待清理。
+- [ ] `GKD-GATE-REPAIR-R6`：从 `360ba876c83bed4c2b4fcea98a172eefe94838a5` 新建任务，完成逻辑顺序、planning document digest refresh 和 delivery result-manifest 绑定门禁；保持旧 state validator 可读，完成后才能重启 O4。
