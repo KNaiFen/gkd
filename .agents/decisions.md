@@ -467,3 +467,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR-R1` 证明 self-hosting state schema 必须保持旧 validator 可读。
   - Why: R1 把 logicalOrder 与 result manifest 字段写入自身 task state；candidate 新代码可读，但 trusted main 的 strict validator 在 accept/rework 前仍只能识别旧字段，固定 head 状态不可读取。PR #40 的 CI monitor 还因 unsupported policy path 没有产生成功证据。
   - Impact: R1 保持 rejected 并关闭。R2 不升级自举任务的 state shape：以现有 history revision 作为逻辑顺序，result manifest 通过固定预提交 sidecar 与已有 implementation head/candidate digest 推导绑定；新 schema 只在 merge 后的后续任务生效。
+
+- [2026-08-29] `GKD-GATE-REPAIR-R2` 证明 sidecar 必须遵守旧 delivery ancestry，且 digest 必须来自实际文件。
+  - Why: R2 的 state 已能被 trusted main 读取，438/438 verifier 和 PR #41 fixed-head CI 成功；但 sidecar 被单独提交，使 delivery document 的父提交不等于 state implementationHead，旧 acceptance/rework 按 hard gate 返回 `CANDIDATE_INVALID`。此外 service 未从 canonical verifier/evidence 重新计算 sidecar 中的 digest。
+  - Impact: R2 保持 rejected 并关闭。R3 将 sidecar 合入最后 implementation commit，保持该 commit 为 delivery document 的直接父提交，并让 automatic deliver 以结构化实际 results/evidence 输入验证其 digest；task state 继续保持旧字段。

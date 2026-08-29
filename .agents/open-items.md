@@ -78,3 +78,6 @@
 
 - [x] `GKD-GATE-REPAIR-R1` 已被独立验收拒绝：PR #40 fixed head `ec905c15e1df9ede1cdde24188c43cd25a4f8472` 未合并。delivery head、bundle/result digest 和 436/436 candidate verifier 均闭合，但 trusted main 严格 schema 不能读取新增 task-state 字段；fixed-head monitor 另返回 `POLICY_PATH_UNSUPPORTED`。不得沿旧 attempt 重试。
 - [ ] `GKD-GATE-REPAIR-R2`：不扩展自举任务 state，使用 history revision 作为逻辑顺序，并在固定预提交 sidecar 中绑定 delivery result manifest；通过后才能重启 O4。
+
+- [x] `GKD-GATE-REPAIR-R2` 已被独立验收拒绝：PR #41 fixed head `feada4cb6a5980a2ba901643c1e313d35056b500` 未合并。438/438、trusted status/doctor 和 fixed-head CI 均通过，但 sidecar 位于 implementation 与 delivery document 之间，违反 old acceptance ancestry；result/evidence digest 也未由服务重算绑定。不得复用旧 attempt。
+- [ ] `GKD-GATE-REPAIR-R3`：sidecar 成为 delivery document 的直接父 implementation head 一部分，自动 delivery 重算并绑定真实 verifier result/evidence digest；通过后才能重启 O4。
