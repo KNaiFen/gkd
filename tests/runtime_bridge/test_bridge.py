@@ -65,14 +65,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
         )
         runtime = RuntimeStore(self.repo.runtime_root)
         service = TaskService(self.repo.candidate, self.repo.task_path, runtime)
-        document_path, document_digest = self.repo.prepare_delivery_document()
-        delivered = service.deliver(
-            *self.repo.cas(),
-            claimed["claimId"],
-            "d" * 64,
-            document_path,
-            document_digest,
-        )
+        delivered = self.repo.deliver(service, claimed["claimId"], "d" * 64)
         claim = self.repo.state()["lifecycle"]["claim"]
         return prepared, claim, runtime, delivered
 
@@ -98,14 +91,7 @@ class AutomaticBridgeContracts(unittest.TestCase):
             self.assertNotIn(unavailable, activation)
         candidate_output = "d" * 64
         service = TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root))
-        document_path, document_digest = self.repo.prepare_delivery_document()
-        delivered = service.deliver(
-            *self.repo.cas(),
-            claimed["claimId"],
-            candidate_output,
-            document_path,
-            document_digest,
-        )
+        delivered = self.repo.deliver(service, claimed["claimId"], candidate_output)
         self.assertEqual("delivered", delivered["status"])
         runtime = RuntimeStore(self.repo.runtime_root)
         _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)

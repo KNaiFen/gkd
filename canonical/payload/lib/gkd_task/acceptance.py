@@ -15,7 +15,7 @@ from .canonical import CHECK_NAME_RE, CREDENTIAL_RE, SystemClock, SystemNonce, c
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
-from .model import TASK_POLICY_REWORK_VERSION, TASK_POLICY_VERSION, TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
+from .model import TASK_POLICY_REWORK_VERSION, TASK_POLICY_VERSION, TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_result_manifest_binding, validate_state
 from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
 from .transaction import TransactionChange, TransactionManager
 
@@ -166,17 +166,24 @@ def _validate_delivery_sequence(
         raise TaskError("CANDIDATE_INVALID")
     document_commit = delivery["deliveryDocumentCommit"]
     implementation_head = delivery["implementationHead"]
+    automatic = "executionBundleDigest" in delivery
     try:
         final_parent = git(candidate_root, "rev-parse", f"{candidate_head}^", code="CANDIDATE_INVALID").decode("ascii").strip()
         document_parent = git(candidate_root, "rev-parse", f"{document_commit}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+        sidecar_parent = (
+            git(candidate_root, "rev-parse", f"{document_parent}^", code="CANDIDATE_INVALID").decode("ascii").strip()
+            if automatic
+            else document_parent
+        )
     except UnicodeDecodeError:
         raise TaskError("CANDIDATE_INVALID") from None
     if (
         final_parent != document_commit
-        or document_parent != implementation_head
+        or sidecar_parent != implementation_head
         or not is_ancestor(candidate_root, claim_base_head, implementation_head)
         or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
         or changed_paths(candidate_root, document_commit) != [expected_path]
+        or (automatic and changed_paths(candidate_root, document_parent) != [f"{task_path}/result-manifest.json"])
     ):
         raise TaskError("CANDIDATE_INVALID")
     if _tree_path_exists(candidate_root, implementation_head, expected_path) and not allow_existing_document:
@@ -188,6 +195,43 @@ def _validate_delivery_sequence(
     require_regular_tree_file(candidate_root, document_commit, expected_path)
     if sha256_bytes(document_raw) != delivery["deliveryDocumentDigest"]:
         raise TaskError("CANDIDATE_INVALID")
+
+
+def _validate_automatic_result_manifest(
+    candidate_root: Path,
+    task_path: str,
+    state: dict[str, Any],
+    delivery: dict[str, Any],
+) -> None:
+    result_manifest_path = f"{task_path}/result-manifest.json"
+    try:
+        sidecar_head = git(
+            candidate_root,
+            "rev-parse",
+            f"{delivery['deliveryDocumentCommit']}^",
+            code="CANDIDATE_INVALID",
+        ).decode("ascii").strip()
+        raw = read_tree_file(candidate_root, sidecar_head, result_manifest_path)
+    except (TaskError, UnicodeDecodeError):
+        raise TaskError("CANDIDATE_INVALID") from None
+    try:
+        require_regular_tree_file(candidate_root, sidecar_head, result_manifest_path, "CANDIDATE_INVALID")
+        value = json.loads(raw)
+        if not isinstance(value, dict) or raw != canonical_bytes(value):
+            raise TaskError("CANDIDATE_INVALID")
+        repository = state["repository"]
+        validate_result_manifest_binding(
+            value,
+            state["taskId"],
+            repository["identity"],
+            repository["taskBranch"],
+            repository["taskPath"],
+            repository["baseSha"],
+            delivery["implementationHead"],
+            delivery["candidateOutputBundleDigest"],
+        )
+    except (TaskError, UnicodeDecodeError, json.JSONDecodeError):
+        raise TaskError("CANDIDATE_INVALID") from None
 
 
 def _journal_image(record: dict[str, Any]) -> bytes | None:
@@ -347,6 +391,8 @@ def _validate_fixed_candidate(
         delivery,
         bool(state["lifecycle"].get("rejectedAttempts")),
     )
+    if "executionBundleDigest" in claim:
+        _validate_automatic_result_manifest(candidate_root, task_path, state, delivery)
     anchored_state = _fixed_json(candidate_root, claim["claimBaseHead"], f"{task_path}/task.json", "CANDIDATE_INVALID")
     validate_state(anchored_state)
     anchored_authorization_raw = read_tree_file(candidate_root, claim["claimBaseHead"], f"{task_path}/authorization.json")

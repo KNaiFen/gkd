@@ -77,4 +77,4 @@
 - [ ] `GKD-GATE-REPAIR-R1`：从当前 trusted main 新建任务，确保所有 schema/validator/packaging/digest 修复在 delivery 前完成并经 trusted validator 可读，再重启 O4。
 
 - [x] `GKD-GATE-REPAIR-R1` 已被独立验收拒绝：PR #40 fixed head `ec905c15e1df9ede1cdde24188c43cd25a4f8472` 未合并。delivery head、bundle/result digest 和 436/436 candidate verifier 均闭合，但 trusted main 严格 schema 不能读取新增 task-state 字段；fixed-head monitor 另返回 `POLICY_PATH_UNSUPPORTED`。不得沿旧 attempt 重试。
-- [ ] `GKD-GATE-REPAIR-R2`：不扩展自举任务 state，使用 history revision 作为逻辑顺序，并在固定预提交 sidecar 中绑定 delivery result manifest；通过后才能重启 O4。
+- [ ] `GKD-GATE-REPAIR-R2`：已 claim 并在独立 candidate 中实施；不扩展自举任务 state，使用 history revision 作为逻辑顺序，并在固定预提交 sidecar 中绑定 delivery result manifest。完成 exact-head 验证和独立 acceptance 前不得重启 O4。

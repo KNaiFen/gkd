@@ -57,6 +57,7 @@ from .model import (
     read_state,
     validate_authorization,
     validate_offer,
+    validate_result_manifest_binding,
     validate_runtime_evidence,
     validate_state,
 )
@@ -258,6 +259,7 @@ class TaskService:
         nonce: Any | None = None,
         evidence_provider: RuntimeEvidenceProvider | None = None,
         failure_hook: Any | None = None,
+        allow_document_drift: bool = False,
     ) -> None:
         if candidate_root.is_symlink():
             raise TaskError("CANDIDATE_SYMLINK")
@@ -269,7 +271,8 @@ class TaskService:
         self.clock = clock or SystemClock()
         self.nonce = nonce or SystemNonce()
         self.evidence_provider = evidence_provider or UnavailableEvidenceProvider()
-        initial = read_state(self.task_root / "task.json", self.task_root)
+        self.allow_document_drift = allow_document_drift
+        initial = read_state(self.task_root / "task.json", None if allow_document_drift else self.task_root)
         repository = initial["repository"]
         verify_identity(
             self.candidate_root,
@@ -291,7 +294,7 @@ class TaskService:
         )
 
     def _state(self) -> dict[str, Any]:
-        return read_state(self.task_root / "task.json", self.task_root)
+        return read_state(self.task_root / "task.json", None if self.allow_document_drift else self.task_root)
 
     def _authorization(self) -> dict[str, Any]:
         return read_canonical_json(
@@ -454,8 +457,9 @@ class TaskService:
         expected_head: str,
         expected_revision: int,
         builder: Any,
+        state_loader: Any | None = None,
     ) -> dict[str, Any]:
-        return self.transactions.execute(expected_head, expected_revision, builder)
+        return self.transactions.execute(expected_head, expected_revision, builder, state_loader)
 
     def status(self) -> dict[str, Any]:
         state = self._state()
@@ -490,6 +494,51 @@ class TaskService:
             )
 
         return self._transact(expected_head, expected_revision, builder)
+
+    def refresh_planning(self, expected_head: str, expected_revision: int) -> dict[str, Any]:
+        records, _ = inspect_package(self.task_root)
+
+        def builder(state: dict[str, Any]) -> TransactionChange:
+            self._require_unblocked(state)
+            self._require_planning(state)
+            updated = deepcopy(state)
+            changed = False
+            material_changed = False
+            for name in ("requirements", "plan", "implementation"):
+                previous = state["documents"][name]
+                current = deepcopy(records[name])
+                digest_changed = current["digest"] != previous["digest"]
+                current["version"] = previous["version"] + (1 if digest_changed else 0)
+                current["documentRevision"] = previous["documentRevision"] + (1 if digest_changed else 0)
+                if name == "requirements":
+                    current["status"] = "draft" if digest_changed else previous["status"]
+                elif name == "plan":
+                    material_changed = current["materialDigest"] != previous["materialDigest"]
+                    current["status"] = "proposed" if material_changed else previous["status"]
+                changed |= current != previous
+                updated["documents"][name] = current
+            if not changed:
+                raise TaskError("PLANNING_REFRESH_NOT_NEEDED")
+            if changed:
+                updated["approval"] = None
+                updated["implementationAuthorization"] = None
+                updated["actionAuthorizationDigest"] = None
+            updated = advance_state(updated, "planning_refreshed", self.clock.now(), expected_head, updated["documents"])
+            files: dict[str, bytes | None] = {f"{self.task_path}/task.json": canonical_bytes(updated)}
+            if changed and (self.task_root / "authorization.json").exists():
+                files[f"{self.task_path}/authorization.json"] = None
+            return TransactionChange(
+                files,
+                "刷新规划文档绑定",
+                {"status": "planning_refreshed", "revision": updated["revision"]},
+            )
+
+        return self._transact(
+            expected_head,
+            expected_revision,
+            builder,
+            lambda: read_state(self.task_root / "task.json"),
+        )
 
     def propose_plan(
         self,
@@ -1274,6 +1323,46 @@ class TaskService:
             raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
         if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
             raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        implementation_head = document_parent
+        if "executionBundleDigest" in current_claim:
+            result_manifest_path = f"{self.task_path}/result-manifest.json"
+            try:
+                implementation_head = git(
+                    self.candidate_root,
+                    "rev-parse",
+                    f"{document_parent}^",
+                    code="RESULT_MANIFEST_REQUIRED",
+                ).decode("ascii").strip()
+            except UnicodeDecodeError:
+                raise TaskError("RESULT_MANIFEST_REQUIRED") from None
+            if changed_paths(self.candidate_root, document_parent) != [result_manifest_path]:
+                raise TaskError("RESULT_MANIFEST_REQUIRED")
+            try:
+                manifest_raw = read_tree_file(self.candidate_root, document_parent, result_manifest_path)
+            except TaskError:
+                raise TaskError("RESULT_MANIFEST_REQUIRED") from None
+            require_regular_tree_file(
+                self.candidate_root,
+                document_parent,
+                result_manifest_path,
+                "INVALID_RESULT_MANIFEST",
+            )
+            try:
+                manifest = json.loads(manifest_raw)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise TaskError("INVALID_RESULT_MANIFEST") from None
+            if not isinstance(manifest, dict) or manifest_raw != canonical_bytes(manifest):
+                raise TaskError("INVALID_RESULT_MANIFEST")
+            validate_result_manifest_binding(
+                manifest,
+                current_state["taskId"],
+                current_state["repository"]["identity"],
+                current_state["repository"]["taskBranch"],
+                current_state["repository"]["taskPath"],
+                current_state["repository"]["baseSha"],
+                implementation_head,
+                candidate_output_bundle_digest or "",
+            )
         try:
             read_tree_file(self.candidate_root, document_parent, delivery_document_path)
         except TaskError:
@@ -1303,7 +1392,7 @@ class TaskService:
             if authorization["authorizationDigest"] != state["actionAuthorizationDigest"]:
                 raise TaskError("authorization_mismatch")
             record = {
-                "implementationHead": document_parent,
+                "implementationHead": implementation_head,
                 "deliveryDocumentCommit": expected_head,
                 "deliveryDocumentPath": delivery_document_path,
                 "deliveryDocumentDigest": delivery_document_digest,
@@ -1325,7 +1414,7 @@ class TaskService:
                 {
                     "status": "delivered",
                     "revision": updated["revision"],
-                    "implementationHead": document_parent,
+                    "implementationHead": implementation_head,
                     "deliveryDocumentCommit": expected_head,
                 },
             )

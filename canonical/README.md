@@ -66,9 +66,15 @@ repository identity, independent candidate path and reviewed three-document
 planning package. Runtime attachments, one-time capabilities, envelopes, claim
 receipts, locks and journals stay outside tracked task data. A claim receipt is
 bound to the exact claim commit and committed transaction postimages before
-delivery or trusted acceptance can proceed. Delivery first commits exactly one
-canonical `tasks/<task>/delivery.md`; `gkd-task deliver` then binds its path,
-content digest and document commit to the final state commit. Candidate-facing claim and
+delivery or trusted acceptance can proceed. `gkd-task planning-refresh` is a
+planning-only CAS transition that rebinds the three reviewed document digests;
+all later phases remain document-drift fail-closed. Automatic delivery first
+commits the canonical `tasks/<task>/result-manifest.json` sidecar, then exactly
+one canonical `tasks/<task>/delivery.md`. The sidecar binds the task identity,
+base SHA, preceding implementation head, candidate bundle digest, canonical
+verifier result digest, and evidence digest. `gkd-task deliver` derives and
+checks that sequence while keeping the delivery state record unchanged.
+Candidate-facing claim and
 activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 

@@ -13,6 +13,7 @@
 ## Next task
 
 - O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0 与 R1 均被独立验收拒绝；R1 已在 delivery 前闭合 bundle/result digest，却因向自举 task state 写入新字段而使 trusted main validator 不可读。下一步建立 R2，使用 revision 派生逻辑顺序和不扩展 state 的预提交 manifest sidecar；完成前不重启 O4；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因这些任务改动。
+- `GKD-GATE-REPAIR-R2` 当前在已 claim 的独立 candidate worktree 实施：历史顺序改由既有 revision 验证，planning refresh 仅供 merge 后的新任务使用，automatic delivery 从固定预提交 result-manifest sidecar 推导验证且不扩展 R2 task state 或 delivery record。
 
 ## Historical facts
 

@@ -233,7 +233,35 @@ class TaskRepo:
         run("git", "commit", "-m", "prepare delivery document", "--", relative, cwd=self.candidate)
         return relative, hashlib.sha256(path.read_bytes()).hexdigest()
 
+    def prepare_result_manifest(
+        self,
+        candidate_output_bundle_digest: str,
+        verifier_result_digest: str = "a" * 64,
+        evidence_digest: str = "b" * 64,
+    ) -> None:
+        state = self.state()
+        value = {
+            "schemaVersion": 1,
+            "kind": "automatic-delivery-result-manifest",
+            "taskId": state["taskId"],
+            "repository": state["repository"]["identity"],
+            "taskBranch": state["repository"]["taskBranch"],
+            "taskPath": state["repository"]["taskPath"],
+            "baseSha": state["repository"]["baseSha"],
+            "implementationHead": self.head(),
+            "candidateOutputBundleDigest": candidate_output_bundle_digest,
+            "verifierResultDigest": verifier_result_digest,
+            "evidenceDigest": evidence_digest,
+        }
+        value["manifestDigest"] = digest_object(value)
+        relative = f"{self.task_path}/result-manifest.json"
+        (self.task_root / "result-manifest.json").write_bytes(canonical_bytes(value))
+        run("git", "add", relative, cwd=self.candidate)
+        run("git", "commit", "-m", "prepare result manifest", "--", relative, cwd=self.candidate)
+
     def deliver(self, service: TaskService, claim_id: str, candidate_output_bundle_digest: str | None = None):
+        if candidate_output_bundle_digest is not None:
+            self.prepare_result_manifest(candidate_output_bundle_digest)
         document_path, document_digest = self.prepare_delivery_document()
         return service.deliver(
             *self.cas(),

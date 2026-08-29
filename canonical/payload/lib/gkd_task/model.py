@@ -62,6 +62,7 @@ EVENT_TYPES = {
     "accepted",
     "completed",
     "migrated_v1",
+    "planning_refreshed",
 }
 
 
@@ -169,6 +170,71 @@ def _delivery_record(value: dict[str, Any]) -> None:
     require_sha1(value["implementationHead"], "INVALID_TASK_STATE")
     require_sha256(value["claimId"], "INVALID_TASK_STATE")
     require_utc(value["deliveredAt"], "INVALID_TASK_STATE")
+
+
+def validate_result_manifest(value: dict[str, Any]) -> None:
+    require_keys(
+        value,
+        {
+            "schemaVersion",
+            "kind",
+            "taskId",
+            "repository",
+            "taskBranch",
+            "taskPath",
+            "baseSha",
+            "implementationHead",
+            "candidateOutputBundleDigest",
+            "verifierResultDigest",
+            "evidenceDigest",
+            "manifestDigest",
+        },
+        "INVALID_RESULT_MANIFEST",
+    )
+    if value["schemaVersion"] != 1 or value["kind"] != "automatic-delivery-result-manifest":
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    for field in ("taskId", "repository", "taskBranch"):
+        require_string(value[field], "INVALID_RESULT_MANIFEST")
+    relative_path(value["taskPath"], "INVALID_RESULT_MANIFEST")
+    for field in (
+        "baseSha",
+        "implementationHead",
+    ):
+        require_sha1(value[field], "INVALID_RESULT_MANIFEST")
+    for field in (
+        "candidateOutputBundleDigest",
+        "verifierResultDigest",
+        "evidenceDigest",
+        "manifestDigest",
+    ):
+        require_sha256(value[field], "INVALID_RESULT_MANIFEST")
+    unsigned = dict(value)
+    actual = unsigned.pop("manifestDigest")
+    if digest_object(unsigned) != actual:
+        raise TaskError("INVALID_RESULT_MANIFEST")
+
+
+def validate_result_manifest_binding(
+    value: dict[str, Any],
+    task_id: str,
+    repository: str,
+    task_branch: str,
+    task_path: str,
+    base_sha: str,
+    implementation_head: str,
+    candidate_output_bundle_digest: str,
+) -> None:
+    validate_result_manifest(value)
+    if (
+        value["taskId"] != task_id
+        or value["repository"] != repository
+        or value["taskBranch"] != task_branch
+        or value["taskPath"] != task_path
+        or value["baseSha"] != base_sha
+        or value["implementationHead"] != implementation_head
+        or value["candidateOutputBundleDigest"] != candidate_output_bundle_digest
+    ):
+        raise TaskError("RESULT_MANIFEST_BINDING_MISMATCH")
 
 
 def _rejected_attempt(value: Any) -> None:
@@ -417,9 +483,6 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if any(event["head"] is None for event in history):
         raise TaskError("INVALID_TASK_STATE")
-    if [event["at"] for event in history] != sorted(event["at"] for event in history):
-        raise TaskError("INVALID_TASK_STATE")
-
     retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed", "reworked"}]
     retired_claims = lifecycle["retiredClaims"]
     if len(retirement_events) != lifecycle["epoch"] or len(retirement_events) != len(retired_claims):
