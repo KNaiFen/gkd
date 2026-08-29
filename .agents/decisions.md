@@ -515,3 +515,7 @@
 - [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R2` 因 result consumer 的旧 scope 假设被独立验收拒绝。
   - Why: fixed head `aef584b2a42a8d28e5cc538648f228aedd5d311c` 的默认十 scope（Python 3.9.6/3.14.6 各 398 项）、historical watcher 47 项两次及 host-capability `unsupported` 都符合 O4 分层目标，PR #45 的 `GKD Verify` 也成功；但 acceptance 从 fixed tree 解析 result manifest 时仍要求原默认集合包含 `watcher-core-and-live-negative`，返回 `INVALID_VERIFIER_RESULTS`，受信 rework 的同一前置校验继而返回 `CANDIDATE_INVALID`。
   - Impact: PR #45 未合并，R2 lifecycle 不可重用且未写入 rework state。下一 attempt 仅使 result consumer/acceptance 按 manifest 的显式 lane 校验完整 scope 集合，同时保留缺失、未知、篡改及 head/digest drift 拒绝；不得把 historical scope 重新加入默认 verifier。
+
+- [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R2` 拒绝尝试已清理。
+  - Why: PR #45 已确认未 merge，candidate tree 固定于被拒绝 head 且干净；其 lifecycle 无法受信 rework，不能保留为可恢复执行状态。
+  - Impact: PR 已关闭，本地/远端 task branch 与 candidate worktree 已删除，runtime 和 planning package 移入可恢复 Trash；R3 必须从记录该事实后的 trusted main 建立。
