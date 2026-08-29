@@ -171,6 +171,7 @@ files = [
   { source = "payload/lib/gkd_task/acceptance.py", target = "gkd/lib/gkd_task/acceptance.py", mode = "0644" },
   { source = "payload/lib/gkd_task/canonical.py", target = "gkd/lib/gkd_task/canonical.py", mode = "0644" },
   { source = "payload/lib/gkd_task/cli.py", target = "gkd/lib/gkd_task/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_task/delivery_artifacts.py", target = "gkd/lib/gkd_task/delivery_artifacts.py", mode = "0644" },
   { source = "payload/lib/gkd_task/documents.py", target = "gkd/lib/gkd_task/documents.py", mode = "0644" },
   { source = "payload/lib/gkd_task/errors.py", target = "gkd/lib/gkd_task/errors.py", mode = "0644" },
   { source = "payload/lib/gkd_task/gitops.py", target = "gkd/lib/gkd_task/gitops.py", mode = "0644" },
@@ -190,6 +191,7 @@ kind = "library"
 files = [
   { source = "payload/schema/task/authorization.schema.json", target = "gkd/schema/task/authorization.schema.json", mode = "0644" },
   { source = "payload/schema/task/offer.schema.json", target = "gkd/schema/task/offer.schema.json", mode = "0644" },
+  { source = "payload/schema/task/result-manifest.schema.json", target = "gkd/schema/task/result-manifest.schema.json", mode = "0644" },
   { source = "payload/schema/task/runtime.schema.json", target = "gkd/schema/task/runtime.schema.json", mode = "0644" },
   { source = "payload/schema/task/task-state.schema.json", target = "gkd/schema/task/task-state.schema.json", mode = "0644" },
 ]

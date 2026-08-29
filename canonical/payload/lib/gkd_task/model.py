@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 from pathlib import Path, PurePosixPath
 import re
 from typing import Any
@@ -62,6 +63,7 @@ EVENT_TYPES = {
     "accepted",
     "completed",
     "migrated_v1",
+    "planning_refreshed",
 }
 
 
@@ -169,6 +171,68 @@ def _delivery_record(value: dict[str, Any]) -> None:
     require_sha1(value["implementationHead"], "INVALID_TASK_STATE")
     require_sha256(value["claimId"], "INVALID_TASK_STATE")
     require_utc(value["deliveredAt"], "INVALID_TASK_STATE")
+
+
+def validate_result_manifest(value: dict[str, Any]) -> None:
+    require_keys(
+        value,
+        {
+            "schemaVersion",
+            "kind",
+            "taskId",
+            "repository",
+            "taskBranch",
+            "taskPath",
+            "baseSha",
+            "candidateOutputBundleDigest",
+            "verifierResultDigest",
+            "evidenceDigest",
+            "manifestDigest",
+        },
+        "INVALID_RESULT_MANIFEST",
+    )
+    if value["schemaVersion"] != 1 or value["kind"] != "automatic-delivery-result-manifest":
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    for field in ("taskId", "repository", "taskBranch"):
+        require_string(value[field], "INVALID_RESULT_MANIFEST")
+    relative_path(value["taskPath"], "INVALID_RESULT_MANIFEST")
+    require_sha1(value["baseSha"], "INVALID_RESULT_MANIFEST")
+    for field in (
+        "candidateOutputBundleDigest",
+        "verifierResultDigest",
+        "evidenceDigest",
+        "manifestDigest",
+    ):
+        require_sha256(value[field], "INVALID_RESULT_MANIFEST")
+    unsigned = dict(value)
+    actual = unsigned.pop("manifestDigest")
+    if digest_object(unsigned) != actual:
+        raise TaskError("INVALID_RESULT_MANIFEST")
+
+
+def validate_result_manifest_binding(
+    value: dict[str, Any],
+    task_id: str,
+    repository: str,
+    task_branch: str,
+    task_path: str,
+    base_sha: str,
+    candidate_output_bundle_digest: str,
+    verifier_result_digest: str,
+    evidence_digest: str,
+) -> None:
+    validate_result_manifest(value)
+    if (
+        value["taskId"] != task_id
+        or value["repository"] != repository
+        or value["taskBranch"] != task_branch
+        or value["taskPath"] != task_path
+        or value["baseSha"] != base_sha
+        or value["candidateOutputBundleDigest"] != candidate_output_bundle_digest
+        or value["verifierResultDigest"] != verifier_result_digest
+        or value["evidenceDigest"] != evidence_digest
+    ):
+        raise TaskError("RESULT_MANIFEST_BINDING_MISMATCH")
 
 
 def _rejected_attempt(value: Any) -> None:
@@ -417,9 +481,6 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if any(event["head"] is None for event in history):
         raise TaskError("INVALID_TASK_STATE")
-    if [event["at"] for event in history] != sorted(event["at"] for event in history):
-        raise TaskError("INVALID_TASK_STATE")
-
     retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed", "reworked"}]
     retired_claims = lifecycle["retiredClaims"]
     if len(retirement_events) != lifecycle["epoch"] or len(retirement_events) != len(retired_claims):
@@ -487,6 +548,128 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if blocked and active_block_digest != digest_object(lifecycle["blocked"]):
         raise TaskError("INVALID_TASK_STATE")
+
+
+def _validate_tracked_history(state: dict[str, Any], task_root: Path) -> None:
+    """Bind logical history order to immutable task-state commits, not wall time."""
+
+    from .gitops import git, head, is_ancestor, read_tree_file, require_regular_tree_file
+
+    checkout = task_root
+    for _ in PurePosixPath(state["repository"]["taskPath"]).parts:
+        checkout = checkout.parent
+    if checkout / state["repository"]["taskPath"] != task_root:
+        raise TaskError("TASK_HISTORY_DRIFT")
+    current_head = head(checkout)
+    task_json_path = f"{state['repository']['taskPath']}/task.json"
+    require_regular_tree_file(checkout, current_head, task_json_path, "TASK_HISTORY_DRIFT")
+    if read_tree_file(checkout, current_head, task_json_path) != (task_root / "task.json").read_bytes():
+        raise TaskError("TASK_HISTORY_DRIFT")
+    if state["history"][-1]["type"] == "migrated_v1":
+        try:
+            migration_commit = git(checkout, "log", "-1", "--format=%H", "HEAD", "--", task_json_path, code="TASK_HISTORY_DRIFT").decode("ascii").strip()
+            parent = git(checkout, "rev-parse", f"{migration_commit}^", code="TASK_HISTORY_DRIFT").decode("ascii").strip()
+            raw_legacy = read_tree_file(checkout, parent, task_json_path)
+            legacy = json.loads(raw_legacy)
+            from .migration import validate_legacy_v1
+
+            validate_legacy_v1(legacy)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TaskError("TASK_HISTORY_DRIFT") from None
+        if (
+            parent != state["history"][-1]["head"]
+            or not isinstance(legacy, dict)
+            or raw_legacy != canonical_bytes(legacy)
+            or state["history"][-1]["recordDigest"] != digest_object(
+                {"legacyDigest": legacy.get("legacyDigest"), "archived": legacy.get("archived")}
+            )
+        ):
+            raise TaskError("TASK_HISTORY_DRIFT")
+        return
+    try:
+        raw_commits = git(checkout, "log", "--format=%H", "--reverse", "HEAD", "--", task_json_path, code="TASK_HISTORY_DRIFT")
+        commits = raw_commits.decode("ascii").splitlines()
+    except UnicodeDecodeError:
+        raise TaskError("TASK_HISTORY_DRIFT") from None
+    if len(commits) != state["revision"] + 1:
+        raise TaskError("TASK_HISTORY_DRIFT")
+    def fixed_object(commit: str, path: str) -> dict[str, Any]:
+        try:
+            raw = read_tree_file(checkout, commit, path)
+            value = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError, TaskError):
+            raise TaskError("TASK_HISTORY_DRIFT") from None
+        if not isinstance(value, dict) or raw != canonical_bytes(value):
+            raise TaskError("TASK_HISTORY_DRIFT")
+        return value
+
+    for revision, commit in enumerate(commits):
+        require_sha1(commit, "TASK_HISTORY_DRIFT")
+        if not is_ancestor(checkout, commit, current_head):
+            raise TaskError("TASK_HISTORY_DRIFT")
+        try:
+            parent = git(checkout, "rev-parse", f"{commit}^", code="TASK_HISTORY_DRIFT").decode("ascii").strip()
+            raw = read_tree_file(checkout, commit, task_json_path)
+            historical = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TaskError("TASK_HISTORY_DRIFT") from None
+        if (
+            parent != state["history"][revision]["head"]
+            or not isinstance(historical, dict)
+            or raw != canonical_bytes(historical)
+            or historical["revision"] != revision
+            or historical["history"] != state["history"][: revision + 1]
+        ):
+            raise TaskError("TASK_HISTORY_DRIFT")
+        event = historical["history"][revision]
+        event_type = event["type"]
+        if event_type == "bootstrap":
+            record = {"taskId": historical["taskId"], "repository": historical["repository"]}
+        elif event_type in {"requirements_ready", "planning_refreshed"}:
+            record = historical["documents"] if event_type == "planning_refreshed" else historical["documents"]["requirements"]
+        elif event_type == "plan_proposed":
+            previous = fixed_object(commits[revision - 1], task_json_path)
+            plan = historical["documents"]["plan"]
+            record = {
+                "planVersion": plan["version"],
+                "documentRevision": plan["documentRevision"],
+                "materialChanged": plan["materialDigest"] != previous["documents"]["plan"]["materialDigest"],
+                "materialDigest": plan["materialDigest"],
+            }
+        elif event_type == "plan_approved":
+            record = {
+                "approval": historical["approval"],
+                "authorizedTogether": historical["implementationAuthorization"] is not None,
+            }
+            if record["authorizedTogether"]:
+                record["authorizationDigest"] = fixed_object(commit, f"{state['repository']['taskPath']}/authorization.json")["authorizationDigest"]
+        elif event_type == "authorized":
+            record = fixed_object(commit, f"{state['repository']['taskPath']}/authorization.json")
+        elif event_type == "offer_created":
+            record = fixed_object(commit, f"{state['repository']['taskPath']}/offer.json")
+        elif event_type == "claimed":
+            record = historical["lifecycle"]["claim"]
+        elif event_type in {"revoked", "reclaimed"}:
+            record = historical["lifecycle"]["retiredClaims"][-1]
+        elif event_type == "blocked":
+            record = historical["lifecycle"]["blocked"]
+        elif event_type == "resumed":
+            record = fixed_object(commits[revision - 1], task_json_path)["lifecycle"]["blocked"]
+        elif event_type == "delivered":
+            record = historical["lifecycle"]["delivery"]
+        elif event_type == "reworked":
+            record = historical["lifecycle"]["rejectedAttempts"][-1]
+        elif event_type == "accepted":
+            record = historical["lifecycle"]["acceptance"]
+        elif event_type == "completed":
+            record = historical["lifecycle"]["completion"]
+        elif event_type == "migrated_v1":
+            legacy = fixed_object(parent, task_json_path)
+            record = {"legacyDigest": legacy.get("legacyDigest"), "archived": legacy.get("archived")}
+        else:
+            continue
+        if record is None or event["recordDigest"] != digest_object(record):
+            raise TaskError("TASK_HISTORY_DRIFT")
 
 
 def finalize_state(value: dict[str, Any]) -> dict[str, Any]:
@@ -589,6 +772,7 @@ def validate_state(value: dict[str, Any]) -> None:
 def read_state(path: Path, task_root: Path | None = None) -> dict[str, Any]:
     value = read_canonical_json(path, "INVALID_TASK_STATE", validate_state)
     if task_root is not None:
+        _validate_tracked_history(value, task_root)
         records = inspect_tracked_package(task_root)
         if records["requirements"]["digest"] != value["documents"]["requirements"]["digest"]:
             raise TaskError("DOCUMENT_DIGEST_DRIFT")

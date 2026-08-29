@@ -499,3 +499,7 @@
 - [2026-08-30] `GKD-PY39-COMPAT-R2` 已通过独立验收并合并，Python 3.9 成为 executor 最低支持版本。
   - Why: R2 从 R1 delivery block 后的新 trusted main 建立，补足真实 bridge claim-to-deliver receipt 合同；Python 3.9.6 与 3.14.6 均通过 439 项完整 verifier，且 fixed-head CI、bundle/project/native probe 与 receipt drift fail-closed 均有独立证据。
   - Impact: PR #43 fixed head `4215f394aaef3a05611aaad2470a30348bf76a0b` 经 review digest `4c307fce535b614742c46a058fc2df9213271eac33d58484c7fa65467a248526` 通过并 squash merge 为 `360ba876c83bed4c2b4fcea98a172eefe94838a5`。新增内置 Tomli 2.0.1 MIT fallback、去除 strict zip/dataclass slots、更新 manifest/lock 与文档；生产、AIO、settings、Secrets、runner、tag/Release 未变。下一步可从该 merge 建立 GKD-GATE-REPAIR-R6，O4 仍暂停。
+
+- [2026-08-30] `GKD-GATE-REPAIR-R6` 候选以 revision 为逻辑顺序并固定 automatic delivery artifact chain。
+  - Why: O4 历史 retry 证明 wall-clock 不能作为跨进程先后依据，旧任务还缺少 planning document refresh 和可从 implementation fixed tree 复核的实际 verifier/evidence sidecar。
+  - Impact: candidate payload 以 task-state 提交序列校验 revision/head/record 关系，保留 legacy-v1 import 与 prepared transaction recovery；新增 planning-only CAS refresh，automatic delivery/acceptance/rework 统一重算固定树 result/evidence/manifest 摘要。R6 task state 保持既有形状；生产、AIO、settings、Secrets、runner、tag/Release 未变，候选等待 canonical delivery 与独立验收。

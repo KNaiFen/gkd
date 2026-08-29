@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from gkd_ci.policy import load_policy_binding
 from .canonical import CHECK_NAME_RE, CREDENTIAL_RE, SystemClock, SystemNonce, canonical_bytes, digest_object, require_keys, require_sha1, require_sha256, require_string, sha256_bytes
+from .delivery_artifacts import artifact_paths, load_automatic_delivery_artifacts
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
@@ -190,6 +191,26 @@ def _validate_delivery_sequence(
         raise TaskError("CANDIDATE_INVALID")
 
 
+def _validate_automatic_result_manifest(
+    candidate_root: Path,
+    task_path: str,
+    state: dict[str, Any],
+    delivery: dict[str, Any],
+) -> None:
+    try:
+        paths = artifact_paths(task_path)
+        load_automatic_delivery_artifacts(
+            candidate_root,
+            delivery["implementationHead"],
+            state,
+            delivery["candidateOutputBundleDigest"],
+            paths["results"],
+            paths["evidence"],
+        )
+    except TaskError:
+        raise TaskError("CANDIDATE_INVALID") from None
+
+
 def _journal_image(record: dict[str, Any]) -> bytes | None:
     if record["postimage"] is None:
         return None
@@ -347,6 +368,8 @@ def _validate_fixed_candidate(
         delivery,
         bool(state["lifecycle"].get("rejectedAttempts")),
     )
+    if "executionBundleDigest" in claim:
+        _validate_automatic_result_manifest(candidate_root, task_path, state, delivery)
     anchored_state = _fixed_json(candidate_root, claim["claimBaseHead"], f"{task_path}/task.json", "CANDIDATE_INVALID")
     validate_state(anchored_state)
     anchored_authorization_raw = read_tree_file(candidate_root, claim["claimBaseHead"], f"{task_path}/authorization.json")
