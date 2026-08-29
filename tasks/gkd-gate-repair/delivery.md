@@ -2,11 +2,11 @@
 
 ## Implementation
 
-Implementation commits `2ef5b669088ee7804a361b8f724e943acb634ad2`, `48463279a469e28e77bae7e0614f2410571ab69b` and `10e4419a3d56ed94420b260f0f2617039c13698b` add persistent logical ordering for lifecycle events while retaining UTC audit timestamps and accepting legacy states without the new field. The canonical `planning-refresh` CAS transition recomputes the three tracked document digests only in `planning`; later phases remain immutable and fail closed on drift. Automatic delivery validates a canonical result manifest bound to task, base, implementation head, claim, execution bundle, candidate output bundle, scope digest and generation facts before writing state.
+Implementation commits `2ef5b669088ee7804a361b8f724e943acb634ad2`, `48463279a469e28e77bae7e0614f2410571ab69b` and `b06087ce10033cca1c4964e5553831a38f871265` add persistent logical ordering for lifecycle events while retaining UTC audit timestamps and accepting legacy states without the new field. The canonical `planning-refresh` CAS transition recomputes the three tracked document digests only in `planning`; later phases remain immutable and fail closed on drift. Automatic delivery validates a canonical result manifest bound to task, base, implementation head, claim, execution bundle, candidate output bundle, scope digest and generation facts before writing state.
 
 ## Verification
 
-The focused contract set passed: 84 task-core/planning/lifecycle/mutation/runtime-bridge tests, including the three gate-repair tests. Bundle generation produced 104 files with candidate output bundle digest `e742ff506198b606decba6fa8ea3d87f57de9edc50ded0a99f8637116b8eb04a`; evidence digest is `d81e86c6bf0ed7035d4a780f3e833a68e88b064df27c8d555dd54803b058904e`. The result manifest is `tasks/gkd-gate-repair/result-manifest.json`, its file digest is `c047c64277ea04500dfda86dafc249ccb4115b95b7da3769fe87fe8c245c1fb6`, and its internal manifest digest is `4aaa4c89360f5130df7c0ad567f416845cb144cbeaf4dce1b0b170c51100eab2`.
+The focused contract set passed: 84 task-core/planning/lifecycle/mutation/runtime-bridge tests, including the three gate-repair tests. Bundle generation produced 104 files with candidate output bundle digest `4f0ce30a47df3f327fb1ca61be38826efce2e0a7ff3a90d736528f3c74e7b7bf`; evidence digest is `d81e86c6bf0ed7035d4a780f3e833a68e88b064df27c8d555dd54803b058904e`. The result manifest is `tasks/gkd-gate-repair/result-manifest.json`, its file digest is `83c48aa8d6172c0f599bbd7f5c8c6f10cdae5537f96102173be1e273e0505275`, and its internal manifest digest is `5de5c2a29244e6fc7dccd6bd0492414ab6fcad0a29f48238f15dbb9a85231d19`.
 
 ## Fixed Facts
 
