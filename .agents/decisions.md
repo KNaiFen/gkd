@@ -463,3 +463,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR` attempt 0 按 canonical fail-closed 拒绝，不沿旧 head 修补。
   - Why: PR #39 的 delivery head `4579b4b...` 后追加了实现提交 `1952745...`；最终 bundle digest 与 delivery manifest 不一致，trusted main validator 不能读取新状态，且 packaging expected set 漏更新。canonical rework 在前置校验返回 `INVALID_TASK_STATE`。
   - Impact: PR #39 不合并并关闭，候选/runtime 只作为可恢复拒绝证据归档；新 R1 必须从 trusted main 新建 offer/claim，所有实现和 bundle/manifest 更新在 delivery 前完成。
+
+- [2026-08-29] `GKD-GATE-REPAIR-R1` 证明 self-hosting state schema 必须保持旧 validator 可读。
+  - Why: R1 把 logicalOrder 与 result manifest 字段写入自身 task state；candidate 新代码可读，但 trusted main 的 strict validator 在 accept/rework 前仍只能识别旧字段，固定 head 状态不可读取。PR #40 的 CI monitor 还因 unsupported policy path 没有产生成功证据。
+  - Impact: R1 保持 rejected 并关闭。R2 不升级自举任务的 state shape：以现有 history revision 作为逻辑顺序，result manifest 通过固定预提交 sidecar 与已有 implementation head/candidate digest 推导绑定；新 schema 只在 merge 后的后续任务生效。
