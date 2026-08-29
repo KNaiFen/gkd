@@ -17,6 +17,7 @@ from gkd_task.acceptance import MergeIndeterminate
 from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes, digest_object
 from gkd_task.documents import PLAN_MATERIAL_SECTIONS
 from gkd_task.model import read_state, validate_state
+from gkd_task.results import SCOPE_NAMES
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService, bootstrap_task
 from tests.task_core.evidence_support import FixtureEvidenceProvider, make_fixture_evidence
@@ -233,7 +234,70 @@ class TaskRepo:
         run("git", "commit", "-m", "prepare delivery document", "--", relative, cwd=self.candidate)
         return relative, hashlib.sha256(path.read_bytes()).hexdigest()
 
+    def prepare_automatic_artifacts(self, candidate_output_bundle_digest: str) -> tuple[str, str]:
+        state = self.state()
+        results_path = self.task_root / "verification-results.json"
+        evidence_path = self.task_root / "verification-evidence.json"
+        manifest_path = self.task_root / "result-manifest.json"
+        results = {
+            "baseSha": state["repository"]["baseSha"],
+            "canonicalResultsDigest": hashlib.sha256(self.head().encode("ascii")).hexdigest(),
+            "dependenciesInstalled": False,
+            "outcome": "pass",
+            "schemaVersion": 1,
+            "scopes": {scope: 1 for scope in SCOPE_NAMES},
+            "tests": len(SCOPE_NAMES),
+        }
+        results_raw = canonical_bytes(results)
+        verifier_digest = hashlib.sha256(results_raw).hexdigest()
+        evidence = {
+            "schemaVersion": 1,
+            "kind": "automatic-delivery-evidence",
+            "outcome": "pass",
+            "candidateOutputBundleDigest": candidate_output_bundle_digest,
+            "verifierResultDigest": verifier_digest,
+        }
+        evidence["evidenceDigest"] = digest_object(evidence)
+        evidence_raw = canonical_bytes(evidence)
+        manifest = {
+            "schemaVersion": 1,
+            "kind": "automatic-delivery-result-manifest",
+            "taskId": state["taskId"],
+            "repository": state["repository"]["identity"],
+            "taskBranch": state["repository"]["taskBranch"],
+            "taskPath": state["repository"]["taskPath"],
+            "baseSha": state["repository"]["baseSha"],
+            "candidateOutputBundleDigest": candidate_output_bundle_digest,
+            "verifierResultDigest": verifier_digest,
+            "evidenceDigest": hashlib.sha256(evidence_raw).hexdigest(),
+        }
+        manifest["manifestDigest"] = digest_object(manifest)
+        results_path.write_bytes(results_raw)
+        evidence_path.write_bytes(evidence_raw)
+        manifest_path.write_bytes(canonical_bytes(manifest))
+        results_relative = f"{self.task_path}/verification-results.json"
+        evidence_relative = f"{self.task_path}/verification-evidence.json"
+        manifest_relative = f"{self.task_path}/result-manifest.json"
+        run("git", "add", results_relative, evidence_relative, manifest_relative, cwd=self.candidate)
+        run(
+            "git",
+            "commit",
+            "-m",
+            "prepare automatic delivery artifacts",
+            "--",
+            results_relative,
+            evidence_relative,
+            manifest_relative,
+            cwd=self.candidate,
+        )
+        return results_relative, evidence_relative
+
     def deliver(self, service: TaskService, claim_id: str, candidate_output_bundle_digest: str | None = None):
+        artifacts = (
+            self.prepare_automatic_artifacts(candidate_output_bundle_digest)
+            if candidate_output_bundle_digest is not None
+            else (None, None)
+        )
         document_path, document_digest = self.prepare_delivery_document()
         return service.deliver(
             *self.cas(),
@@ -241,6 +305,7 @@ class TaskRepo:
             candidate_output_bundle_digest,
             document_path,
             document_digest,
+            *artifacts,
         )
 
     def delivered(self) -> tuple[TaskService, str]:

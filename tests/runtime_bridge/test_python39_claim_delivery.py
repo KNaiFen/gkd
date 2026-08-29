@@ -23,7 +23,15 @@ class Python39ClaimDeliveryContracts(unittest.TestCase):
     def tearDown(self) -> None:
         self.repo.close()
 
-    def _deliver(self, claim_id: str, candidate_output: str, document_path: str, document_digest: str) -> subprocess.CompletedProcess[str]:
+    def _deliver(
+        self,
+        claim_id: str,
+        candidate_output: str,
+        document_path: str,
+        document_digest: str,
+        verifier_results_path: str | None = None,
+        evidence_path: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             "-B",
@@ -39,6 +47,8 @@ class Python39ClaimDeliveryContracts(unittest.TestCase):
             "--delivery-document-path", document_path,
             "--delivery-document-digest", document_digest,
         ]
+        if verifier_results_path is not None and evidence_path is not None:
+            command.extend(("--verifier-results-path", verifier_results_path, "--evidence-path", evidence_path))
         environment = dict(os.environ)
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         environment["PYTHONPATH"] = os.pathsep.join(
@@ -62,8 +72,9 @@ class Python39ClaimDeliveryContracts(unittest.TestCase):
             spawn_result(prepared),
             "python39-cli-delivery",
         )
+        results_path, evidence_path = self.repo.prepare_automatic_artifacts("d" * 64)
         document_path, document_digest = self.repo.prepare_delivery_document()
-        result = self._deliver(claimed["claimId"], "d" * 64, document_path, document_digest)
+        result = self._deliver(claimed["claimId"], "d" * 64, document_path, document_digest, results_path, evidence_path)
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual("delivered", json.loads(result.stdout)["status"])
@@ -85,9 +96,17 @@ class Python39ClaimDeliveryContracts(unittest.TestCase):
         )
         runtime.write_claim_receipt(claimed["claimId"], receipt)
 
+        results_path, evidence_path = self.repo.prepare_automatic_artifacts("d" * 64)
         document_path, document_digest = self.repo.prepare_delivery_document()
         expected_revision = self.repo.state()["revision"]
-        result = self._deliver(claimed["claimId"], "d" * 64, document_path, document_digest)
+        result = self._deliver(
+            claimed["claimId"],
+            "d" * 64,
+            document_path,
+            document_digest,
+            results_path,
+            evidence_path,
+        )
 
         self.assertEqual(2, result.returncode)
         self.assertEqual("CLAIM_RECEIPT_UNAVAILABLE", json.loads(result.stderr)["error"])

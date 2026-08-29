@@ -11,4 +11,6 @@ Canonical CLI、project staging 与 automatic runtime bridge 最低支持 Python
 仓库 CI policy 位于 `.gkd/policy.json`。本地与 pull request 验证共用
 `scripts/gkd-verify --base-sha <full-sha>`，只需要 Python、Git 和标准库。
 需要供 evidence runner 复用时，可显式传入 `--results-dir <directory>`；各 scope
-runner 使用 `--canonical-results <directory>` 消费同一份固定结果。
+runner 使用 `--canonical-results <directory>` 消费同一份固定结果。automatic
+delivery 可额外使用 `--summary-output <path>` 生成待固定树校验的 canonical
+verifier summary。
