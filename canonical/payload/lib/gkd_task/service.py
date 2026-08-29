@@ -28,6 +28,7 @@ from .canonical import (
     sha256_bytes,
 )
 from .documents import IMPLEMENTATION_SECTIONS, PLAN_SECTIONS, inspect_package, inspect_plan, parse_sections
+from .delivery_artifacts import load_automatic_delivery_artifacts
 from .errors import TaskError
 from .gitops import (
     branch,
@@ -258,6 +259,7 @@ class TaskService:
         nonce: Any | None = None,
         evidence_provider: RuntimeEvidenceProvider | None = None,
         failure_hook: Any | None = None,
+        allow_document_drift: bool = False,
     ) -> None:
         if candidate_root.is_symlink():
             raise TaskError("CANDIDATE_SYMLINK")
@@ -269,7 +271,8 @@ class TaskService:
         self.clock = clock or SystemClock()
         self.nonce = nonce or SystemNonce()
         self.evidence_provider = evidence_provider or UnavailableEvidenceProvider()
-        initial = read_state(self.task_root / "task.json", self.task_root)
+        self.allow_document_drift = allow_document_drift
+        initial = read_state(self.task_root / "task.json", None if allow_document_drift else self.task_root)
         repository = initial["repository"]
         verify_identity(
             self.candidate_root,
@@ -291,7 +294,7 @@ class TaskService:
         )
 
     def _state(self) -> dict[str, Any]:
-        return read_state(self.task_root / "task.json", self.task_root)
+        return read_state(self.task_root / "task.json", None if self.allow_document_drift else self.task_root)
 
     def _authorization(self) -> dict[str, Any]:
         return read_canonical_json(
@@ -454,8 +457,9 @@ class TaskService:
         expected_head: str,
         expected_revision: int,
         builder: Any,
+        state_loader: Any | None = None,
     ) -> dict[str, Any]:
-        return self.transactions.execute(expected_head, expected_revision, builder)
+        return self.transactions.execute(expected_head, expected_revision, builder, state_loader)
 
     def status(self) -> dict[str, Any]:
         state = self._state()
@@ -490,6 +494,49 @@ class TaskService:
             )
 
         return self._transact(expected_head, expected_revision, builder)
+
+    def refresh_planning(self, expected_head: str, expected_revision: int) -> dict[str, Any]:
+        records, _ = inspect_package(self.task_root)
+
+        def builder(state: dict[str, Any]) -> TransactionChange:
+            self._require_unblocked(state)
+            self._require_planning(state)
+            updated = deepcopy(state)
+            changed = False
+            for name in ("requirements", "plan", "implementation"):
+                previous = state["documents"][name]
+                current = deepcopy(records[name])
+                digest_changed = current["digest"] != previous["digest"]
+                current["version"] = previous["version"] + (1 if digest_changed else 0)
+                current["documentRevision"] = previous["documentRevision"] + (1 if digest_changed else 0)
+                if name == "requirements":
+                    current["status"] = "draft" if digest_changed else previous["status"]
+                elif name == "plan":
+                    material_changed = current["materialDigest"] != previous["materialDigest"]
+                    current["status"] = "proposed" if material_changed else previous["status"]
+                changed |= current != previous
+                updated["documents"][name] = current
+            if not changed:
+                raise TaskError("PLANNING_REFRESH_NOT_NEEDED")
+            updated["approval"] = None
+            updated["implementationAuthorization"] = None
+            updated["actionAuthorizationDigest"] = None
+            updated = advance_state(updated, "planning_refreshed", self.clock.now(), expected_head, updated["documents"])
+            files: dict[str, bytes | None] = {f"{self.task_path}/task.json": canonical_bytes(updated)}
+            if (self.task_root / "authorization.json").exists():
+                files[f"{self.task_path}/authorization.json"] = None
+            return TransactionChange(
+                files,
+                "刷新规划文档绑定",
+                {"status": "planning_refreshed", "revision": updated["revision"]},
+            )
+
+        return self._transact(
+            expected_head,
+            expected_revision,
+            builder,
+            lambda: read_state(self.task_root / "task.json"),
+        )
 
     def propose_plan(
         self,
@@ -1242,6 +1289,8 @@ class TaskService:
         candidate_output_bundle_digest: str | None = None,
         delivery_document_path: str | None = None,
         delivery_document_digest: str | None = None,
+        verifier_results_path: str | None = None,
+        evidence_path: str | None = None,
     ) -> dict[str, Any]:
         require_sha256(claim_id, "CLAIM_MISMATCH")
         current_state = self._state()
@@ -1256,8 +1305,14 @@ class TaskService:
             if candidate_output_bundle_digest is None:
                 raise TaskError("CANDIDATE_OUTPUT_BUNDLE_REQUIRED")
             require_sha256(candidate_output_bundle_digest, "INVALID_CANDIDATE_OUTPUT_BUNDLE")
+            if verifier_results_path is None or evidence_path is None:
+                raise TaskError("AUTOMATIC_DELIVERY_ARTIFACT_REQUIRED")
+            relative_path(verifier_results_path, "INVALID_DELIVERY_ARTIFACT_PATH")
+            relative_path(evidence_path, "INVALID_DELIVERY_ARTIFACT_PATH")
         elif candidate_output_bundle_digest is not None:
             raise TaskError("INVALID_CANDIDATE_OUTPUT_BUNDLE")
+        elif verifier_results_path is not None or evidence_path is not None:
+            raise TaskError("INVALID_DELIVERY_ARTIFACT_PATH")
         if delivery_document_path is None or delivery_document_digest is None:
             raise TaskError("DELIVERY_DOCUMENT_REQUIRED")
         relative_path(delivery_document_path, "INVALID_DELIVERY_DOCUMENT")
@@ -1274,6 +1329,16 @@ class TaskService:
             raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
         if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
             raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        implementation_head = document_parent
+        if "executionBundleDigest" in current_claim:
+            load_automatic_delivery_artifacts(
+                self.candidate_root,
+                implementation_head,
+                current_state,
+                candidate_output_bundle_digest or "",
+                verifier_results_path or "",
+                evidence_path or "",
+            )
         try:
             read_tree_file(self.candidate_root, document_parent, delivery_document_path)
         except TaskError:
@@ -1303,7 +1368,7 @@ class TaskService:
             if authorization["authorizationDigest"] != state["actionAuthorizationDigest"]:
                 raise TaskError("authorization_mismatch")
             record = {
-                "implementationHead": document_parent,
+                "implementationHead": implementation_head,
                 "deliveryDocumentCommit": expected_head,
                 "deliveryDocumentPath": delivery_document_path,
                 "deliveryDocumentDigest": delivery_document_digest,
@@ -1325,7 +1390,7 @@ class TaskService:
                 {
                     "status": "delivered",
                     "revision": updated["revision"],
-                    "implementationHead": document_parent,
+                    "implementationHead": implementation_head,
                     "deliveryDocumentCommit": expected_head,
                 },
             )

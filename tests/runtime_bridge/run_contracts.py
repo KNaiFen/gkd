@@ -122,14 +122,7 @@ def main() -> int:
             bridge, prepared = ready_bridge(repo)
             claimed = bridge.claim(*repo.cas(), prepared["envelopeId"], spawn_result(prepared), "evidence-activation")
             service = TaskService(repo.candidate, repo.task_path, RuntimeStore(repo.runtime_root))
-            document_path, document_digest = repo.prepare_delivery_document()
-            service.deliver(
-                *repo.cas(),
-                claimed["claimId"],
-                SYNTHETIC_OUTPUT_BUNDLE_DIGEST,
-                document_path,
-                document_digest,
-            )
+            repo.deliver(service, claimed["claimId"], SYNTHETIC_OUTPUT_BUNDLE_DIGEST)
             delivery = repo.state()["lifecycle"]["delivery"]
             flow = {
                 "routeDecisionDigest": prepared["routeDecisionDigest"],

@@ -479,3 +479,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR-R4` 证明 executor Python 3.9 兼容性是 core 前置条件。
   - Why: R4 executor 的 `env python3` 解析到 `/usr/bin/python3` 3.9.6；payload 使用 `zip(strict=True)`，直接 status 抛 TypeError，CLI 捕获后仅输出误导性的 `FILESYSTEM_ERROR`。同一输入在 trusted main Python 3.14 可读，排除 task/runtime 损坏。
   - Impact: trusted main canonical block `executor-python39-zip-strict-incompatibility`，R4 未实现。R5 必须用 Python 3.9 可用的显式 strict pairing 保持 fail-closed，不依赖 agent PATH；然后继续无自引用 sidecar 与实际 result/evidence 绑定。
+
+- [2026-08-29] `GKD-GATE-REPAIR-R5` 使用 fixed-tree artifact binding 保持自举 state 兼容。
+  - Why: implementation SHA 写入同一 commit 的 sidecar 会形成 Git 内容寻址自引用；交付 state 已有 implementationHead，足以唯一定位该 commit 的固定 tree。
+  - Impact: automatic delivery 从 implementation tree 的 canonical verifier summary 和 evidence regular file 重算 digest，sidecar 只绑定任务身份、base、candidate bundle及重算结果。planning refresh 只更新既有 documents record，history revision 而非 UTC 文本定义逻辑顺序；state 未增加 event 或 delivery 字段。

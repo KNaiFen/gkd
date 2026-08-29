@@ -90,6 +90,9 @@ def _parser() -> MachineParser:
     requirements = commands.add_parser("requirements-ready")
     _add_cas(requirements)
 
+    refresh = commands.add_parser("planning-refresh")
+    _add_cas(refresh)
+
     propose = commands.add_parser("plan-propose")
     _add_cas(propose)
     propose.add_argument("--plan-file", type=Path, required=True)
@@ -145,6 +148,8 @@ def _parser() -> MachineParser:
     deliver.add_argument("--candidate-output-bundle-digest")
     deliver.add_argument("--delivery-document-path", required=True)
     deliver.add_argument("--delivery-document-digest", required=True)
+    deliver.add_argument("--verifier-results-path")
+    deliver.add_argument("--evidence-path")
 
     migrate = commands.add_parser("migrate-v1")
     _add_cas(migrate)
@@ -186,7 +191,13 @@ def _service(args: Any) -> TaskService:
         raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
     else:
         provider = None
-    return TaskService(args.candidate_root, args.task_path, runtime=runtime, evidence_provider=provider)
+    return TaskService(
+        args.candidate_root,
+        args.task_path,
+        runtime=runtime,
+        evidence_provider=provider,
+        allow_document_drift=args.command == "planning-refresh",
+    )
 
 
 def _dispatch(args: Any) -> dict[str, Any]:
@@ -274,6 +285,8 @@ def _dispatch(args: Any) -> dict[str, Any]:
         return service.recover()
     if args.command == "requirements-ready":
         return service.requirements_ready(args.expected_head, args.expected_revision)
+    if args.command == "planning-refresh":
+        return service.refresh_planning(args.expected_head, args.expected_revision)
     if args.command == "plan-propose":
         return service.propose_plan(args.expected_head, args.expected_revision, args.plan_file, args.implementation_file)
     if args.command == "plan-approve":
@@ -309,6 +322,8 @@ def _dispatch(args: Any) -> dict[str, Any]:
             args.candidate_output_bundle_digest,
             args.delivery_document_path,
             args.delivery_document_digest,
+            args.verifier_results_path,
+            args.evidence_path,
         )
     raise TaskError("INVALID_ARGUMENTS")
 
@@ -319,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
     except TaskError as error:
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": error.code}))
         return 2
-    except (OSError, UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError):
+    except (OSError, UnicodeDecodeError, ValueError, KeyError, OverflowError):
         sys.stderr.buffer.write(canonical_bytes({"status": "error", "error": "FILESYSTEM_ERROR"}))
         return 2
     sys.stdout.buffer.write(canonical_bytes(result))

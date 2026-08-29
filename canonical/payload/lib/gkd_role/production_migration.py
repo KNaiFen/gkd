@@ -286,6 +286,8 @@ def _write_recovery(
     before: list[dict[str, str]],
     staged: list[dict[str, str]],
 ) -> dict[str, Any]:
+    if len(before) != len(staged):
+        raise TaskError("PRODUCTION_BACKUP_MISMATCH")
     value = {
         "schemaVersion": 1,
         "status": "active",
@@ -294,7 +296,7 @@ def _write_recovery(
         "stagedDigest": _records_digest(staged),
         "targets": [
             {"path": prior["path"], "before": prior, "staged": desired}
-            for prior, desired in zip(before, staged, strict=True)
+            for prior, desired in zip(before, staged)
         ],
     }
     value["recordDigest"] = digest_object(value)
@@ -497,7 +499,9 @@ def _restore(home_value: Path, status: str) -> dict[str, Any]:
     before = [item["before"] for item in recovery["targets"]]
     staged = [item["staged"] for item in recovery["targets"]]
     current = _records(home, targets)
-    for current_record, before_record, staged_record in zip(current, before, staged, strict=True):
+    if len(current) != len(before) or len(before) != len(staged):
+        raise TaskError("UNRECOVERABLE_PRODUCTION_STATE")
+    for current_record, before_record, staged_record in zip(current, before, staged):
         if current_record not in (before_record, staged_record) and current_record["type"] != "missing":
             raise TaskError("UNRECOVERABLE_PRODUCTION_STATE")
     for record in before:

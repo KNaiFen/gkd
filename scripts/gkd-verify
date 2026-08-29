@@ -120,6 +120,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-sha")
     parser.add_argument("--results-dir", type=Path)
+    parser.add_argument("--summary-output", type=Path)
     parser.add_argument("--scope-internal", choices=[name for name, _ in SCOPES], help=argparse.SUPPRESS)
     parser.add_argument("--result-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--head-sha", help=argparse.SUPPRESS)
@@ -152,6 +153,11 @@ def main() -> int:
         results_dir.mkdir(parents=True, exist_ok=True)
         if not results_dir.is_dir() or any(results_dir.iterdir()):
             print(json.dumps({"error": "RESULTS_DIR_INVALID", "status": "error"}, sort_keys=True))
+            return 2
+    summary_output = args.summary_output
+    if summary_output is not None:
+        if summary_output.is_symlink() or summary_output.exists() or not summary_output.parent.is_dir():
+            print(json.dumps({"error": "SUMMARY_OUTPUT_INVALID", "status": "error"}, sort_keys=True))
             return 2
     for name, _ in SCOPES:
         result_output = results_dir / f"{name}.json" if results_dir is not None else None
@@ -199,7 +205,10 @@ def main() -> int:
             verifier_digest=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         )
         payload["canonicalResultsDigest"] = manifest["manifestDigest"]
-    print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    if summary_output is not None:
+        summary_output.write_text(encoded, encoding="utf-8")
+    print(encoded, end="")
     return 0 if passed else 1
 
 

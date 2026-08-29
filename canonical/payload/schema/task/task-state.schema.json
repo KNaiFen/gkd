@@ -135,7 +135,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["revision", "type", "at", "head", "recordDigest"],
-      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"enum": ["bootstrap", "requirements_ready", "plan_proposed", "plan_approved", "authorized", "offer_created", "claimed", "revoked", "reclaimed", "blocked", "resumed", "delivered", "reworked", "accepted", "completed", "migrated_v1"]}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "recordDigest": {"$ref": "#/$defs/sha256"}}
+      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"enum": ["bootstrap", "requirements_ready", "planning_refreshed", "plan_proposed", "plan_approved", "authorized", "offer_created", "claimed", "revoked", "reclaimed", "blocked", "resumed", "delivered", "reworked", "accepted", "completed", "migrated_v1"]}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "recordDigest": {"$ref": "#/$defs/sha256"}}
     }
   }
 }
