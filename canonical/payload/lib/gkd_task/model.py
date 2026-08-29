@@ -62,6 +62,7 @@ EVENT_TYPES = {
     "accepted",
     "completed",
     "migrated_v1",
+    "planning_refreshed",
 }
 
 
@@ -153,9 +154,13 @@ def _implementation_authorization(value: Any) -> None:
 def _delivery_record(value: dict[str, Any]) -> None:
     delivery_keys = {"implementationHead", "claimId", "deliveredAt"}
     document_keys = {"deliveryDocumentCommit", "deliveryDocumentPath", "deliveryDocumentDigest"}
+    manifest_keys = {"resultManifestPath", "resultManifestDigest"}
     document_bound = any(field in value for field in document_keys)
     if document_bound:
         delivery_keys |= document_keys
+    manifest_bound = any(field in value for field in manifest_keys)
+    if manifest_bound:
+        delivery_keys |= manifest_keys
     if "executionBundleDigest" in value:
         delivery_keys |= {"executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"}
     require_keys(value, delivery_keys, "INVALID_TASK_STATE")
@@ -163,12 +168,54 @@ def _delivery_record(value: dict[str, Any]) -> None:
         require_sha1(value["deliveryDocumentCommit"], "INVALID_TASK_STATE")
         relative_path(value["deliveryDocumentPath"], "INVALID_TASK_STATE")
         require_sha256(value["deliveryDocumentDigest"], "INVALID_TASK_STATE")
+    if manifest_bound:
+        relative_path(value["resultManifestPath"], "INVALID_TASK_STATE")
+        require_sha256(value["resultManifestDigest"], "INVALID_TASK_STATE")
     if "executionBundleDigest" in value:
         for field in ("executionBundleDigest", "candidateOutputBundleDigest", "routeDecisionDigest"):
             require_sha256(value[field], "INVALID_TASK_STATE")
     require_sha1(value["implementationHead"], "INVALID_TASK_STATE")
     require_sha256(value["claimId"], "INVALID_TASK_STATE")
     require_utc(value["deliveredAt"], "INVALID_TASK_STATE")
+
+
+def validate_result_manifest(value: dict[str, Any]) -> None:
+    require_keys(
+        value,
+        {
+            "schemaVersion", "kind", "taskId", "repository", "taskBranch", "baseSha",
+            "implementationHead", "deliveryHead", "claimId", "executionBundleDigest",
+            "candidateOutputBundleDigest", "scopes", "scopeDigest", "generatedAt",
+            "generator", "manifestDigest",
+        },
+        "INVALID_RESULT_MANIFEST",
+    )
+    if value["schemaVersion"] != 1 or value["kind"] != "candidate-result-manifest":
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    for field in ("taskId", "repository", "taskBranch", "generator"):
+        require_string(value[field], "INVALID_RESULT_MANIFEST")
+    for field in ("baseSha", "implementationHead", "deliveryHead"):
+        require_sha1(value[field], "INVALID_RESULT_MANIFEST")
+    for field in ("claimId", "executionBundleDigest", "candidateOutputBundleDigest", "scopeDigest", "manifestDigest"):
+        require_sha256(value[field], "INVALID_RESULT_MANIFEST")
+    require_utc(value["generatedAt"], "INVALID_RESULT_MANIFEST")
+    scopes = value["scopes"]
+    if not isinstance(scopes, list) or not scopes:
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    names: list[str] = []
+    for scope in scopes:
+        if not isinstance(scope, dict):
+            raise TaskError("INVALID_RESULT_MANIFEST")
+        require_keys(scope, {"name", "resultDigest"}, "INVALID_RESULT_MANIFEST")
+        require_string(scope["name"], "INVALID_RESULT_MANIFEST")
+        require_sha256(scope["resultDigest"], "INVALID_RESULT_MANIFEST")
+        names.append(scope["name"])
+    if names != sorted(set(names)) or digest_object(scopes) != value["scopeDigest"]:
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    unsigned = dict(value)
+    actual = unsigned.pop("manifestDigest")
+    if digest_object(unsigned) != actual:
+        raise TaskError("INVALID_RESULT_MANIFEST")
 
 
 def _rejected_attempt(value: Any) -> None:
@@ -417,8 +464,12 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if any(event["head"] is None for event in history):
         raise TaskError("INVALID_TASK_STATE")
-    if [event["at"] for event in history] != sorted(event["at"] for event in history):
-        raise TaskError("INVALID_TASK_STATE")
+    logical_orders = [event.get("logicalOrder") for event in history]
+    if any(order is not None for order in logical_orders):
+        if any(not isinstance(order, int) or order < 0 for order in logical_orders):
+            raise TaskError("INVALID_TASK_STATE")
+        if logical_orders != list(range(len(history))):
+            raise TaskError("INVALID_TASK_STATE")
 
     retirement_events = [event for event in history if event["type"] in {"revoked", "reclaimed", "reworked"}]
     retired_claims = lifecycle["retiredClaims"]
@@ -563,13 +614,18 @@ def validate_state(value: dict[str, Any]) -> None:
     for index, event in enumerate(value["history"]):
         if not isinstance(event, dict):
             raise TaskError("INVALID_TASK_STATE")
-        require_keys(event, {"revision", "type", "at", "head", "recordDigest"}, "INVALID_TASK_STATE")
+        event_keys = {"revision", "type", "at", "head", "recordDigest"}
+        if "logicalOrder" in event:
+            event_keys.add("logicalOrder")
+        require_keys(event, event_keys, "INVALID_TASK_STATE")
         if event["revision"] != index or event["type"] not in EVENT_TYPES:
             raise TaskError("INVALID_TASK_STATE")
         require_utc(event["at"], "INVALID_TASK_STATE")
         if event["head"] is not None:
             require_sha1(event["head"], "INVALID_TASK_STATE")
         require_sha256(event["recordDigest"], "INVALID_TASK_STATE")
+        if "logicalOrder" in event and (not isinstance(event["logicalOrder"], int) or event["logicalOrder"] < 0):
+            raise TaskError("INVALID_TASK_STATE")
     if value["schemaVersion"] in {TASK_SCHEMA_VERSION, TASK_POLICY_VERSION} and any(event["type"] == "reworked" for event in value["history"]):
         raise TaskError("INVALID_TASK_STATE")
     _history_relationships(value)
@@ -623,6 +679,7 @@ def new_state(
         "type": "bootstrap",
         "at": at,
         "head": head,
+        "logicalOrder": 0,
         "recordDigest": sha256_bytes(canonical_bytes({"taskId": task_id, "repository": repository})),
     }
     return finalize_state(
@@ -663,6 +720,7 @@ def advance_state(state: dict[str, Any], event_type: str, at: str, head: str, re
             "type": event_type,
             "at": at,
             "head": head,
+            "logicalOrder": result["revision"],
             "recordDigest": digest_object(record),
         }
     )

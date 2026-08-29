@@ -120,6 +120,8 @@
         "deliveryDocumentCommit": {"$ref": "#/$defs/sha1"},
         "deliveryDocumentPath": {"type": "string"},
         "deliveryDocumentDigest": {"$ref": "#/$defs/sha256"},
+        "resultManifestPath": {"type": "string"},
+        "resultManifestDigest": {"$ref": "#/$defs/sha256"},
         "claimId": {"$ref": "#/$defs/sha256"},
         "deliveredAt": {"type": "string"},
         "executionBundleDigest": {"$ref": "#/$defs/sha256"},
@@ -135,7 +137,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["revision", "type", "at", "head", "recordDigest"],
-      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"enum": ["bootstrap", "requirements_ready", "plan_proposed", "plan_approved", "authorized", "offer_created", "claimed", "revoked", "reclaimed", "blocked", "resumed", "delivered", "reworked", "accepted", "completed", "migrated_v1"]}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "recordDigest": {"$ref": "#/$defs/sha256"}}
+      "properties": {"revision": {"type": "integer", "minimum": 0}, "type": {"enum": ["bootstrap", "requirements_ready", "plan_proposed", "plan_approved", "authorized", "offer_created", "claimed", "revoked", "reclaimed", "blocked", "resumed", "delivered", "reworked", "accepted", "completed", "migrated_v1", "planning_refreshed"]}, "at": {"type": "string"}, "head": {"anyOf": [{"$ref": "#/$defs/sha1"}, {"type": "null"}]}, "logicalOrder": {"type": "integer", "minimum": 0}, "recordDigest": {"$ref": "#/$defs/sha256"}}
     }
   }
 }

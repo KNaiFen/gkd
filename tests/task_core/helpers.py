@@ -227,14 +227,48 @@ class TaskRepo:
 
     def prepare_delivery_document(self) -> tuple[str, str]:
         path = self.task_root / "delivery.md"
-        path.write_text(f"# Fixture Delivery\n\nImplementation head: {self.head()}\n", encoding="utf-8")
+        implementation_head = self.head()
+        path.write_text(f"# Fixture Delivery\n\nImplementation head: {implementation_head}\n", encoding="utf-8")
         relative = f"{self.task_path}/delivery.md"
-        run("git", "add", relative, cwd=self.candidate)
-        run("git", "commit", "-m", "prepare delivery document", "--", relative, cwd=self.candidate)
+        commit_paths = [relative]
+        claim = self.state()["lifecycle"]["claim"]
+        if claim is not None and "executionBundleDigest" in claim:
+            manifest = {
+                "schemaVersion": 1,
+                "kind": "candidate-result-manifest",
+                "taskId": self.task_id,
+                "repository": self.identity,
+                "taskBranch": self.task_branch,
+                "baseSha": self.base_sha,
+                "implementationHead": implementation_head,
+                "deliveryHead": implementation_head,
+                "claimId": claim["claimId"],
+                "executionBundleDigest": claim["executionBundleDigest"],
+                "candidateOutputBundleDigest": "d" * 64,
+                "scopes": [{"name": "task-core", "resultDigest": "e" * 64}],
+                "scopeDigest": digest_object([{"name": "task-core", "resultDigest": "e" * 64}]),
+                "generatedAt": FIXED_TIME,
+                "generator": "fixture",
+            }
+            manifest["manifestDigest"] = digest_object(manifest)
+            manifest_path = self.task_root / "result-manifest.json"
+            manifest_path.write_bytes(canonical_bytes(manifest))
+            commit_paths.append(f"{self.task_path}/result-manifest.json")
+        run("git", "add", *commit_paths, cwd=self.candidate)
+        run("git", "commit", "-m", "prepare delivery document", "--", *commit_paths, cwd=self.candidate)
         return relative, hashlib.sha256(path.read_bytes()).hexdigest()
 
     def deliver(self, service: TaskService, claim_id: str, candidate_output_bundle_digest: str | None = None):
         document_path, document_digest = self.prepare_delivery_document()
+        manifest_path = self.task_root / "result-manifest.json"
+        if candidate_output_bundle_digest is not None and manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_bytes())
+            manifest["candidateOutputBundleDigest"] = candidate_output_bundle_digest
+            manifest.pop("manifestDigest", None)
+            manifest["manifestDigest"] = digest_object(manifest)
+            manifest_path.write_bytes(canonical_bytes(manifest))
+            run("git", "add", f"{self.task_path}/result-manifest.json", cwd=self.candidate)
+            run("git", "commit", "--amend", "--no-edit", "--", f"{self.task_path}/result-manifest.json", cwd=self.candidate)
         return service.deliver(
             *self.cas(),
             claim_id,

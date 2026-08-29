@@ -15,7 +15,7 @@ from .canonical import CHECK_NAME_RE, CREDENTIAL_RE, SystemClock, SystemNonce, c
 from .documents import PLAN_MATERIAL_SECTIONS, PLAN_SECTIONS, parse_sections
 from .errors import TaskError
 from .gitops import branch, changed_paths, common_dir, git, head, is_ancestor, is_clean, read_tree_file, repository_identity, require_regular_tree_file, verify_identity
-from .model import TASK_POLICY_REWORK_VERSION, TASK_POLICY_VERSION, TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_state
+from .model import TASK_POLICY_REWORK_VERSION, TASK_POLICY_VERSION, TASK_STATE_REWORK_VERSION, advance_state, validate_authorization, validate_offer, validate_result_manifest, validate_state
 from .runtime import RuntimeStore, runtime_key, validate_claim_receipt
 from .transaction import TransactionChange, TransactionManager
 
@@ -164,6 +164,11 @@ def _validate_delivery_sequence(
     expected_path = f"{task_path}/delivery.md"
     if delivery["deliveryDocumentPath"] != expected_path:
         raise TaskError("CANDIDATE_INVALID")
+    manifest_path = delivery.get("resultManifestPath")
+    automatic = manifest_path is not None
+    if automatic and manifest_path != f"{task_path}/result-manifest.json":
+        raise TaskError("CANDIDATE_INVALID")
+    expected_document_paths = [expected_path] if not automatic else sorted([expected_path, manifest_path])
     document_commit = delivery["deliveryDocumentCommit"]
     implementation_head = delivery["implementationHead"]
     try:
@@ -176,10 +181,14 @@ def _validate_delivery_sequence(
         or document_parent != implementation_head
         or not is_ancestor(candidate_root, claim_base_head, implementation_head)
         or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
-        or changed_paths(candidate_root, document_commit) != [expected_path]
+        or changed_paths(candidate_root, document_commit) != expected_document_paths
     ):
         raise TaskError("CANDIDATE_INVALID")
-    if _tree_path_exists(candidate_root, implementation_head, expected_path) and not allow_existing_document:
+    if (
+        (_tree_path_exists(candidate_root, implementation_head, expected_path)
+         or (automatic and _tree_path_exists(candidate_root, implementation_head, manifest_path)))
+        and not allow_existing_document
+    ):
         raise TaskError("DUPLICATE_DELIVERY_DOCUMENT")
     try:
         document_raw = read_tree_file(candidate_root, document_commit, expected_path)
@@ -188,6 +197,32 @@ def _validate_delivery_sequence(
     require_regular_tree_file(candidate_root, document_commit, expected_path)
     if sha256_bytes(document_raw) != delivery["deliveryDocumentDigest"]:
         raise TaskError("CANDIDATE_INVALID")
+    if automatic:
+        manifest_raw = read_tree_file(candidate_root, document_commit, manifest_path)
+        require_regular_tree_file(candidate_root, document_commit, manifest_path)
+        if sha256_bytes(manifest_raw) != delivery["resultManifestDigest"]:
+            raise TaskError("CANDIDATE_INVALID")
+        try:
+            manifest = json.loads(manifest_raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise TaskError("CANDIDATE_INVALID") from None
+        if not isinstance(manifest, dict) or manifest_raw != canonical_bytes(manifest):
+            raise TaskError("CANDIDATE_INVALID")
+        validate_result_manifest(manifest)
+        state = _fixed_json(candidate_root, candidate_head, f"{task_path}/task.json", "CANDIDATE_INVALID")
+        claim = state["lifecycle"]["claim"]
+        if claim is None or any((
+            manifest["taskId"] != state["taskId"],
+            manifest["repository"] != state["repository"]["identity"],
+            manifest["taskBranch"] != state["repository"]["taskBranch"],
+            manifest["baseSha"] != state["repository"]["baseSha"],
+            manifest["implementationHead"] != delivery["implementationHead"],
+            manifest["deliveryHead"] != delivery["implementationHead"],
+            manifest["claimId"] != claim["claimId"],
+            manifest["executionBundleDigest"] != delivery["executionBundleDigest"],
+            manifest["candidateOutputBundleDigest"] != delivery["candidateOutputBundleDigest"],
+        )):
+            raise TaskError("CANDIDATE_INVALID")
 
 
 def _journal_image(record: dict[str, Any]) -> bytes | None:

@@ -58,6 +58,7 @@ from .model import (
     validate_authorization,
     validate_offer,
     validate_runtime_evidence,
+    validate_result_manifest,
     validate_state,
 )
 from .runtime import RUNTIME_SCHEMA_VERSION, RuntimeStore, runtime_key, validate_claim_receipt
@@ -258,6 +259,7 @@ class TaskService:
         nonce: Any | None = None,
         evidence_provider: RuntimeEvidenceProvider | None = None,
         failure_hook: Any | None = None,
+        allow_document_drift: bool = False,
     ) -> None:
         if candidate_root.is_symlink():
             raise TaskError("CANDIDATE_SYMLINK")
@@ -269,7 +271,8 @@ class TaskService:
         self.clock = clock or SystemClock()
         self.nonce = nonce or SystemNonce()
         self.evidence_provider = evidence_provider or UnavailableEvidenceProvider()
-        initial = read_state(self.task_root / "task.json", self.task_root)
+        self.allow_document_drift = allow_document_drift
+        initial = read_state(self.task_root / "task.json", None if allow_document_drift else self.task_root)
         repository = initial["repository"]
         verify_identity(
             self.candidate_root,
@@ -291,7 +294,7 @@ class TaskService:
         )
 
     def _state(self) -> dict[str, Any]:
-        return read_state(self.task_root / "task.json", self.task_root)
+        return read_state(self.task_root / "task.json", None if self.allow_document_drift else self.task_root)
 
     def _authorization(self) -> dict[str, Any]:
         return read_canonical_json(
@@ -454,8 +457,9 @@ class TaskService:
         expected_head: str,
         expected_revision: int,
         builder: Any,
+        state_loader: Any | None = None,
     ) -> dict[str, Any]:
-        return self.transactions.execute(expected_head, expected_revision, builder)
+        return self.transactions.execute(expected_head, expected_revision, builder, state_loader)
 
     def status(self) -> dict[str, Any]:
         state = self._state()
@@ -490,6 +494,48 @@ class TaskService:
             )
 
         return self._transact(expected_head, expected_revision, builder)
+
+    def refresh_planning(self, expected_head: str, expected_revision: int) -> dict[str, Any]:
+        """Rebind planning document digests while the task is still planning."""
+        records, _ = inspect_package(self.task_root)
+
+        def builder(state: dict[str, Any]) -> TransactionChange:
+            self._require_unblocked(state)
+            self._require_planning(state)
+            updated = deepcopy(state)
+            changed = False
+            for name in ("requirements", "plan", "implementation"):
+                previous = state["documents"][name]
+                current = deepcopy(records[name])
+                current["documentRevision"] = previous["documentRevision"] + (1 if current["digest"] != previous["digest"] else 0)
+                if name == "requirements":
+                    current["status"] = "draft"
+                elif name == "plan":
+                    current["status"] = "proposed"
+                changed |= current != previous
+                updated["documents"][name] = current
+            if not changed:
+                raise TaskError("PLANNING_REFRESH_NOT_NEEDED")
+            updated["approval"] = None
+            updated["implementationAuthorization"] = None
+            updated["actionAuthorizationDigest"] = None
+            updated = advance_state(updated, "planning_refreshed", self.clock.now(), expected_head, updated["documents"])
+            files: dict[str, bytes | None] = {f"{self.task_path}/task.json": canonical_bytes(updated)}
+            authorization_path = self.task_root / "authorization.json"
+            if authorization_path.exists():
+                files[f"{self.task_path}/authorization.json"] = None
+            return TransactionChange(
+                files,
+                "刷新规划文档绑定",
+                {"status": "planning_refreshed", "revision": updated["revision"]},
+            )
+
+        return self._transact(
+            expected_head,
+            expected_revision,
+            builder,
+            state_loader=lambda: read_state(self.task_root / "task.json", None),
+        )
 
     def propose_plan(
         self,
@@ -1242,6 +1288,8 @@ class TaskService:
         candidate_output_bundle_digest: str | None = None,
         delivery_document_path: str | None = None,
         delivery_document_digest: str | None = None,
+        result_manifest_path: str | None = None,
+        result_manifest_digest: str | None = None,
     ) -> dict[str, Any]:
         require_sha256(claim_id, "CLAIM_MISMATCH")
         current_state = self._state()
@@ -1265,6 +1313,21 @@ class TaskService:
         canonical_document_path = f"{self.task_path}/delivery.md"
         if delivery_document_path != canonical_document_path:
             raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        automatic_delivery = "executionBundleDigest" in current_claim
+        if automatic_delivery:
+            if result_manifest_path is None and result_manifest_digest is None:
+                result_manifest_path = f"{self.task_path}/result-manifest.json"
+                try:
+                    result_manifest_digest = sha256_bytes(read_tree_file(self.candidate_root, expected_head, result_manifest_path))
+                except TaskError:
+                    raise TaskError("RESULT_MANIFEST_REQUIRED") from None
+            if result_manifest_path is None or result_manifest_digest is None:
+                raise TaskError("RESULT_MANIFEST_REQUIRED")
+            require_sha256(result_manifest_digest, "INVALID_RESULT_MANIFEST")
+            if result_manifest_path != f"{self.task_path}/result-manifest.json":
+                raise TaskError("INVALID_RESULT_MANIFEST")
+        elif result_manifest_path is not None or result_manifest_digest is not None:
+            raise TaskError("INVALID_RESULT_MANIFEST")
         if head(self.candidate_root) != expected_head:
             raise TaskError("HEAD_MISMATCH")
         require_clean(self.candidate_root)
@@ -1272,8 +1335,13 @@ class TaskService:
             document_parent = git(self.candidate_root, "rev-parse", f"{expected_head}^", code="INVALID_DELIVERY_DOCUMENT").decode("ascii").strip()
         except UnicodeDecodeError:
             raise TaskError("INVALID_DELIVERY_DOCUMENT") from None
-        if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
-            raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        if not automatic_delivery:
+            if changed_paths(self.candidate_root, expected_head) != [delivery_document_path]:
+                raise TaskError("INVALID_DELIVERY_DOCUMENT")
+        else:
+            expected_delivery_paths = [delivery_document_path, result_manifest_path or ""]
+            if changed_paths(self.candidate_root, expected_head) != sorted(expected_delivery_paths):
+                raise TaskError("INVALID_DELIVERY_DOCUMENT")
         try:
             read_tree_file(self.candidate_root, document_parent, delivery_document_path)
         except TaskError:
@@ -1289,6 +1357,22 @@ class TaskService:
         require_regular_tree_file(self.candidate_root, expected_head, delivery_document_path, "INVALID_DELIVERY_DOCUMENT")
         if sha256_bytes(document_raw) != delivery_document_digest:
             raise TaskError("DELIVERY_DOCUMENT_MISMATCH")
+        manifest: dict[str, Any] | None = None
+        if automatic_delivery:
+            try:
+                manifest_raw = read_tree_file(self.candidate_root, expected_head, result_manifest_path or "")
+            except TaskError:
+                raise TaskError("INVALID_RESULT_MANIFEST") from None
+            require_regular_tree_file(self.candidate_root, expected_head, result_manifest_path or "", "INVALID_RESULT_MANIFEST")
+            if sha256_bytes(manifest_raw) != result_manifest_digest:
+                raise TaskError("RESULT_MANIFEST_MISMATCH")
+            try:
+                manifest = json.loads(manifest_raw)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise TaskError("INVALID_RESULT_MANIFEST") from None
+            if not isinstance(manifest, dict) or manifest_raw != canonical_bytes(manifest):
+                raise TaskError("INVALID_RESULT_MANIFEST")
+            validate_result_manifest(manifest)
         claim_receipt = self._ensure_claim_receipt(claim_id)
         self._require_activation_receipt(current_claim, claim_receipt)
 
@@ -1314,6 +1398,20 @@ class TaskService:
                 record["executionBundleDigest"] = claim["executionBundleDigest"]
                 record["candidateOutputBundleDigest"] = candidate_output_bundle_digest
                 record["routeDecisionDigest"] = claim["routeDecisionDigest"]
+                if manifest is None or (
+                    manifest["taskId"] != state["taskId"]
+                    or manifest["repository"] != state["repository"]["identity"]
+                    or manifest["taskBranch"] != state["repository"]["taskBranch"]
+                    or manifest["baseSha"] != state["repository"]["baseSha"]
+                    or manifest["implementationHead"] != document_parent
+                    or manifest["deliveryHead"] != document_parent
+                    or manifest["claimId"] != claim["claimId"]
+                    or manifest["executionBundleDigest"] != claim["executionBundleDigest"]
+                    or manifest["candidateOutputBundleDigest"] != candidate_output_bundle_digest
+                ):
+                    raise TaskError("RESULT_MANIFEST_BINDING_MISMATCH")
+                record["resultManifestPath"] = result_manifest_path
+                record["resultManifestDigest"] = result_manifest_digest
             updated = deepcopy(state)
             updated["lifecycle"]["phase"] = "delivered"
             updated["lifecycle"]["writer"] = None

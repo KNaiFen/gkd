@@ -72,6 +72,13 @@ content digest and document commit to the final state commit. Candidate-facing c
 activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 
+Planning document changes are reconciled only through the CAS-protected
+`gkd-task planning-refresh` transition while the task is in `planning`; later
+phases keep the recorded digests immutable. Automatic delivery additionally
+requires a canonical `tasks/<task>/result-manifest.json` bound to the task,
+claim, base and implementation head, execution and candidate bundle digests,
+scope digest, and generator facts.
+
 The M2-A payload additionally defines three fixed custom-agent role TOMLs,
 minimal role context manifests, hard-rule subsets, seven progressive-disclosure
 workflow Skills, route and wait schemas, and a trusted-main workflow activation
