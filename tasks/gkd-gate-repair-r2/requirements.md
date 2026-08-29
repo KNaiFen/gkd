@@ -31,4 +31,3 @@
 4. R2 的所有实现、schema、packaging expected-set、bundle manifest/lock、candidate output 和 sidecar 在 delivery document 前完成；delivery coordination commit 是 candidate 最后一个提交，fixed head、bundle digest、sidecar 和 delivery state 一致。
 5. task-core、runtime bridge、rework、结果消费者、packaging 和 mutation/negative 合同通过；独立 acceptor 使用仓库相对 `.gkd/policy.json` 获得 exact-head CI 终态。
 6. 不引入绝对路径、用户名、凭据、新依赖或生产/AIO/GitHub settings 副作用。
-

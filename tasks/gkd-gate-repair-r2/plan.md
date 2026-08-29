@@ -74,4 +74,3 @@
 
 - 先建立 `advance_state`、`_history_relationships`、`read_state`、`deliver`、acceptance/rework、bundle packaging 和 R1 finding 的基线。
 - 先完成及验证所有源码/lock/packaging 改动，再生成最终 candidate output digest 和 sidecar；delivery 后只允许 state coordination commit。
-
