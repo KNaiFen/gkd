@@ -68,12 +68,19 @@ foundation
 - **验收：** core scopes 结果与现有行为一致；重复执行只作为显式 evidence lane；双运行结果字节一致。
 - **依赖：** O1、O2。
 
+### P0：Python 3.9 executor runtime baseline
+
+- **范围：** 系统移除 shipped/reachable Python 3.10/3.11 API 依赖；建立带上游许可的 payload 内置 TOML compatibility facade；以实际 system Python 3.9 完整运行 verifier、bundle、core CLI 与适用 historical lane。
+- **不做：** 不把解释器绝对路径、pip dependency 或外部 runtime 固化为产品条件；不改 logic clock、planning refresh、delivery sidecar、state schema 或 O4 行为。
+- **验收：** Python 3.9 与开发解释器均通过完整 verifier/bundle；严格配对、TOML parity/invalid input、watcher/probe import 和 CLI 分类有正反合同；manifest/lock/许可/最低版本文档一致。
+- **依赖：** O3。完成后才可建立独立 GKD-GATE-REPAIR-R6。
+
 ### O4：watcher/probe 历史 lane 隔离
 
 - **范围：** 从默认 `gkd-verify` 移出 `src/gkd_watchdog`、`scripts/gkd-watchdog-mcp`、`probes/app-server-watcher` 及其 47 项默认合同，新增显式 `historical-watcher`/`host-capability` lane。
 - **保留：** 历史 evidence、M-1C `unsupported` 事实、watcher 行为测试；当前 role/wait/bridge 合同继续在 core。
 - **验收：** 默认 verifier 不导入 watcher/probe；显式 lane 可独立运行且证据可追溯；发布/平台变更仍能调用该 lane。
-- **依赖：** O3。
+- **依赖：** O3、P0 与独立 GKD-GATE-REPAIR-R6 accepted merge。
 
 ### O5：runtime fixture 与测试输入拆分
 
@@ -118,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-本计划提交后立即启动 O1。O1 是无行为变化的最小任务，若其验收或验证暴露边界问题，先按 GKD rework/recovery 处理，再继续 O2；不跨项合并。
+O1-O3 已完成。当前启动项为 P0 `GKD-PY39-COMPAT`：它是 gate-repair 与 O4 重启的 runtime 前置任务。P0 通过独立验收并合并后，才建立新的 GKD-GATE-REPAIR-R6；不得跨项合并。

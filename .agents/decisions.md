@@ -483,3 +483,7 @@
 - [2026-08-29] R5 暴露 Python 3.9 支持范围是材料性 runtime 契约决定。
   - Why: R5 已修复 `zip(strict=True)`，使 Python 3.9 status/doctor 正常，其他 delivery/sidecar/CI 门禁也通过；但 full verifier 与 bundle 继续使用 Python 3.10/3.11 的 `dataclass(slots=True)` 和 `tomllib`。完整兼容需要系统性 port；强制使用本机 Python 3.14 则不可移植。
   - Impact: PR #42 维持 rejected，R6/O4 暂停。用户必须在全面兼容 Python 3.9 与明确最低版本加可移植 runtime 选择/错误契约之间作出决定；不得把本机绝对解释器路径固化到 payload。
+
+- [2026-08-29] 用户选择完整 Python 3.9 兼容作为 executor runtime 基线。
+  - Why: 实际 `gkd_executor` 默认解析系统 Python 3.9.6；要求用户或环境切换到本机 Python 3.14 既不可移植，也不能保证未来 executor 可运行。R5 证明修复单一 API 不足以覆盖完整 verifier、bundle 与历史 lane。
+  - Impact: 先独立建立 `GKD-PY39-COMPAT`，系统移除 shipped/reachable Python 3.10/3.11 API 依赖，内置完整且带许可的 TOML compatibility facade，并以系统 Python 3.9 完整验证。该任务不得混入逻辑时钟、planning refresh、delivery sidecar 或 state schema；只有其 accepted merge 后才新建 GKD-GATE-REPAIR-R6，O4 保持暂停。

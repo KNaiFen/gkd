@@ -71,7 +71,7 @@
 - [x] GKD-O3 验证结果复用已完成：PR #36 fixed head `3b2252a72c6fd3d4ebdaac50aac845e744b5193e` 经三轮 canonical rework、433/433 verifier、双 evidence、固定头 `GKD Verify` 与独立 acceptor 后，以 squash merge `9009b089fb811eceaf91ada8b60397b39a451f97` 进入 main；结果 manifest、缺失/未知/篡改/漂移负向合同均通过，O3 acceptance/retrospective 已落盘。下一项为 O4 watcher/probe 历史 lane。
 - [x] GKD-O4 首轮候选已交付但被独立验收拒绝：fixed head `6ebf189ee2189a722c3e389b25a09f27c9360698` 的默认 386/10、historical 47/1、watcher/native 与 host fail-closed 证据通过，但 EOF 空行和 result manifest 声明漂移触发拒绝；canonical rework 进入 epoch 1 后，implementing 状态出现文档 digest 自举死锁，按受控恢复交付并再次拒绝，旧任务最终以 `immutable_requirements_document_digest` blocked，PR #37 已关闭。
 - [x] GKD-O4-R1 retry 已按独立验收拒绝并关闭：fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的默认 386/10、historical 两次 47/1、host `HOST_CAPABILITY_UNAVAILABLE` 和 bundle 分离均通过，但 lifecycle history 的 claimed 时间 `2026-08-29T00:00:00Z` 晚于 delivered 时间 `2026-08-28T22:50:50Z`，trusted status/doctor 与 canonical rework 均返回 `INVALID_TASK_STATE`；PR #38 的 `GKD Verify` 终态为 `REQUIRED_CHECK_FAILED`，未合并。
-- [ ] O4 重启前修复任务状态时间/交付门禁：明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性；需独立任务、独立 fixed head 和验收，不得手改旧 O4 状态。
+- [ ] O4 重启前修复任务状态时间/交付门禁：先完成 Python 3.9 compatibility 前置任务；随后明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性。每项均需独立 fixed head 和验收，不得手改旧 O4 状态。
 
 - [x] `GKD-GATE-REPAIR` attempt 0 已完成独立验收并拒绝：PR #39 fixed head `1952745266a84e02ca86c8a2cb8d55e4a590afd4` 未合并；delivery 后追加提交、trusted validator/schema 不兼容、packaging expected-set 漏更新和 bundle/result digest 漂移均已记录在 `tasks/gkd-gate-repair/acceptance.md` 与 `retrospective.md`。不得沿同一 claim/head 重试。
 - [ ] `GKD-GATE-REPAIR-R1`：从当前 trusted main 新建任务，确保所有 schema/validator/packaging/digest 修复在 delivery 前完成并经 trusted validator 可读，再重启 O4。
@@ -86,7 +86,8 @@
 - [ ] `GKD-GATE-REPAIR-R4`：从已有 delivery implementation head 和 fixed tree 推导 sidecar，删除自指字段；保持 state 兼容并绑定真实 verifier result/evidence，完成后才能重启 O4。
 
 - [x] `GKD-GATE-REPAIR-R4` 已在 implementation 前 canonical block：block head `1a8eadd935f30da2f7e84dff6a3173668d861bd1`，reason `executor-python39-zip-strict-incompatibility`。executor wrapper 实际使用 Python 3.9.6，payload 的 `zip(strict=True)` 触发 TypeError 后被误报 `FILESYSTEM_ERROR`；未创建 PR、未交付、未合并。
-- [ ] `GKD-GATE-REPAIR-R5`：先恢复 Python 3.9 executor 兼容性，再以 fixed-tree 推导 sidecar、真实 artifacts digest 与旧 state 兼容完成三项门禁修复；通过后才能重启 O4。
+- [x] `GKD-GATE-REPAIR-R5` 已完成并拒绝；其只恢复了 Python 3.9 status/doctor，完整 verifier/bundle 仍不兼容。不得复用该 attempt。
 
 - [x] `GKD-GATE-REPAIR-R5` 已被独立验收拒绝：PR #42 fixed head `e45681000d7e89792e6e0cd850d2847e78673d36` 未合并。Python 3.9 status/doctor 已恢复，438 verifier、CI、sidecar/artifact 链通过；但 Python 3.9 全量 verifier/bundle仍因 `tomllib` 与 `dataclass(slots=True)` 失败，canonical rework 返回未写入的 `FILESYSTEM_ERROR`。
-- [ ] Runtime support decision：选择“完整 Python 3.9 payload 兼容移植”或“明确最低 Python 版本并提供可移植 executor runtime 选择/错误契约”。决定后才创建 R6，O4 继续暂停。
+- [x] Runtime support decision：用户已选择完整 Python 3.9 payload 兼容移植，不接受依赖本机解释器路径的最低版本方案。
+- [ ] `GKD-PY39-COMPAT`：系统移除 shipped/reachable Python 3.10/3.11 API 依赖，内置带许可的完整 TOML compatibility facade，并以系统 Python 3.9 完整 verifier/bundle 验收；accepted merge 后才创建 R6，O4 继续暂停。
