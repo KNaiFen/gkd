@@ -169,6 +169,8 @@ def _delivery_record(value: dict[str, Any]) -> None:
         relative_path(value["deliveryDocumentPath"], "INVALID_TASK_STATE")
         require_sha256(value["deliveryDocumentDigest"], "INVALID_TASK_STATE")
     if manifest_bound:
+        if "executionBundleDigest" not in value:
+            raise TaskError("INVALID_TASK_STATE")
         relative_path(value["resultManifestPath"], "INVALID_TASK_STATE")
         require_sha256(value["resultManifestDigest"], "INVALID_TASK_STATE")
     if "executionBundleDigest" in value:
@@ -464,8 +466,8 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if any(event["head"] is None for event in history):
         raise TaskError("INVALID_TASK_STATE")
-    logical_orders = [event.get("logicalOrder") for event in history]
-    if any(order is not None for order in logical_orders):
+    logical_orders = [event.get("logicalOrder", index) for index, event in enumerate(history)]
+    if any("logicalOrder" in event for event in history):
         if any(not isinstance(order, int) or order < 0 for order in logical_orders):
             raise TaskError("INVALID_TASK_STATE")
         if logical_orders != list(range(len(history))):
@@ -582,6 +584,13 @@ def validate_state(value: dict[str, Any]) -> None:
     if value["actionAuthorizationDigest"] is not None:
         require_sha256(value["actionAuthorizationDigest"], "INVALID_TASK_STATE")
     _lifecycle_record(value["lifecycle"], value["schemaVersion"])
+    delivery_record = value["lifecycle"]["delivery"]
+    if delivery_record is not None:
+        task_path = value["repository"]["taskPath"]
+        if delivery_record.get("deliveryDocumentPath") is not None and delivery_record["deliveryDocumentPath"] != f"{task_path}/delivery.md":
+            raise TaskError("INVALID_TASK_STATE")
+        if delivery_record.get("resultManifestPath") is not None and delivery_record["resultManifestPath"] != f"{task_path}/result-manifest.json":
+            raise TaskError("INVALID_TASK_STATE")
     for attempt in value["lifecycle"].get("rejectedAttempts", []):
         if (
             attempt["taskId"] != value["taskId"]

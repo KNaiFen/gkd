@@ -519,11 +519,13 @@ class TaskService:
             for name in ("requirements", "plan", "implementation"):
                 previous = state["documents"][name]
                 current = deepcopy(records[name])
-                current["documentRevision"] = previous["documentRevision"] + (1 if current["digest"] != previous["digest"] else 0)
+                digest_changed = current["digest"] != previous["digest"]
+                current["version"] = previous["version"] + (1 if digest_changed else 0)
+                current["documentRevision"] = previous["documentRevision"] + (1 if digest_changed else 0)
                 if name == "requirements":
-                    current["status"] = "draft"
+                    current["status"] = "draft" if digest_changed else previous["status"]
                 elif name == "plan":
-                    current["status"] = "proposed"
+                    current["status"] = "proposed" if digest_changed else previous["status"]
                 changed |= current != previous
                 updated["documents"][name] = current
             if not changed:

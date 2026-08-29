@@ -190,7 +190,13 @@ class PackagingContracts(unittest.TestCase):
 
     def test_task_schemas_are_strict_versioned_and_installed(self) -> None:
         schema_root = self.source / "payload" / "schema" / "task"
-        expected = {"task-state.schema.json", "offer.schema.json", "authorization.schema.json", "runtime.schema.json"}
+        expected = {
+            "task-state.schema.json",
+            "offer.schema.json",
+            "authorization.schema.json",
+            "runtime.schema.json",
+            "result-manifest.schema.json",
+        }
         self.assertEqual(expected, {path.name for path in schema_root.iterdir()})
         for path in schema_root.iterdir():
             value = json.loads(path.read_text(encoding="utf-8"))
