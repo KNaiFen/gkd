@@ -1406,7 +1406,7 @@ class TaskService:
             if authorization["authorizationDigest"] != state["actionAuthorizationDigest"]:
                 raise TaskError("authorization_mismatch")
             record = {
-                "implementationHead": document_parent,
+                "implementationHead": implementation_head,
                 "deliveryDocumentCommit": expected_head,
                 "deliveryDocumentPath": delivery_document_path,
                 "deliveryDocumentDigest": delivery_document_digest,
