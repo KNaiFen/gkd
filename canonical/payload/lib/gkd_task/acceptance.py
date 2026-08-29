@@ -176,12 +176,14 @@ def _validate_delivery_sequence(
         document_parent = git(candidate_root, "rev-parse", f"{document_commit}^", code="CANDIDATE_INVALID").decode("ascii").strip()
     except UnicodeDecodeError:
         raise TaskError("CANDIDATE_INVALID") from None
+    changed_document_paths = changed_paths(candidate_root, document_commit)
+    manifest_in_parent = automatic and _tree_path_exists(candidate_root, document_parent, manifest_path)
     if (
         final_parent != document_commit
         or document_parent != implementation_head
         or not is_ancestor(candidate_root, claim_base_head, implementation_head)
         or changed_paths(candidate_root, candidate_head) != [f"{task_path}/task.json"]
-        or changed_paths(candidate_root, document_commit) != expected_document_paths
+        or (changed_document_paths != expected_document_paths and not (manifest_in_parent and changed_document_paths == [expected_path]))
     ):
         raise TaskError("CANDIDATE_INVALID")
     if (
