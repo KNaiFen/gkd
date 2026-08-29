@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             "requiredChecks": [],
             "schemaVersion": 1,
         }
-    except (OSError, TypeError, ValueError):
+    except OSError:
         result = {
             "baseBranch": None,
             "checks": [],
@@ -81,6 +81,25 @@ def main(argv: list[str] | None = None) -> int:
             "pullRequest": None,
             "pullRequestState": None,
             "reason": "FILESYSTEM_ERROR",
+            "repository": None,
+            "requiredChecks": [],
+            "schemaVersion": 1,
+        }
+    except (TypeError, ValueError, KeyError, OverflowError):
+        result = {
+            "baseBranch": None,
+            "checks": [],
+            "elapsedSeconds": 0,
+            "expectedHead": None,
+            "headBranch": None,
+            "observations": 0,
+            "observedHead": None,
+            "outcome": "error",
+            "policyDigest": None,
+            "provider": "github",
+            "pullRequest": None,
+            "pullRequestState": None,
+            "reason": "INTERNAL_ERROR",
             "repository": None,
             "requiredChecks": [],
             "schemaVersion": 1,

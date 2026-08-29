@@ -66,8 +66,11 @@ def main(argv: list[str] | None = None) -> int:
     except TaskError as error:
         sys.stdout.buffer.write(canonical_bytes({"error": error.code, "status": "error"}))
         return 2
-    except (OSError, UnicodeDecodeError, TypeError, ValueError, KeyError):
+    except (OSError, UnicodeDecodeError):
         sys.stdout.buffer.write(canonical_bytes({"error": "FILESYSTEM_ERROR", "status": "error"}))
+        return 2
+    except (TypeError, ValueError, KeyError, OverflowError):
+        sys.stdout.buffer.write(canonical_bytes({"error": "INTERNAL_ERROR", "status": "error"}))
         return 2
     sys.stdout.buffer.write(canonical_bytes(result))
     return 0 if result.get("outcome") not in {"terminal", "blocked"} else 1

@@ -6,8 +6,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import tomllib
 import unittest
+
+import gkd_toml as tomllib
 
 import gkd_bundle
 from gkd_role.roles import role_files

@@ -84,7 +84,7 @@ def _require_id(value: Any, field: str) -> str:
     return value
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class WatchRequest:
     schema_version: int
     task_id: str
@@ -191,7 +191,7 @@ class WatchRequest:
         }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class WatchResult:
     request: WatchRequest
     outcome: str

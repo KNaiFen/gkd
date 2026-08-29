@@ -93,8 +93,11 @@ def main(argv: list[str] | None = None) -> int:
         value = {"error": error.code, "status": "error"}
         sys.stdout.buffer.write(canonical_bytes(value))
         return 2
-    except (OSError, TypeError, ValueError, KeyError):
+    except OSError:
         sys.stdout.buffer.write(canonical_bytes({"error": "FILESYSTEM_ERROR", "status": "error"}))
+        return 2
+    except (TypeError, ValueError, KeyError, OverflowError):
+        sys.stdout.buffer.write(canonical_bytes({"error": "INTERNAL_ERROR", "status": "error"}))
         return 2
     sys.stdout.buffer.write(canonical_bytes(value))
     return 0

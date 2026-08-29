@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
-import tomllib
 import unittest
+
+import gkd_toml as tomllib
 
 from gkd_role.roles import (
     context_manifest,

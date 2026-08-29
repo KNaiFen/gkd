@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-import tomllib
 import unittest
 from unittest.mock import patch
+
+import gkd_toml as tomllib
 
 from gkd_role.roles import locked_bundle_digest, role_catalog, role_files, role_record
 from tests.role_routing.handshake_preflight import (

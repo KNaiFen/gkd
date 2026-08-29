@@ -10,7 +10,7 @@ import re
 import shutil
 import stat
 import tempfile
-import tomllib
+import gkd_toml as tomllib
 from typing import Any, Callable
 
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, require_sha256, sha256_bytes

@@ -4,9 +4,10 @@ import json
 import os
 from pathlib import Path
 import tempfile
-import tomllib
 import unittest
 from unittest import mock
+
+import gkd_toml as tomllib
 
 from gkd_role.migration import apply_migration, migration_plan, verify_migration
 from gkd_task.errors import TaskError
