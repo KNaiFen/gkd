@@ -464,8 +464,8 @@ def _history_relationships(value: dict[str, Any]) -> None:
         raise TaskError("INVALID_TASK_STATE")
     if any(event["head"] is None for event in history):
         raise TaskError("INVALID_TASK_STATE")
-    logical_orders = [event.get("logicalOrder") for event in history]
-    if any(order is not None for order in logical_orders):
+    logical_orders = [event.get("logicalOrder", index) for index, event in enumerate(history)]
+    if any("logicalOrder" in event for event in history):
         if any(not isinstance(order, int) or order < 0 for order in logical_orders):
             raise TaskError("INVALID_TASK_STATE")
         if logical_orders != list(range(len(history))):
