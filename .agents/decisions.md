@@ -459,3 +459,7 @@
 - [2026-08-29] 立项 `GKD-GATE-REPAIR` 作为 O4 重启前置任务。
   - Why: O4 两次固定头候选分别暴露了规划文档 digest 自举死锁、跨进程 wall-clock 逆序和 delivery result manifest 声明漂移；这些是 canonical task/acceptance 的共性门禁，不能在旧 O4 状态上手工修补。
   - Impact: 新任务从 trusted main `69cd40d` 独立 bootstrap，范围仅包括持久逻辑顺序、planning 文档 digest refresh transition 和 delivery manifest 双向绑定；完成前 O4/O5-O8 不继续，生产、AIO、GitHub settings/Secrets、付费 runner、tag/Release 和已发布 bundle 均不触碰。
+
+- [2026-08-29] `GKD-GATE-REPAIR` attempt 0 按 canonical fail-closed 拒绝，不沿旧 head 修补。
+  - Why: PR #39 的 delivery head `4579b4b...` 后追加了实现提交 `1952745...`；最终 bundle digest 与 delivery manifest 不一致，trusted main validator 不能读取新状态，且 packaging expected set 漏更新。canonical rework 在前置校验返回 `INVALID_TASK_STATE`。
+  - Impact: PR #39 不合并并关闭，候选/runtime 只作为可恢复拒绝证据归档；新 R1 必须从 trusted main 新建 offer/claim，所有实现和 bundle/manifest 更新在 delivery 前完成。

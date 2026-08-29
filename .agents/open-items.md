@@ -73,4 +73,5 @@
 - [x] GKD-O4-R1 retry 已按独立验收拒绝并关闭：fixed head `c3e492d736b089b1d10340269fd466e5cefe950c` 的默认 386/10、historical 两次 47/1、host `HOST_CAPABILITY_UNAVAILABLE` 和 bundle 分离均通过，但 lifecycle history 的 claimed 时间 `2026-08-29T00:00:00Z` 晚于 delivered 时间 `2026-08-28T22:50:50Z`，trusted status/doctor 与 canonical rework 均返回 `INVALID_TASK_STATE`；PR #38 的 `GKD Verify` 终态为 `REQUIRED_CHECK_FAILED`，未合并。
 - [ ] O4 重启前修复任务状态时间/交付门禁：明确逻辑时钟或跨进程时间绑定、implementing 状态下规划文档 digest 更新边界、delivery result manifest 生成/声明一致性；需独立任务、独立 fixed head 和验收，不得手改旧 O4 状态。
 
-- [ ] `GKD-GATE-REPAIR` 已立项：任务包位于 `tasks/gkd-gate-repair`，基线为 `69cd40d`；完成 canonical executor、独立 acceptor、trusted-main 合并和 closeout 后，才能恢复 O4。
+- [x] `GKD-GATE-REPAIR` attempt 0 已完成独立验收并拒绝：PR #39 fixed head `1952745266a84e02ca86c8a2cb8d55e4a590afd4` 未合并；delivery 后追加提交、trusted validator/schema 不兼容、packaging expected-set 漏更新和 bundle/result digest 漂移均已记录在 `tasks/gkd-gate-repair/acceptance.md` 与 `retrospective.md`。不得沿同一 claim/head 重试。
+- [ ] `GKD-GATE-REPAIR-R1`：从当前 trusted main 新建任务，确保所有 schema/validator/packaging/digest 修复在 delivery 前完成并经 trusted validator 可读，再重启 O4。

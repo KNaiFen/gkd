@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O3 acceptance/retrospective 已落盘。O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。已立项 `GKD-GATE-REPAIR`（`tasks/gkd-gate-repair`），先修复逻辑时钟、规划文档 digest 刷新边界和 delivery result manifest 绑定，再从其 accepted merge 重启 O4；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因这些任务改动。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O3 acceptance/retrospective 已落盘。O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` 首次 attempt 也已被独立验收拒绝（delivery 后追加提交、trusted validator/schema 不兼容、bundle/result digest 漂移）；其 acceptance/retrospective 已落盘。下一步建立全新 R1 修复任务，完成前不重启 O4；当前发布 bundle、生产安装、AIO 和 GitHub 设置不因这些任务改动。
 
 ## Historical facts
 
