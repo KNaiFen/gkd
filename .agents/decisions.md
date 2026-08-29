@@ -479,3 +479,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR-R4` 证明 executor Python 3.9 兼容性是 core 前置条件。
   - Why: R4 executor 的 `env python3` 解析到 `/usr/bin/python3` 3.9.6；payload 使用 `zip(strict=True)`，直接 status 抛 TypeError，CLI 捕获后仅输出误导性的 `FILESYSTEM_ERROR`。同一输入在 trusted main Python 3.14 可读，排除 task/runtime 损坏。
   - Impact: trusted main canonical block `executor-python39-zip-strict-incompatibility`，R4 未实现。R5 必须用 Python 3.9 可用的显式 strict pairing 保持 fail-closed，不依赖 agent PATH；然后继续无自引用 sidecar 与实际 result/evidence 绑定。
+
+- [2026-08-29] R5 暴露 Python 3.9 支持范围是材料性 runtime 契约决定。
+  - Why: R5 已修复 `zip(strict=True)`，使 Python 3.9 status/doctor 正常，其他 delivery/sidecar/CI 门禁也通过；但 full verifier 与 bundle 继续使用 Python 3.10/3.11 的 `dataclass(slots=True)` 和 `tomllib`。完整兼容需要系统性 port；强制使用本机 Python 3.14 则不可移植。
+  - Impact: PR #42 维持 rejected，R6/O4 暂停。用户必须在全面兼容 Python 3.9 与明确最低版本加可移植 runtime 选择/错误契约之间作出决定；不得把本机绝对解释器路径固化到 payload。

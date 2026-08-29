@@ -87,3 +87,6 @@
 
 - [x] `GKD-GATE-REPAIR-R4` 已在 implementation 前 canonical block：block head `1a8eadd935f30da2f7e84dff6a3173668d861bd1`，reason `executor-python39-zip-strict-incompatibility`。executor wrapper 实际使用 Python 3.9.6，payload 的 `zip(strict=True)` 触发 TypeError 后被误报 `FILESYSTEM_ERROR`；未创建 PR、未交付、未合并。
 - [ ] `GKD-GATE-REPAIR-R5`：先恢复 Python 3.9 executor 兼容性，再以 fixed-tree 推导 sidecar、真实 artifacts digest 与旧 state 兼容完成三项门禁修复；通过后才能重启 O4。
+
+- [x] `GKD-GATE-REPAIR-R5` 已被独立验收拒绝：PR #42 fixed head `e45681000d7e89792e6e0cd850d2847e78673d36` 未合并。Python 3.9 status/doctor 已恢复，438 verifier、CI、sidecar/artifact 链通过；但 Python 3.9 全量 verifier/bundle仍因 `tomllib` 与 `dataclass(slots=True)` 失败，canonical rework 返回未写入的 `FILESYSTEM_ERROR`。
+- [ ] Runtime support decision：选择“完整 Python 3.9 payload 兼容移植”或“明确最低 Python 版本并提供可移植 executor runtime 选择/错误契约”。决定后才创建 R6，O4 继续暂停。

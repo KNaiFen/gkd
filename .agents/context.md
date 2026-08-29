@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0、R1、R2 被独立验收拒绝，R3/R4 在 implementation 前 canonical block：R3 为 sidecar Git 自引用，R4 为实际 executor Python 3.9 不支持 payload `zip(strict=True)`。下一步 R5 先修复 Python 3.9 兼容性，再完成无自引用 sidecar与实际 artifacts 绑定；完成前不重启 O4。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。GKD-GATE-REPAIR attempt 0-R5 均已保留拒绝/阻塞事实；R5 修复了 Python 3.9 的首个 `zip(strict=True)` 断点，却发现 payload 还依赖 `tomllib` 与 dataclass slots。下一步需要用户决定完整 Python 3.9 兼容移植，或正式最低解释器/runtime 选择契约；在决定前不新建 R6、不重启 O4。
 
 ## Historical facts
 
