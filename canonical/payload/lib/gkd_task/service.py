@@ -95,6 +95,18 @@ def _paths_overlap(first: Path, second: Path) -> bool:
         return False
 
 
+def _tree_path_exists(root: Path, commit: str, path: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", os.fspath(root), "cat-file", "-e", f"{commit}:{path}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode not in {0, 1, 128}:
+        raise TaskError("INVALID_DELIVERY_DOCUMENT")
+    return result.returncode == 0
+
+
 def _worktree_add(main_root: Path, candidate_root: Path, task_branch: str, base_sha: str) -> None:
     git(
         main_root,
@@ -1340,7 +1352,11 @@ class TaskService:
                 raise TaskError("INVALID_DELIVERY_DOCUMENT")
         else:
             expected_delivery_paths = [delivery_document_path, result_manifest_path or ""]
-            if changed_paths(self.candidate_root, expected_head) != sorted(expected_delivery_paths):
+            actual_paths = changed_paths(self.candidate_root, expected_head)
+            if actual_paths != sorted(expected_delivery_paths) and not (
+                actual_paths == [delivery_document_path]
+                and _tree_path_exists(self.candidate_root, document_parent, result_manifest_path or "")
+            ):
                 raise TaskError("INVALID_DELIVERY_DOCUMENT")
         try:
             read_tree_file(self.candidate_root, document_parent, delivery_document_path)
