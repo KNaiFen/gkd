@@ -523,3 +523,7 @@
 - [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R3` 在实现前受信 block。
   - Why: bridge claim 已成功，但 executor 的第一项 status 调用依赖未注入 PATH 的裸 `gkd-task`，返回 `command not found`。没有实现提交、delivery、PR、CI 或 merge；这不是 O4 功能或 verifier finding。
   - Impact: trusted `gkd-task block` 以 reason `executor_cli_path_unavailable` 在 revision 5/head `4272612eb4a4e6ddd5a4145e7e0da9f85c904f86` 固化旧 attempt。R4 用新的 lifecycle，并在 executor request 中提供 accepted bundle 的绝对 `gkd-task` CLI 路径；不修改 bundle 或放宽执行门禁。
+
+- [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R3` 阻塞尝试已清理。
+  - Why: candidate worktree 在受信 block 后保持干净，且未创建 PR 或远端 task branch。
+  - Impact: candidate worktree 与本地 branch 已删除，runtime 和 planning package 已移入可恢复 Trash；R4 从记录该事实后的 trusted main 建立。
