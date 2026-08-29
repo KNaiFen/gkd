@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0、R1、R2 被独立验收拒绝，R3 在 implementation 前被 canonical block：要求 sidecar 自报其所在 implementation commit SHA 形成 Git 内容寻址自引用。下一步 R4 从现有 delivery implementation head/fixed tree 推导 sidecar，不再写入自指字段；完成前不重启 O4。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。`GKD-GATE-REPAIR` attempt 0、R1、R2 被独立验收拒绝，R3/R4 在 implementation 前 canonical block：R3 为 sidecar Git 自引用，R4 为实际 executor Python 3.9 不支持 payload `zip(strict=True)`。下一步 R5 先修复 Python 3.9 兼容性，再完成无自引用 sidecar与实际 artifacts 绑定；完成前不重启 O4。
 
 ## Historical facts
 

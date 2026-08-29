@@ -475,3 +475,7 @@
 - [2026-08-29] `GKD-GATE-REPAIR-R3` 因 Git 内容寻址自引用 canonical block。
   - Why: R3 要求 sidecar 位于 final implementation commit 且写入该 commit SHA。sidecar 字节决定 tree SHA，tree SHA 决定 commit SHA；该自指无法由普通 commit/amend 构造。R2 的后置 sidecar 规避递归但违反 old acceptance direct-parent gate。
   - Impact: trusted main 以 `gkd-task block` 记录 `sidecar-self-referential-implementation-head`，没有生成实现、delivery、PR 或 merge。R4 必须取消 sidecar 自报 SHA，使用已有 lifecycle implementationHead 和 fixed tree 定位并验证 sidecar，state 形状保持兼容。
+
+- [2026-08-29] `GKD-GATE-REPAIR-R4` 证明 executor Python 3.9 兼容性是 core 前置条件。
+  - Why: R4 executor 的 `env python3` 解析到 `/usr/bin/python3` 3.9.6；payload 使用 `zip(strict=True)`，直接 status 抛 TypeError，CLI 捕获后仅输出误导性的 `FILESYSTEM_ERROR`。同一输入在 trusted main Python 3.14 可读，排除 task/runtime 损坏。
+  - Impact: trusted main canonical block `executor-python39-zip-strict-incompatibility`，R4 未实现。R5 必须用 Python 3.9 可用的显式 strict pairing 保持 fail-closed，不依赖 agent PATH；然后继续无自引用 sidecar 与实际 result/evidence 绑定。

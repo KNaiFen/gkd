@@ -84,3 +84,6 @@
 
 - [x] `GKD-GATE-REPAIR-R3` 已在 implementation 前 canonical block：block head `3b48fca22b452b577eb1009f0049b19f3edc7c06`，reason `sidecar-self-referential-implementation-head`。sidecar 自报自身所在 commit SHA 在 Git 内容寻址中不可构造；未创建 PR、未交付、未合并。
 - [ ] `GKD-GATE-REPAIR-R4`：从已有 delivery implementation head 和 fixed tree 推导 sidecar，删除自指字段；保持 state 兼容并绑定真实 verifier result/evidence，完成后才能重启 O4。
+
+- [x] `GKD-GATE-REPAIR-R4` 已在 implementation 前 canonical block：block head `1a8eadd935f30da2f7e84dff6a3173668d861bd1`，reason `executor-python39-zip-strict-incompatibility`。executor wrapper 实际使用 Python 3.9.6，payload 的 `zip(strict=True)` 触发 TypeError 后被误报 `FILESYSTEM_ERROR`；未创建 PR、未交付、未合并。
+- [ ] `GKD-GATE-REPAIR-R5`：先恢复 Python 3.9 executor 兼容性，再以 fixed-tree 推导 sidecar、真实 artifacts digest 与旧 state 兼容完成三项门禁修复；通过后才能重启 O4。
