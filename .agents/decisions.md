@@ -527,3 +527,7 @@
 - [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R3` 阻塞尝试已清理。
   - Why: candidate worktree 在受信 block 后保持干净，且未创建 PR 或远端 task branch。
   - Impact: candidate worktree 与本地 branch 已删除，runtime 和 planning package 已移入可恢复 Trash；R4 从记录该事实后的 trusted main 建立。
+
+- [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R4` 在实现前受信 block。
+  - Why: executor 改用绝对 bundle CLI 后不再有 PATH 问题，但没有将 supplied candidate-root 传给状态读取，得到 `CANDIDATE_IDENTITY_MISMATCH`。trusted main 对同一 head 的 status/doctor 均返回 valid，故原因是交接命令不完整而非 task state 漂移。
+  - Impact: `gkd-task block` 以 reason `executor_candidate_identity_mismatch` 在 revision 5/head `1b09d0eac1b3bf3e82fe78b047c1e0de2caa3b0f` 固化旧 attempt。R5 必须以全新 lifecycle 启动，并在 executor request 中提供带 candidate/task/runtime 参数的完整 status/doctor 命令；不放宽 identity gate。
