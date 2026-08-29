@@ -491,3 +491,7 @@
 - [2026-08-29] `GKD-PY39-COMPAT` 首个 automatic attempt 因 executor 无终态卸载而 canonical block。
   - Why: executor 已被运行时回收且没有任何 terminal 消息；candidate 只有 claim commit，工作树干净，无实现、delivery document、final state 或 PR。主代理不能从非机器绑定的用户观察补造 terminal、reclaim 或 delivery。
   - Impact: trusted main 以 reason `executor_unloaded_without_terminal_delivery` 将 revision 5 固化为 blocked revision 6，block head 为 `1c1a2f9f65492dc18a054faf0af2cddf4202d739`，分支已推送。该 attempt 不验收、不合并、不复用 claim；从新的 trusted main 创建 `GKD-PY39-COMPAT-R1`。
+
+- [2026-08-30] `GKD-PY39-COMPAT-R1` 在 Python 3.9 canonical delivery 前置门被 block。
+  - Why: R1 已完成 Python 3.9 与 3.14.6 的完整 437 项 verifier、bundle、CLI、project verify 和 native probe；但 exact claim 的 runtime 同时存在 claim/activation receipt 时，candidate `gkd-task deliver` 返回 `CLAIM_RECEIPT_UNAVAILABLE`。final lifecycle commit 没有写入，不能把 local implementation 或 user观察当作 delivery。
+  - Impact: trusted main 以 reason `delivery_claim_receipt_unavailable` 将 revision 5 固化为 blocked revision 6，block head 为 `a4ba5ce968388629770a1a8a9d8941449f7150eb`，分支已推送。R2 必须从新的 trusted main 建立，不复用 R1 lifecycle；其范围新增 exact bridge claim 至系统 Python 3.9 deliver 的正向/篡改合同，runtime receipt 仍只能由 canonical bridge/service 生成和验证。

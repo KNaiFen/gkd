@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。GKD-GATE-REPAIR attempt 0-R5 均已保留拒绝/阻塞事实；R5 修复了 Python 3.9 的首个 `zip(strict=True)` 断点，却发现 payload 还依赖 `tomllib` 与 dataclass slots。用户已决定完整 Python 3.9 兼容移植。`GKD-PY39-COMPAT` 首个 automatic attempt 在 claim 后 executor 无终态卸载，未产生实现或 delivery，已 canonical block；下一步从 trusted main 新建 `GKD-PY39-COMPAT-R1`，其 accepted merge 后才新建 GKD-GATE-REPAIR-R6，O4 继续暂停。
+- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 已完成实现但两次候选均被独立验收拒绝：旧任务因 requirements digest 不可更新而 blocked，retry 又因 lifecycle 时间逆序与 fixed-head CI failure blocked。GKD-GATE-REPAIR attempt 0-R5 均已保留拒绝/阻塞事实；R5 修复了 Python 3.9 的首个 `zip(strict=True)` 断点，却发现 payload 还依赖 `tomllib` 与 dataclass slots。用户已决定完整 Python 3.9 兼容移植。`GKD-PY39-COMPAT` 首个 automatic attempt 在 claim 后 executor 无终态卸载，R1 虽完成双解释器 437 项验证却在 Python 3.9 canonical deliver 返回 `CLAIM_RECEIPT_UNAVAILABLE`；两者均已 canonical block。下一步从 trusted main 新建 `GKD-PY39-COMPAT-R2`，补足真实 claim-to-deliver 兼容合同；其 accepted merge 后才新建 GKD-GATE-REPAIR-R6，O4 继续暂停。
 
 ## Historical facts
 
