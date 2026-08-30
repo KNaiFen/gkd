@@ -563,3 +563,7 @@
 - [2026-08-30] compatibility R1 blocked attempt 已清理。
   - Why: task 已受信 block，且未产生实现、delivery、PR、CI 或 merge。
   - Impact: candidate worktree 与本地 branch 已删除，runtime/package 已移入可恢复 Trash；后续 fresh attempt 必须使用 `c15d985` 的 execution-context 修复。
+
+- [2026-08-30] automatic executor 的 spawn-to-claim 竞态必须与 execution-context 问题分离处理。
+  - Why: fresh `GKD-O4-LANE-MANIFEST-COMPAT-R2` 的 bridge 已给出正确 absolute CLI、candidate/task/runtime 参数，但 executor 在 trusted main 的 claim 之前先执行 status，稳定看到正常的 `awaiting_claim` 而退出。该任务没有实现、delivery、PR、CI 或 merge；这证明剩余问题是主编排时序，不是 candidate identity、PATH 或 task state 损坏。
+  - Impact: trusted main 以 `executor_preclaim_race` 在 revision 4/head `8179a59e4becc25270304d92f79aa80a77722966` block 该 lifecycle，并清理候选、branch、runtime 和 package。下一 attempt 必须在 spawn 前固定状态 CAS 与 host acknowledgement，在 `spawn_agent` 返回后不插入任何检查、记录或文件操作，直接调用 bridge claim；不放宽 `awaiting_claim`、不复用旧 offer/claim。
