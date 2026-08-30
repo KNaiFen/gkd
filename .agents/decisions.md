@@ -587,3 +587,7 @@
 - [2026-08-30] O5 首次 automatic attempt 因 spawn-to-claim 竞态受信 block。
   - Why: executor 在 bridge claim 前读取 O5 的 `awaiting_claim`（revision 4）并按执行契约停止；trusted main 随后才完成 claim，进入 implementing。该 attempt 没有实现、delivery、PR 或 CI，且中途一次错误 CAS 使用了上一任务 head，未写入任何状态。
   - Impact: trusted `gkd-task block` 以 `executor_preclaim_race` 在 revision 6/head `9495ce1bf2f0e2c3bf101d4e384aa03da97659b3` 固化 lifecycle；candidate、branch、runtime/package 和一次性输入已清理。O5-R1 必须从新 lifecycle 建立，不能复用 offer、claim 或 executor。
+
+- [2026-08-30] O5-R1 因 executor 交接时的 candidate path identity drift 受信 block。
+  - Why: executor status 能以 implementing/revision 5 读取 O5，但 doctor 实际调用了去掉 `gkd-worktrees` 的候选路径并报告目录不存在；trusted main 对完整 supplied path 的 doctor 返回 valid。executor 未编辑、验证或提交任何文件。
+  - Impact: trusted `gkd-task block` 以 `executor_candidate_identity_mismatch` 在 revision 6/head `e96470635ba9828cb5f48e9464f7bb927d502892` 固化 lifecycle；candidate、branch、runtime/package 与一次性输入已清理。O5-R2 必须从新 lifecycle 建立，不得复用 R1。

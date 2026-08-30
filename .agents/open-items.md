@@ -112,4 +112,5 @@
 - [x] O4-R6 收尾完成：accepted candidate tree 与 merge tree 一致；candidate worktree、本地/远端 task branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
 - [ ] O5 runtime fixture 与测试输入拆分：从 O4 merge 后的新 development bundle 建立全新 task/offer/claim，把四个仅测试/演练 fixture 移出 core runtime 安装面，保留 schema、release traceability 与独立 verifier。
 - [x] O5 首次 automatic attempt 已受信 block：executor 在 claim 前观察到 `awaiting_claim` 并停止；block head `9495ce1bf2f0e2c3bf101d4e384aa03da97659b3`、revision 6、reason `executor_preclaim_race`。没有实现、delivery、PR 或 CI；candidate、branch、runtime/package 已清理，不得复用该 lifecycle。
-- [ ] O5-R1：从 block 后新 trusted main 建立，严格固定 O5 当前 head/revision 与 execution context，spawn 返回后立即 bridge claim，再完成 fixture split、双解释器验证、独立验收与清理。
+- [x] O5-R1 已受信 block：executor 将 candidate path 改写为缺失位置，trusted main 对完整 path 的 doctor valid；block head `e96470635ba9828cb5f48e9464f7bb927d502892`、revision 6、reason `executor_candidate_identity_mismatch`。没有实现、delivery、PR 或 CI；candidate、branch、runtime/package 已清理，不得复用该 lifecycle。
+- [ ] O5-R2：从 block 后新 trusted main 建立，进一步收紧 executor 交接输入，完成 fixture split、双解释器验证、独立验收与清理；如再次发生身份漂移，暂停自动路线并转人工诊断。
