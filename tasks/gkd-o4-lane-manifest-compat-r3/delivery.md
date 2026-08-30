@@ -2,7 +2,7 @@
 
 ## Implementation
 
-- Implementation commit: `c376c7dc75ff8a3cd85ce2777ccfaf81f4c7958b`
+- Implementation commit: `729f32fd8407c089c7be3fa405f09496e639ec70`
 - Base commit: `5708aaf990564b07c258bdc34682249df1b5b5f6`
 - Candidate output bundle digest: `04efd9ce5f1e0f678f9853eef5d9fb20606fff6e667aba69d9b204bddeb9b5d6`
 
