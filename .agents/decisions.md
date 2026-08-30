@@ -547,3 +547,7 @@
 - [2026-08-30] lane manifest compatibility attempt 0 因 delivery CAS 参数错误受信 block。
   - Why: implementation `a35de7e` 后的 delivery document `32f11bf` 是正确直接父子序列，双解释器 448 项 verifier 通过；executor 调用 deliver 时未使用当前 delivery-document head，返回 `HEAD_MISMATCH`。trusted main 对该 head/revision 的 status/doctor 都有效。
   - Impact: `gkd-task block` 以 `executor_delivery_head_mismatch` 固化 revision 5/head `e234f2a24b3ecab72b3286eee4c4b3bcfc8a570c`，没有 PR/CI/merge。R1 使用全新 lifecycle，并在 executor request 中明确以 `git rev-parse HEAD` 取得 expected delivery head；不由 main 代替 executor delivery。
+
+- [2026-08-30] lane manifest compatibility attempt 0 已清理。
+  - Why: candidate tree 在 block 后保持干净，未创建 PR 或远端 task branch。
+  - Impact: candidate worktree 与本地 branch 已删除，runtime 和 planning package 已移入可恢复 Trash；R1 从记录该事实后的 trusted main 建立。
