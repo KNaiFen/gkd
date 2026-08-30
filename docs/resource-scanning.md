@@ -2,6 +2,8 @@
 
 M3-B 为通用 CI 工作流提供两组机器接口：资源/产物分类与固定范围 scanner。接口只消费调用者明确提供的事实，不读取仓库外文件、环境变量或凭据。
 
+该能力属于 `ci-advice` optional pack。默认 bundle 安装、project stage、executor context 和 verifier 不包含或加载本页接口；必须先显式 `gkd-bundle pack-stage --pack ci-advice`，再以同名 `pack-verify` 复核。删除使用 `pack-remove`。仓库合同通过 `scripts/gkd-verify --lane optional-ci-advice --base-sha <full-sha>` 独立运行。
+
 ## 产物与资源
 
 `gkd_ci.resources.classify_artifacts` 将声明分类为 `zero`、`bounded` 或 `build-or-unknown`。没有可复核上界的构建始终是 `build-or-unknown` 并阻塞；事后清理不会改变峰值磁盘门禁。默认 preset 是 `resource-constrained`。`standard` 和 `high-capacity` 只有在资源事实完整且标记为已验证时才可选择。

@@ -16,7 +16,7 @@ from gkd_ci.policy import load_policy_binding, validate_policy_binding
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
 from gkd_task.gitops import branch, repository_identity
-from .roles import load_role_source, role_catalog, role_files, role_record
+from .roles import OPTIONAL_PACKS, _selected_packs, load_role_source, locked_pack_digests, role_catalog, role_files, role_record
 
 
 PROJECT_INVENTORY = Path(".gkd/runtime-project.json")
@@ -24,10 +24,9 @@ EXECUTOR_SKILLS = (
     "gkd-ci-monitor",
     "gkd-execute",
     "gkd-local-verify",
-    "gkd-optimize-ci",
-    "gkd-review-remediation",
 )
 PARENT_SKILLS = ("gkd-main",)
+LEGACY_PROJECT_SKILLS = (*EXECUTOR_SKILLS, "gkd-optimize-ci", "gkd-review-remediation", *PARENT_SKILLS)
 
 
 def _overlap(first: Path, second: Path) -> bool:
@@ -150,6 +149,7 @@ def _desired_files(
     bundle_root: Path,
     bundle_digest: str,
     policy: dict[str, Any],
+    packs: tuple[str, ...] = (),
 ) -> tuple[dict[str, tuple[bytes, int]], dict[str, Any]]:
     root = bundle_root.resolve()
     try:
@@ -158,6 +158,10 @@ def _desired_files(
         raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
     if verified["contentDigest"] != bundle_digest:
         raise TaskError("BUNDLE_DIGEST_MISMATCH")
+    selected_packs = _selected_packs(packs)
+    available_packs = verified.get("availablePacks", verified.get("installedPacks", ()))
+    if not set(selected_packs).issubset(available_packs):
+        raise TaskError("OPTIONAL_PACK_NOT_INSTALLED")
     validate_policy_binding(policy)
     source, _ = load_role_source(root)
     catalog = role_catalog(root, bundle_digest)
@@ -176,16 +180,25 @@ def _desired_files(
         files.update(_skill_files(root, skill, Path(".codex/skills")))
     for skill in PARENT_SKILLS:
         files.update(_skill_files(root, skill, Path(".agents/skills")))
-    expected_skills = set(EXECUTOR_SKILLS) | set(PARENT_SKILLS)
-    if expected_skills != set(role["skills"]) | set(PARENT_SKILLS):
+    optional_skills = tuple(skill for name in selected_packs for skill in OPTIONAL_PACKS[name]["skills"])
+    for skill in optional_skills:
+        files.update(_skill_files(root, skill, Path(".codex/skills")))
+    expected_skills = set(EXECUTOR_SKILLS) | set(PARENT_SKILLS) | set(optional_skills)
+    if set(role["skills"]) != set(EXECUTOR_SKILLS):
         raise TaskError("INVALID_PROJECT_SKILLS")
+    pack_catalog = role_catalog(root, bundle_digest, selected_packs)
     facts = {
         "executionBundleDigest": bundle_digest,
         "roleName": "gkd_executor",
         "roleDigest": role["roleDigest"],
         "configDigest": role["configDigest"],
         "projectConfigDigest": sha256_bytes(config),
-        "skillDigests": {name: catalog["skillDigests"][name] for name in sorted(expected_skills)},
+        "skillDigests": {
+            name: pack_catalog["skillDigests"][name]
+            for name in sorted(expected_skills)
+        },
+        "optionalPacks": list(selected_packs),
+        "packDigests": {name: locked_pack_digests(root)[name] for name in selected_packs},
         "policy": deepcopy(policy),
     }
     return files, facts
@@ -193,7 +206,7 @@ def _desired_files(
 
 def _inventory(files: dict[str, tuple[bytes, int]], facts: dict[str, Any]) -> dict[str, Any]:
     value = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "kind": "gkd-project-runtime",
         **facts,
         "files": [
@@ -216,20 +229,32 @@ def _validate_inventory(value: dict[str, Any]) -> None:
         "schemaVersion", "kind", "executionBundleDigest", "roleName", "roleDigest",
         "configDigest", "projectConfigDigest", "skillDigests", "files", "launch", "inventoryDigest",
     }
-    if value.get("schemaVersion") == 2:
+    if value.get("schemaVersion") in {2, 3}:
         keys.add("policy")
+    if value.get("schemaVersion") == 3:
+        keys |= {"optionalPacks", "packDigests"}
     require_keys(value, keys, "INVALID_PROJECT_INVENTORY")
-    if value["schemaVersion"] not in {1, 2} or value["kind"] != "gkd-project-runtime" or value["roleName"] != "gkd_executor":
+    if value["schemaVersion"] not in {1, 2, 3} or value["kind"] != "gkd-project-runtime" or value["roleName"] != "gkd_executor":
         raise TaskError("INVALID_PROJECT_INVENTORY")
     for field in ("executionBundleDigest", "roleDigest", "configDigest", "projectConfigDigest", "inventoryDigest"):
         require_sha256(value[field], "INVALID_PROJECT_INVENTORY")
     if value["launch"] != {"workingDirectory": ".", "skill": "gkd-main", "role": "gkd_executor"}:
         raise TaskError("INVALID_PROJECT_INVENTORY")
-    if not isinstance(value["skillDigests"], dict) or tuple(sorted(value["skillDigests"])) != tuple(sorted((*EXECUTOR_SKILLS, *PARENT_SKILLS))):
+    if value["schemaVersion"] == 3:
+        packs = _selected_packs(value["optionalPacks"])
+        optional_skills = tuple(skill for name in packs for skill in OPTIONAL_PACKS[name]["skills"])
+        expected_skills = (*EXECUTOR_SKILLS, *PARENT_SKILLS, *optional_skills)
+        if not isinstance(value["packDigests"], dict) or tuple(value["packDigests"]) != packs:
+            raise TaskError("INVALID_PROJECT_INVENTORY")
+        for digest in value["packDigests"].values():
+            require_sha256(digest, "INVALID_PROJECT_INVENTORY")
+    else:
+        expected_skills = LEGACY_PROJECT_SKILLS
+    if not isinstance(value["skillDigests"], dict) or tuple(sorted(value["skillDigests"])) != tuple(sorted(expected_skills)):
         raise TaskError("INVALID_PROJECT_INVENTORY")
     for digest in value["skillDigests"].values():
         require_sha256(digest, "INVALID_PROJECT_INVENTORY")
-    if value["schemaVersion"] == 2:
+    if value["schemaVersion"] in {2, 3}:
         validate_policy_binding(value["policy"])
     if not isinstance(value["files"], list) or not value["files"]:
         raise TaskError("INVALID_PROJECT_INVENTORY")
@@ -290,6 +315,8 @@ def _result(status: str, inventory: dict[str, Any]) -> dict[str, Any]:
         "configDigest": inventory["configDigest"],
         "projectConfigDigest": inventory["projectConfigDigest"],
         "skillDigests": inventory["skillDigests"],
+        "optionalPacks": inventory.get("optionalPacks", []),
+        "packDigests": inventory.get("packDigests", {}),
         "inventoryDigest": inventory["inventoryDigest"],
         "launch": inventory["launch"],
     }
@@ -298,9 +325,9 @@ def _result(status: str, inventory: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def verify_project(bundle_root: Path, bundle_digest: str, project_root: Path, production_root: Path) -> dict[str, Any]:
+def verify_project(bundle_root: Path, bundle_digest: str, project_root: Path, production_root: Path, packs: tuple[str, ...] = ()) -> dict[str, Any]:
     source, project = _validate_boundaries(bundle_root, project_root, production_root)
-    files, facts = _desired_files(source, bundle_digest, _project_policy(project))
+    files, facts = _desired_files(source, bundle_digest, _project_policy(project), packs)
     _reject_symlink_chains(project, (*files, PROJECT_INVENTORY))
     inventory = read_canonical_json(project / PROJECT_INVENTORY, "INVALID_PROJECT_INVENTORY", _validate_inventory)
     expected = _inventory(files, facts)
@@ -326,13 +353,14 @@ def stage_project(
     project_root: Path,
     production_root: Path,
     failure_hook: Any | None = None,
+    packs: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     source, project = _validate_boundaries(bundle_root, project_root, production_root)
-    files, facts = _desired_files(source, bundle_digest, _project_policy(project))
+    files, facts = _desired_files(source, bundle_digest, _project_policy(project), packs)
     _reject_symlink_chains(project, (*files, PROJECT_INVENTORY))
     inventory_path = project / PROJECT_INVENTORY
     if inventory_path.exists() or inventory_path.is_symlink():
-        result = verify_project(source, bundle_digest, project, production_root)
+        result = verify_project(source, bundle_digest, project, production_root, packs)
         result["status"] = "already_staged"
         return result
     if _managed_files(project):
@@ -393,13 +421,20 @@ def remove_project(project_root: Path, production_root: Path) -> dict[str, Any]:
         path = project / record["path"]
         path.unlink(missing_ok=True)
     (project / PROJECT_INVENTORY).unlink()
-    for relative in (
+    cleanup = {
+        parent.relative_to(project).as_posix()
+        for record in inventory["files"]
+        for parent in (project / record["path"]).parents
+        if parent != project and project in parent.parents
+    }
+    cleanup.update((
         ".codex/agents", ".codex/skills/gkd-ci-monitor/agents", ".codex/skills/gkd-ci-monitor",
         ".codex/skills/gkd-execute/agents", ".codex/skills/gkd-execute",
         ".codex/skills/gkd-local-verify/agents", ".codex/skills/gkd-local-verify", ".codex/skills",
         ".codex", ".agents/skills/gkd-main/agents", ".agents/skills/gkd-main", ".agents/skills",
         ".agents", ".gkd",
-    ):
+    ))
+    for relative in sorted(cleanup, key=lambda value: len(Path(value).parts), reverse=True):
         directory = project / relative
         if directory.is_dir() and not any(directory.iterdir()):
             directory.rmdir()

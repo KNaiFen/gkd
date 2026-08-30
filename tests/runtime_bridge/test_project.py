@@ -49,8 +49,10 @@ class ProjectStagingContracts(unittest.TestCase):
             json.loads((first / ".gkd" / "policy.json").read_text(encoding="utf-8"))["repository"],
             one["policy"]["repository"],
         )
-        for name in ("gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"):
+        for name in ("gkd-execute", "gkd-local-verify", "gkd-ci-monitor"):
             self.assertTrue((first / ".codex" / "skills" / name / "SKILL.md").is_file())
+        for name in ("gkd-optimize-ci", "gkd-review-remediation"):
+            self.assertFalse((first / ".codex" / "skills" / name).exists())
         self.assertEqual(before, run("git", "status", "--porcelain=v1", cwd=candidate))
         self.assertEqual("verified", verify_project(BUNDLE_ROOT, bundle_digest(), first, self.production)["status"])
         unknown = first / ".codex" / "unexpected.toml"
@@ -72,6 +74,26 @@ class ProjectStagingContracts(unittest.TestCase):
         role_file.chmod(0o644)
         self.assertEqual("removed", remove_project(first, self.production)["status"])
         self.assertFalse((first / ".gkd" / "runtime-project.json").exists())
+
+    def test_optional_packs_are_explicit_and_inventory_bound(self) -> None:
+        project = self._project("optional-packs")
+        packs = ("ci-advice", "review-remediation")
+        staged = stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs=packs)
+        self.assertEqual(["ci-advice", "review-remediation"], staged["optionalPacks"])
+        self.assertEqual({"ci-advice", "review-remediation"}, set(staged["packDigests"]))
+        for name in ("gkd-optimize-ci", "gkd-review-remediation"):
+            self.assertTrue((project / ".codex" / "skills" / name / "SKILL.md").is_file())
+        verified = verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs)
+        self.assertEqual(staged["inventoryDigest"], verified["inventoryDigest"])
+        with self.assertRaisesRegex(TaskError, "PROJECT_STAGE_DRIFT"):
+            verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production)
+        skill = project / ".codex" / "skills" / "gkd-optimize-ci" / "SKILL.md"
+        skill.write_bytes(skill.read_bytes() + b"\n")
+        with self.assertRaisesRegex(TaskError, "PROJECT_STAGE_DRIFT"):
+            verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs)
+        skill.write_bytes(skill.read_bytes().rstrip(b"\n") + b"\n")
+        self.assertEqual("removed", remove_project(project, self.production)["status"])
+        self.assertFalse((project / ".codex").exists())
 
     def test_policy_is_required_and_staged_inventory_rejects_live_drift(self) -> None:
         missing = self._project("missing-policy")
@@ -268,6 +290,20 @@ finally:
         self.assertEqual(installed["contentDigest"], gkd_bundle.verify(temporary_root, target)["contentDigest"])
         self.assertEqual([], list((target / "gkd").rglob("*.pyc")))
         self.assertEqual([], list((target / "gkd").rglob("__pycache__")))
+
+    def test_project_optional_pack_requires_the_installed_pack_surface(self) -> None:
+        temporary_root = self.root / "installed-pack-root"
+        target = temporary_root / "target"
+        temporary_root.mkdir()
+        target.mkdir()
+        installed = gkd_bundle.install(Path("canonical"), temporary_root, target)
+        project = self._project("installed-pack-project")
+        with self.assertRaisesRegex(TaskError, "OPTIONAL_PACK_NOT_INSTALLED"):
+            stage_project(target / "gkd", installed["contentDigest"], project, self.production, packs=("ci-advice",))
+        self.assertFalse((project / ".codex").exists())
+        gkd_bundle.stage_packs(Path("canonical"), temporary_root, target, ("ci-advice",))
+        staged = stage_project(target / "gkd", installed["contentDigest"], project, self.production, packs=("ci-advice",))
+        self.assertEqual(["ci-advice"], staged["optionalPacks"])
 
     def test_symlink_traversal_overlap_and_bundle_drift_fail_closed(self) -> None:
         project = self._project("project")

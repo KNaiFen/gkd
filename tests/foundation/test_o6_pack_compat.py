@@ -21,50 +21,18 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         destination = self.root / name
         destination.mkdir()
         source = copy_source(destination)
-        schema_path = source / "manifest.schema.json"
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        schema["schemaVersion"] = 2
-        schema["required"].append("packs")
-        schema["properties"]["schemaVersion"] = {"const": 2}
-        schema["properties"]["packs"] = {"type": "array"}
-        schema_path.write_bytes(gkd_bundle.canonical_bytes(schema))
-
-        declaration_path = source / "source.toml"
-        declaration = declaration_path.read_text(encoding="utf-8")
-        declaration = declaration.replace("schema_version = 1", "schema_version = 2", 1)
-        declaration = declaration.replace(
-            'release_status = "release-candidate"\n',
-            'release_status = "release-candidate"\n\n[[packs]]\nname = "ci-advice"\n\n[[packs]]\nname = "review-remediation"\n',
-            1,
-        )
-        declaration = declaration.replace(
-            'name = "review-multi-repository"\nkind = "test"',
-            'name = "review-multi-repository"\nkind = "test"\npack = "review-remediation"',
-            1,
-        )
-        declaration = declaration.replace(
-            'name = "resource-scanner-cli"\nkind = "executable"',
-            'name = "resource-scanner-cli"\nkind = "executable"\npack = "ci-advice"',
-            1,
-        )
-        declaration = declaration.replace(
-            'name = "review-cli"\nkind = "executable"',
-            'name = "review-cli"\nkind = "executable"\npack = "review-remediation"',
-            1,
-        )
-        declaration_path.write_text(declaration, encoding="utf-8")
         gkd_bundle.generate(source)
         return source
 
-    def test_v1_producer_stays_full_and_v2_consumer_accepts_declared_packs(self) -> None:
+    def test_v2_producer_and_consumer_bind_declared_packs(self) -> None:
         current_root = self.root / "current"
         current_root.mkdir()
         current = copy_source(current_root)
         current_manifest = json.loads((current / "manifest.json").read_text(encoding="utf-8"))
         current_lock = json.loads((current / "manifest.lock.json").read_text(encoding="utf-8"))
-        self.assertEqual(1, current_manifest["schemaVersion"])
+        self.assertEqual(2, current_manifest["schemaVersion"])
         self.assertEqual(107, len(current_lock["installFiles"]))
-        self.assertNotIn("packs", current_manifest)
+        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in current_manifest["packs"]])
 
         source = self._future_source("all-packs")
         verified_source = gkd_bundle.verify_bundle_root(source / "payload")

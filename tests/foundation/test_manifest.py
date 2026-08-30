@@ -28,7 +28,7 @@ class ManifestContracts(unittest.TestCase):
         schema = json.loads((self.source / "manifest.schema.json").read_text(encoding="utf-8"))
         manifest = json.loads((self.source / "manifest.json").read_text(encoding="utf-8"))
         _, validated_manifest, lock = gkd_bundle._validated_source(self.source)
-        self.assertEqual(schema["schemaVersion"], 1)
+        self.assertEqual(schema["schemaVersion"], 2)
         self.assertEqual(manifest, validated_manifest)
         declared = tomllib.loads((self.source / "source.toml").read_text(encoding="utf-8"))
         self.assertEqual(manifest["bundleVersion"], declared["bundle_version"])
@@ -39,6 +39,9 @@ class ManifestContracts(unittest.TestCase):
         )
         self.assertEqual(lock["digestInputs"], sorted(lock["digestInputs"], key=lambda item: item["path"]))
         self.assertEqual(lock["installFiles"], sorted(lock["installFiles"], key=lambda item: item["source"]))
+        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in manifest["packs"]])
+        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in lock["packs"]])
+        self.assertRegex(lock["coreDigest"], "^[0-9a-f]{64}$")
         self.assertEqual(4, len(lock["inputFiles"]))
         self.assertEqual(
             [item["source"] for item in lock["inputFiles"]],
@@ -107,6 +110,8 @@ class ManifestContracts(unittest.TestCase):
         verified = gkd_bundle.verify_input(self.source, "release-traceability")
         self.assertEqual("release-verification", verified["kind"])
         self.assertEqual("inputs/release/traceability.json", verified["source"])
+        self.assertIsNone(verified["pack"])
+        self.assertEqual("review-remediation", gkd_bundle.verify_input(self.source, "review-multi-repository")["pack"])
         with self.assertRaisesRegex(gkd_bundle.BundleError, "INPUT_UNKNOWN"):
             gkd_bundle.verify_input(self.source, "unknown-input")
         input_path = self.source / "inputs/release/traceability.json"

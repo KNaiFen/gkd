@@ -26,8 +26,13 @@ SKILL_NAMES = (
     "gkd-execute",
     "gkd-local-verify",
     "gkd-main",
-    "gkd-optimize-ci",
-    "gkd-review-remediation",
+)
+OPTIONAL_PACKS = {
+    "ci-advice": {"roles": ("gkd_ci_reviewer", "gkd_executor"), "skills": ("gkd-optimize-ci",)},
+    "review-remediation": {"roles": ("gkd_ci_reviewer", "gkd_executor"), "skills": ("gkd-review-remediation",)},
+}
+ALL_SKILL_NAMES = SKILL_NAMES + tuple(
+    skill for name in sorted(OPTIONAL_PACKS) for skill in OPTIONAL_PACKS[name]["skills"]
 )
 SANDBOX_MODES = {"read-only", "workspace-write"}
 ACTIVATION_PROVIDER = {"contractVersion": 1, "name": "codex-host-runtime"}
@@ -45,14 +50,20 @@ def _toml_string(value: str) -> str:
 def validate_role_source(value: dict[str, Any]) -> None:
     require_keys(
         value,
-        {"schemaVersion", "roleConfigVersion", "roles", "skills", "duplicateSkills", "roleActions", "activationProvider"},
+        {"schemaVersion", "roleConfigVersion", "roles", "skills", "optionalPacks", "duplicateSkills", "roleActions", "activationProvider"},
         "INVALID_ROLE_SOURCE",
     )
-    if value["schemaVersion"] != 1 or value["roleConfigVersion"] != 1:
+    if value["schemaVersion"] != 2 or value["roleConfigVersion"] != 2:
         raise TaskError("INVALID_ROLE_SOURCE")
     if value["skills"] != list(SKILL_NAMES):
         raise TaskError("INVALID_ROLE_SOURCE")
     if value["activationProvider"] != ACTIVATION_PROVIDER:
+        raise TaskError("INVALID_ROLE_SOURCE")
+    expected_packs = {
+        name: {"roles": list(definition["roles"]), "skills": list(definition["skills"])}
+        for name, definition in OPTIONAL_PACKS.items()
+    }
+    if value["optionalPacks"] != expected_packs:
         raise TaskError("INVALID_ROLE_SOURCE")
     actions = value["roleActions"]
     if not isinstance(actions, dict) or tuple(sorted(actions)) != ROLE_NAMES:
@@ -125,16 +136,34 @@ def load_role_source(bundle_root: Path) -> tuple[dict[str, Any], dict[str, Any]]
     return source, rules
 
 
-def locked_bundle_digest(bundle_root: Path) -> str:
+def locked_bundle_record(bundle_root: Path) -> dict[str, Any]:
     root = bundle_root.resolve()
     candidates = [root / ".bundle" / "manifest.lock.json", root.parent / "manifest.lock.json"]
     matches = [path for path in candidates if path.is_file() and not path.is_symlink()]
     if len(matches) != 1:
         raise TaskError("INVALID_BUNDLE_ROOT")
     lock = read_canonical_json(matches[0], "INVALID_BUNDLE_ROOT")
-    require_keys(lock, {"bundleVersion", "contentDigest", "digestInputs", "inputFiles", "installFiles", "manifestSha256", "releaseStatus", "schemaSha256", "schemaVersion"}, "INVALID_BUNDLE_ROOT")
+    keys = {"bundleVersion", "contentDigest", "digestInputs", "inputFiles", "installFiles", "manifestSha256", "releaseStatus", "schemaSha256", "schemaVersion"}
+    if lock.get("schemaVersion") == 2:
+        keys |= {"coreDigest", "packs"}
+    require_keys(lock, keys, "INVALID_BUNDLE_ROOT")
     require_sha256(lock["contentDigest"], "INVALID_BUNDLE_ROOT")
-    return lock["contentDigest"]
+    return lock
+
+
+def locked_bundle_digest(bundle_root: Path) -> str:
+    return locked_bundle_record(bundle_root)["contentDigest"]
+
+
+def locked_pack_digests(bundle_root: Path) -> dict[str, str]:
+    lock = locked_bundle_record(bundle_root)
+    result = {}
+    for pack in lock.get("packs", ()):
+        if not isinstance(pack, dict) or set(pack) != {"name", "files", "inputs", "packDigest"}:
+            raise TaskError("INVALID_BUNDLE_ROOT")
+        require_sha256(pack["packDigest"], "INVALID_BUNDLE_ROOT")
+        result[pack["name"]] = pack["packDigest"]
+    return result
 
 
 def render_role(role: dict[str, Any], all_skills: list[str]) -> bytes:
@@ -181,21 +210,48 @@ def _skill_inventory(bundle_root: Path, names: list[str]) -> dict[str, str]:
     return result
 
 
-def role_catalog(bundle_root: Path, bundle_digest: str) -> dict[str, Any]:
+def _selected_packs(names: Any) -> tuple[str, ...]:
+    if not isinstance(names, (list, tuple)) or any(not isinstance(name, str) for name in names):
+        raise TaskError("INVALID_OPTIONAL_PACK")
+    selected = tuple(sorted(names))
+    if len(selected) != len(set(selected)) or not set(selected).issubset(OPTIONAL_PACKS):
+        raise TaskError("UNKNOWN_OPTIONAL_PACK")
+    return selected
+
+
+def _role_skills(role: dict[str, Any], packs: tuple[str, ...]) -> list[str]:
+    skills = list(role["skills"])
+    for name in packs:
+        definition = OPTIONAL_PACKS[name]
+        if role["name"] in definition["roles"]:
+            skills.extend(definition["skills"])
+    return skills
+
+
+def _available_skills(packs: tuple[str, ...]) -> list[str]:
+    return [*SKILL_NAMES, *(skill for name in packs for skill in OPTIONAL_PACKS[name]["skills"])]
+
+
+def role_catalog(bundle_root: Path, bundle_digest: str, packs: tuple[str, ...] = ()) -> dict[str, Any]:
     require_sha256(bundle_digest, "INVALID_BUNDLE_DIGEST")
     if locked_bundle_digest(bundle_root) != bundle_digest:
         raise TaskError("BUNDLE_DIGEST_MISMATCH")
     source, rules = load_role_source(bundle_root)
-    skill_digests = _skill_inventory(bundle_root.resolve(), source["skills"])
+    selected_packs = _selected_packs(packs)
+    available_skills = _available_skills(selected_packs)
+    skill_digests = _skill_inventory(bundle_root.resolve(), available_skills)
     rule_ids = {rule["id"] for rule in rules["rules"]}
     roles = []
     for role in sorted(source["roles"], key=lambda item: item["name"]):
         if not set(role["hardRules"]).issubset(rule_ids):
             raise TaskError("INVALID_ROLE_SOURCE")
-        rendered = render_role(role, source["skills"])
+        effective_skills = _role_skills(role, selected_packs)
+        rendered = render_role({**role, "skills": effective_skills}, available_skills)
         semantic = deepcopy(role)
+        semantic["skills"] = effective_skills
+        semantic["optionalPacks"] = list(selected_packs)
         semantic["actions"] = source["roleActions"][role["name"]]
-        semantic["skillDigests"] = {name: skill_digests[name] for name in role["skills"]}
+        semantic["skillDigests"] = {name: skill_digests[name] for name in effective_skills}
         semantic["roleConfigVersion"] = source["roleConfigVersion"]
         roles.append(
             {
@@ -204,7 +260,7 @@ def role_catalog(bundle_root: Path, bundle_digest: str) -> dict[str, Any]:
                 "modelReasoningEffort": role["modelReasoningEffort"],
                 "sandboxMode": role["sandboxMode"],
                 "runtimeSeconds": role["runtimeSeconds"],
-                "skills": role["skills"],
+                "skills": effective_skills,
                 "hardRules": role["hardRules"],
                 "roleDigest": digest_object(semantic),
                 "configDigest": sha256_bytes(rendered),
@@ -238,24 +294,29 @@ def role_record(catalog: dict[str, Any], name: str) -> dict[str, Any]:
     return deepcopy(matches[0])
 
 
-def context_manifest(bundle_root: Path, bundle_digest: str, role_name: str) -> dict[str, Any]:
+def context_manifest(bundle_root: Path, bundle_digest: str, role_name: str, packs: tuple[str, ...] = ()) -> dict[str, Any]:
     source, rules = load_role_source(bundle_root)
-    catalog = role_catalog(bundle_root, bundle_digest)
+    selected_packs = _selected_packs(packs)
+    catalog = role_catalog(bundle_root, bundle_digest, selected_packs)
     role = role_record(catalog, role_name)
     definitions = {item["name"]: item for item in source["roles"]}
     definition = definitions[role_name]
     rule_map = {item["id"]: item for item in rules["rules"]}
     value = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "roleName": role_name,
         "bundleDigest": bundle_digest,
         "roleDigest": role["roleDigest"],
         "configDigest": role["configDigest"],
         "skills": [
             {"name": name, "digest": catalog["skillDigests"][name]}
-            for name in definition["skills"]
+            for name in role["skills"]
         ],
-        "omittedSkills": sorted(set(source["skills"]) - set(definition["skills"])),
+        "optionalPacks": list(selected_packs),
+        "packDigests": {
+            name: locked_pack_digests(bundle_root)[name] for name in selected_packs
+        },
+        "omittedSkills": sorted(set(ALL_SKILL_NAMES) - set(role["skills"])),
         "hardRules": [rule_map[name] for name in definition["hardRules"]],
         "omittedContext": ["conversation-transcripts", "full-ci-logs", "private-session-state", "repository-pack", "wait-history"],
     }
@@ -263,13 +324,16 @@ def context_manifest(bundle_root: Path, bundle_digest: str, role_name: str) -> d
     return value
 
 
-def role_files(bundle_root: Path, bundle_digest: str) -> dict[str, bytes]:
+def role_files(bundle_root: Path, bundle_digest: str, packs: tuple[str, ...] = ()) -> dict[str, bytes]:
     source, _ = load_role_source(bundle_root)
-    catalog = role_catalog(bundle_root, bundle_digest)
+    selected_packs = _selected_packs(packs)
+    available_skills = _available_skills(selected_packs)
+    catalog = role_catalog(bundle_root, bundle_digest, selected_packs)
     records = {item["name"]: item for item in catalog["roles"]}
     result = {}
     for role in source["roles"]:
-        rendered = render_role(role, source["skills"])
+        effective = {**role, "skills": _role_skills(role, selected_packs)}
+        rendered = render_role(effective, available_skills)
         if sha256_bytes(rendered) != records[role["name"]]["configDigest"]:
             raise TaskError("ROLE_CONFIG_DRIFT")
         result[f"{role['name']}.toml"] = rendered

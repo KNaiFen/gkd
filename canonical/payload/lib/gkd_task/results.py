@@ -19,8 +19,6 @@ DEFAULT_SCOPE_NAMES = (
     "m5-release-candidate",
     "m4-finalization",
     "m3-ci-policy",
-    "m3-resource-scanner",
-    "m3-review-core",
     "task-core",
     "role-routing",
     "runtime-bridge",
@@ -49,7 +47,19 @@ CI_ADVICE_SCOPE_NAMES = ("m3-resource-scanner",)
 REVIEW_REMEDIATION_SCOPE_NAMES = ("m3-review-core",)
 OPTIONAL_PACK_SCOPE_NAMES = CI_ADVICE_SCOPE_NAMES + REVIEW_REMEDIATION_SCOPE_NAMES
 
-LEGACY_SCOPE_NAMES = DEFAULT_SCOPE_NAMES + HISTORICAL_SCOPE_NAMES
+LEGACY_SCOPE_NAMES = (
+    "m5-release-candidate",
+    "m4-finalization",
+    "m3-ci-policy",
+    "m3-resource-scanner",
+    "m3-review-core",
+    "task-core",
+    "role-routing",
+    "runtime-bridge",
+    "p1-production-migration",
+    "foundation",
+    "watcher-core-and-live-negative",
+)
 
 # Existing result consumers retain this name for the default verifier contract.
 SCOPE_NAMES = DEFAULT_SCOPE_NAMES

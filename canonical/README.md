@@ -32,6 +32,13 @@ requires an explicit existing system-temporary root and an explicit existing
 target beneath it. The installed read-only `verify` and `version` surfaces are
 foundation contracts, not a production doctor.
 
+The default installation contains only core runtime files. `ci-advice` owns the
+resource/recommendation/scanner CLI, library, schemas, and `gkd-optimize-ci`;
+`review-remediation` owns the review CLI, core/adapter/remediation library,
+schemas, explicit review input, and Skill. `gkd-bundle pack-stage`,
+`pack-verify`, and `pack-remove` accept only these declared names and bind each
+pack's files, modes, sizes, SHA-256 values, and digest to the bundle lock.
+
 The separate `gkd-role production-migration-*` commands are the only explicit
 production-home migration surface. They stage the bounded GKD roles, Skills and
 managed config block, preserve a private path-relative recovery record until
@@ -61,6 +68,9 @@ path-free canonical result manifest plus one result per scope. Evidence runners
 may consume that directory with `--canonical-results`; they re-check the
 current fixed head, base ancestry, environment, test IDs/statuses and digests
 before running their own protected-surface, temporary-root and output checks.
+The resource/scanner and review scopes likewise run only through
+`optional-ci-advice`, `optional-review-remediation`, or the combined
+`optional-packs` lane.
 
 Trusted acceptance uses the installed `gkd-github-acceptance` executable as its
 GitHub REST adapter. It returns canonical newline-delimited snapshots, maps a
@@ -87,15 +97,16 @@ activation commands, and the default library path without a trusted provider,
 remain fail-closed.
 
 The M2-A payload additionally defines three fixed custom-agent role TOMLs,
-minimal role context manifests, hard-rule subsets, seven progressive-disclosure
-workflow Skills, route and wait schemas, and a trusted-main workflow activation
+minimal role context manifests, hard-rule subsets, five core
+progressive-disclosure workflow Skills, route and wait schemas, and a
+trusted-main workflow activation
 provider. This is not same-user process isolation and does not add signing,
 daemon, IPC, or key infrastructure.
 
 The M2-C payload promotes project staging to supported `gkd-role` surfaces and
 the runtime bridge to the main-role-only `TrustedMainRuntimeBridge` library
 interface. Public `gkd-role automatic-*` commands fail closed. `project-stage` renders the exact parent
-Skill, executor role/config and executor Skills from one pinned bundle into an
+Skill, executor role/config and the three core executor Skills from one pinned bundle into an
 explicit non-production Git project; `project-verify` checks its byte inventory
 and digests before use. The bridge binds the six-gate automatic route decision
 to offer, envelope, one exact direct `gkd_executor` spawn acknowledgement,
@@ -137,13 +148,14 @@ it never changes GitHub state or treats check success as acceptance. Repository
 identity and check names remain in repository policy and workflow files, not in
 the reusable payload.
 
-The M3-C payload adds a repository-neutral review core with targeted, guided,
+The M3-C capability adds a repository-neutral review core with targeted, guided,
 and recon entry points, explicit partial approval, resume, and recovery state.
 The review adapter binds redacted facts for multiple repositories. The
 `gkd-optimize-ci` and `gkd-review-remediation` Skills stop at recommendations
 or remediation plans; they do not write runner, workflow, merge, rerun, or
-repository settings state. The canonical bundle contains seven workflow
-Skills, with role inventory, project staging, manifest, lock, and digests
+repository settings state. These two Skills and their dedicated runtime are
+available only through their declared optional packs. The five core Skills,
+optional pack inventory, project staging, manifest, lock, and digests remain
 bound to the same source declaration.
 
 The M5 release-candidate surface provides deterministic L1 property evidence,

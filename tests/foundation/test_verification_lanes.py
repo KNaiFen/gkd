@@ -13,11 +13,20 @@ from gkd_task.results import (
     DEFAULT_LANE,
     DEFAULT_PROFILE,
     DEFAULT_SCOPE_NAMES,
+    CI_ADVICE_LANE,
+    CI_ADVICE_PROFILE,
+    CI_ADVICE_SCOPE_NAMES,
     HISTORICAL_LANE,
     HISTORICAL_PROFILE,
     HISTORICAL_SCOPE_NAMES,
     LEGACY_SCOPE_NAMES,
     O6_CORE_SCOPE_NAMES,
+    OPTIONAL_PACK_LANE,
+    OPTIONAL_PACK_PROFILE,
+    OPTIONAL_PACK_SCOPE_NAMES,
+    REVIEW_REMEDIATION_LANE,
+    REVIEW_REMEDIATION_PROFILE,
+    REVIEW_REMEDIATION_SCOPE_NAMES,
     canonical_bytes,
     digest_object,
     load_canonical_results,
@@ -64,7 +73,12 @@ class VerificationLaneContracts(unittest.TestCase):
             self.assertEqual(DEFAULT_LANE, "default")
             self.assertEqual(DEFAULT_PROFILE, "core")
             self.assertNotIn("watcher-core-and-live-negative", DEFAULT_SCOPE_NAMES)
+            self.assertNotIn("m3-resource-scanner", DEFAULT_SCOPE_NAMES)
+            self.assertNotIn("m3-review-core", DEFAULT_SCOPE_NAMES)
             self.assertEqual(HISTORICAL_SCOPE_NAMES, ("watcher-core-and-live-negative",))
+            self.assertEqual(CI_ADVICE_SCOPE_NAMES, ("m3-resource-scanner",))
+            self.assertEqual(REVIEW_REMEDIATION_SCOPE_NAMES, ("m3-review-core",))
+            self.assertEqual(OPTIONAL_PACK_SCOPE_NAMES, ("m3-resource-scanner", "m3-review-core"))
             self.assertEqual("foundation", load_canonical_results(default, "foundation", self.repository)["scope"])
             self.assertEqual(
                 "watcher-core-and-live-negative",
@@ -72,6 +86,21 @@ class VerificationLaneContracts(unittest.TestCase):
             )
             with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_SCOPE_INVALID"):
                 load_canonical_results(default, "watcher-core-and-live-negative", self.repository)
+
+    def test_optional_pack_lanes_are_explicit_and_composable(self) -> None:
+        cases = (
+            (CI_ADVICE_LANE, CI_ADVICE_PROFILE, CI_ADVICE_SCOPE_NAMES),
+            (REVIEW_REMEDIATION_LANE, REVIEW_REMEDIATION_PROFILE, REVIEW_REMEDIATION_SCOPE_NAMES),
+            (OPTIONAL_PACK_LANE, OPTIONAL_PACK_PROFILE, OPTIONAL_PACK_SCOPE_NAMES),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            for index, (lane, profile, scopes) in enumerate(cases):
+                root = Path(temporary) / str(index)
+                root.mkdir()
+                write_manifest(root / "manifest.json", base_sha=self.head, head_sha=self.head, verifier_digest=self.digest, lane=lane, profile=profile)
+                for scope in scopes:
+                    self._scope(root, scope)
+                    self.assertEqual(scope, load_canonical_results(root, scope, self.repository)["scope"])
 
     def test_unknown_or_mismatched_lane_profile_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -105,8 +134,9 @@ class VerificationLaneContracts(unittest.TestCase):
             manifest["manifestDigest"] = digest_object(manifest)
             (root / "manifest.json").write_bytes(canonical_bytes(manifest))
             self._scope(root, "foundation")
-            self.assertEqual(10, len(DEFAULT_SCOPE_NAMES))
+            self.assertEqual(8, len(DEFAULT_SCOPE_NAMES))
             self.assertEqual(8, len(O6_CORE_SCOPE_NAMES))
+            self.assertEqual(DEFAULT_SCOPE_NAMES, O6_CORE_SCOPE_NAMES)
             self.assertEqual(
                 "foundation",
                 load_canonical_results(root, "foundation", self.repository)["scope"],
