@@ -555,3 +555,7 @@
 - [2026-08-30] 自动 executor 路线因可重复的环境身份不一致暂停。
   - Why: compatibility R1 executor 使用 supplied absolute CLI 和完整 candidate/task/runtime 参数仍报告 `CANDIDATE_IDENTITY_MISMATCH`；trusted main 对完全相同参数的 status/doctor 返回 valid。该事实排除了候选 task state、CAS 和 worktree 损坏，指向 executor 实际命令环境与交接不一致。
   - Impact: R1 以 `executor_environment_identity_mismatch` 在 revision 5/head `f98ea68c62ed028a0b2c90834b6b7f454fcf9c29` block。暂停继续创建 automatic attempts；先修复/证明角色环境，或由用户明确选择人工顶层执行，之后再重启 compatibility 任务。
+
+- [2026-08-30] 以人工顶层修复 bridge-to-executor execution context 自举缺口。
+  - Why: 用户明确要求进行修复；诊断证明正确的 candidate worktree 与同一 absolute CLI 参数可由 trusted main 读取，但 bridge request 未携带可执行上下文，导致 executor 从 cwd 推断并失败。
+  - Impact: `TrustedMainRuntimeBridge` 新增 trusted-main-only `execution_context(envelope_id)`，返回绝对 task CLI 与完整 status/doctor argv；`prepare()` 保持无路径机器输出，`gkd-execute` 强制使用该 context。新增非 candidate cwd subprocess contract，并保留路径最小化回归；完整 verifier 445 项通过。后续必须用 fresh automatic task 验证真实 host 行为，旧 blocked attempt 不复用。

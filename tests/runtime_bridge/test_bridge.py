@@ -109,6 +109,23 @@ class AutomaticBridgeContracts(unittest.TestCase):
             _validate_fixed_candidate(self.repo.candidate, self.repo.task_path, delivered["head"], runtime)
         self.assertEqual("CLAIM_RECEIPT_UNAVAILABLE", raised.exception.code)
 
+    def test_prepare_returns_cwd_independent_executor_context(self) -> None:
+        bridge, prepared = ready_bridge(self.repo)
+        context = bridge.execution_context(prepared["envelopeId"])
+        self.assertEqual(str(self.repo.candidate.resolve()), context["candidateRoot"])
+        self.assertEqual(str(self.repo.runtime_root.resolve()), context["runtimeRoot"])
+        self.assertEqual(str((BUNDLE_ROOT / "bin" / "gkd-task").resolve()), context["taskCli"])
+        for argv in (context["statusArgv"], context["doctorArgv"]):
+            result = subprocess.run(
+                [sys.executable, "-B", *argv],
+                cwd=self.repo.main,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
     def test_task_names_are_ascii_bounded_and_attempt_aware(self) -> None:
         first = _task_name("TASK-ALPHA", "a" * 64, 0)
         same_attempt = _task_name("TASK-ALPHA", "a" * 64, 0)

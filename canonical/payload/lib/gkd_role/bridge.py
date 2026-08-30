@@ -224,6 +224,30 @@ class TrustedMainRuntimeBridge:
             failure_hook=self.failure_hook,
         )
 
+    def execution_context(self, envelope_id: str) -> dict[str, Any]:
+        """Return trusted-main-only argv for one prepared executor handoff."""
+
+        context = self._service().automatic_claim_context(envelope_id)
+        task_cli = str((self.bundle_root / "bin" / "gkd-task").resolve())
+        value = {
+            "candidateRoot": str(Path(self.candidate_root).resolve()),
+            "runtimeRoot": str(self.runtime.root.resolve()),
+            "taskCli": task_cli,
+            "taskId": context["taskId"],
+            "taskBranch": context["taskBranch"],
+            "taskPath": self.task_path,
+            "repository": context["repository"],
+        }
+        value["statusArgv"] = [
+            task_cli, "status", "--repository", context["repository"],
+            "--task-id", context["taskId"], "--task-branch", context["taskBranch"],
+            "--task-path", self.task_path, "--candidate-root", value["candidateRoot"],
+            "--runtime-root", value["runtimeRoot"],
+        ]
+        value["doctorArgv"] = [*value["statusArgv"], "--mode", "static"]
+        value["doctorArgv"][1] = "doctor"
+        return value
+
     def prepare(
         self,
         expected_head: str,

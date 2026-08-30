@@ -5,8 +5,8 @@ description: Execute one activated and claimed canonical GKD task in its registe
 
 # GKD Execute
 
-1. Require the exact worktree, task path, envelope, trusted activation, claim, route-decision digest, and execution bundle/role/config digests supplied by main.
-2. Run `gkd-task status` and `doctor` before editing. Stop on any mismatch; do not repair coordination records by hand.
+1. Require the exact worktree, task path, envelope, trusted activation, claim, route-decision digest, execution bundle/role/config digests, and `executionContext` supplied by main.
+2. Before editing, execute `executionContext.statusArgv` and `executionContext.doctorArgv` exactly. Do not infer a candidate root, task path, runtime root, or CLI from the current working directory; stop on any mismatch and do not repair coordination records by hand.
 3. Implement only the approved requirements and plan. Preserve unrelated changes and external authorization boundaries.
 4. Use the repository's declared verification contract. Keep generated evidence bound to the exact implementation head and free of capabilities, runtime identities, prompts, transcripts, credentials, and machine paths.
 5. Generate the candidate output bundle and report its digest separately; never replace the execution bundle digest of the in-flight claim. For automatic delivery, put canonical verifier results, delivery evidence, and `tasks/<task>/result-manifest.json` in the implementation commit; the sidecar must not contain an implementation SHA. Commit `tasks/<task>/delivery.md` alone immediately after it, then invoke `gkd-task deliver` with that document head, paths/digest, candidate-output bundle digest, verifier-results path, and evidence path. The CLI derives the fixed implementation tree and alone creates the final state commit.
