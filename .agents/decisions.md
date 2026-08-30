@@ -539,3 +539,7 @@
 - [2026-08-30] O4 的 lane/profile consumer 需要 bootstrap compatibility 前置任务。
   - Why: R5 fixed head `ce5f1584ffa7e638741094b76afebd9426a16b16` 的 default/historical 实现、双解释器 verifier、historical 47 项及 PR #46 fixed-head CI 都通过；但 current accepted execution bundle 的 trusted `gkd-task accept --merge` 在固定树 consumer 仍按旧完整 scope 集合校验，返回 `CANDIDATE_INVALID`。非合并 acceptor 的局部 accepted 结果不能替代这条 trusted merge 路径。
   - Impact: 先以旧 scope 产物交付一个只扩展 consumer/schema/negative tests 的 `GKD-O4-LANE-MANIFEST-COMPAT`，使它可由 current acceptance 合并；新 accepted bundle 再作为完整 O4 分层任务的 execution/acceptance compatibility 基线。不得放宽 consumer、信任 candidate executable 或把 watcher 重新加回 default。
+
+- [2026-08-30] `GKD-O4-WATCHER-HISTORICAL-LANE-R5` 拒绝尝试已清理。
+  - Why: PR #46 已确认未 merge，candidate tree 固定于被拒绝 head 且干净。
+  - Impact: PR 已关闭，本地/远端 task branch 与 candidate worktree 已删除，runtime 和 planning package 已移入可恢复 Trash；compatibility 前置任务从记录该事实后的 trusted main 建立。
