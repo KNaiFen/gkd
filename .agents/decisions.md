@@ -611,3 +611,7 @@
 - [2026-08-31] O6 delivery pack compatibility 已独立验收并合并。
   - Why: O6 producer 将 default result 从十 scopes 改为八 scope core 并引入 optional lanes，但旧 execution bundle 的 delivery consumer 只能接受旧集合。compatibility task 冻结 schema-v1/full-install producer，并在 trusted consumer 中严格加入 schema-v2 pack ownership、core/pack/content digest、八 scope core 和 optional lane/profile 的 fixed-tree 解析与负向合同。
   - Impact: PR #50 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0` 以 squash merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 进入 main。Python 3.9.6/3.14.6 各通过 411 项 default verifier 和 9 项 future consumer probe；本任务仍是 schema v1、107/111、七 Skills、十 default scopes。新的 O6 必须从 fresh lifecycle 重新建立，生产/AIO/settings/Secrets/runner/tag/Release 未变。
+
+- [2026-08-31] O6 delivery pack compatibility 收尾清理完成。
+  - Why: accepted candidate 清理前保持 clean、固定于 `e01a9cd856df2186787c17452c2d2e3ac95d23b0`，candidate tree 与 squash merge tree 均为 `b8f5fc7e6bc9a8c682f7e2ba38d1e5d93018f8ff`。
+  - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、review、route 与双解释器/install/evidence 临时根已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 merge 保留。
