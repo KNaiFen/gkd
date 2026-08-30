@@ -599,3 +599,7 @@
 - [2026-08-30] O5-R2 收尾清理完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `fcef63b4d75b39932fcb02bb83560def3c426056`，candidate tree 与 squash merge tree 均为 `5eb721ce350872723be6781e2a9ad8a9eca207a7`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、双解释器临时根和一次性 route/ack/review 输入已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 main merge 保留。
+
+- [2026-08-31] O6 attempt 0 因 delivery consumer 的旧 default scope 假设受信 block。
+  - Why: executor 已实现默认 core 与两个 optional pack，Python 3.9.6/3.14.6 均通过 core 8 scopes/387 tests 及 optional 19/11/30 tests；但 accepted execution bundle 在 canonical delivery 中仍要求旧十个 default scopes，对八 scope sidecar 返回 `INVALID_RESULT_MANIFEST`。实现、evidence 与 delivery document 已提交，但 lifecycle 未进入 delivered。
+  - Impact: trusted `gkd-task block` 以 `delivery_consumer_optional_scope_compatibility` 在 revision 6/head `b654587400e2a74bcaff7d46033225965995c554` 固化旧 attempt；未 push、未创建 PR、CI 或 acceptance。下一任务先以旧 default/install producer 交付 forward-compatible manifest-v2 pack 与 optional lane consumer，O6 再从新 lifecycle 重启。
