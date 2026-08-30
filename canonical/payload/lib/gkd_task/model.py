@@ -194,13 +194,14 @@ def validate_result_manifest(value: dict[str, Any]) -> tuple[str, ...]:
         scope_names = LEGACY_SCOPE_NAMES
     elif value.get("schemaVersion") == 2:
         require_keys(value, keys | {"lane", "profile", "scopes"}, "INVALID_RESULT_MANIFEST")
-        from .results import lane_profile_scopes
+        from .results import valid_lane_profile_scopes
 
         require_string(value["lane"], "INVALID_RESULT_MANIFEST")
         require_string(value["profile"], "INVALID_RESULT_MANIFEST")
-        scope_names = lane_profile_scopes(value["lane"], value["profile"])
-        if scope_names is None or value["scopes"] != list(scope_names):
+        contracts = valid_lane_profile_scopes(value["lane"], value["profile"])
+        if not isinstance(value["scopes"], list) or tuple(value["scopes"]) not in contracts:
             raise TaskError("INVALID_RESULT_MANIFEST")
+        scope_names = tuple(value["scopes"])
     else:
         raise TaskError("INVALID_RESULT_MANIFEST")
     if value["kind"] != "automatic-delivery-result-manifest":

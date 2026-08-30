@@ -15,6 +15,18 @@ from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService
 from tests.runtime_bridge.helpers import BUNDLE_ROOT, automatic_decision, bundle_digest, spawn_result
 from tests.task_core.helpers import FIXED_TIME, FUTURE_TIME, REVIEWER_DIGEST, FakeGitHub, TaskRepo, github_snapshot, planning_documents, run
+from gkd_task.results import (
+    CI_ADVICE_LANE,
+    CI_ADVICE_PROFILE,
+    CI_ADVICE_SCOPE_NAMES,
+    O6_CORE_SCOPE_NAMES,
+    OPTIONAL_PACK_LANE,
+    OPTIONAL_PACK_PROFILE,
+    OPTIONAL_PACK_SCOPE_NAMES,
+    REVIEW_REMEDIATION_LANE,
+    REVIEW_REMEDIATION_PROFILE,
+    REVIEW_REMEDIATION_SCOPE_NAMES,
+)
 
 
 OUTPUT_BUNDLE_DIGEST = "d" * 64
@@ -27,27 +39,28 @@ class GateRepairContracts(unittest.TestCase):
     def tearDown(self) -> None:
         self.repo.close()
 
-    def _automatic_claim(self) -> tuple[TaskService, str]:
-        self.repo.ready_and_authorized()
+    def _automatic_claim(self, repo: TaskRepo | None = None) -> tuple[TaskService, str]:
+        target = repo or self.repo
+        target.ready_and_authorized()
         digest = bundle_digest()
-        stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)
+        stage_project(BUNDLE_ROOT, digest, target.main, target.production)
         bridge = TrustedMainRuntimeBridge(
-            self.repo.candidate,
-            self.repo.task_path,
-            RuntimeStore(self.repo.runtime_root),
+            target.candidate,
+            target.task_path,
+            RuntimeStore(target.runtime_root),
             BUNDLE_ROOT,
             digest,
             FixedClock(FIXED_TIME),
         )
         prepared = bridge.prepare(
-            *self.repo.cas(),
-            automatic_decision(digest, self.repo.state()["repository"]["policy"]),
+            *target.cas(),
+            automatic_decision(digest, target.state()["repository"]["policy"]),
             FUTURE_TIME,
-            self.repo.main,
-            self.repo.production,
+            target.main,
+            target.production,
         )
-        claim = bridge.claim(*self.repo.cas(), prepared["envelopeId"], spawn_result(prepared), "gate-repair")
-        return TaskService(self.repo.candidate, self.repo.task_path, RuntimeStore(self.repo.runtime_root)), claim["claimId"]
+        claim = bridge.claim(*target.cas(), prepared["envelopeId"], spawn_result(prepared), "gate-repair")
+        return TaskService(target.candidate, target.task_path, RuntimeStore(target.runtime_root)), claim["claimId"]
 
     def test_history_uses_revisions_for_order_and_rejects_fixed_record_drift(self) -> None:
         first = advance_state(self.repo.state(), "requirements_ready", FUTURE_TIME, self.repo.base_sha, {})
@@ -148,6 +161,40 @@ class GateRepairContracts(unittest.TestCase):
             runtime,
         )
         self.assertEqual("accepted", accepted["status"])
+
+    def test_automatic_delivery_accepts_o6_core_and_explicit_optional_lanes(self) -> None:
+        cases = (
+            ("core", "default", "core", O6_CORE_SCOPE_NAMES),
+            ("ci", CI_ADVICE_LANE, CI_ADVICE_PROFILE, CI_ADVICE_SCOPE_NAMES),
+            (
+                "review",
+                REVIEW_REMEDIATION_LANE,
+                REVIEW_REMEDIATION_PROFILE,
+                REVIEW_REMEDIATION_SCOPE_NAMES,
+            ),
+            ("all", OPTIONAL_PACK_LANE, OPTIONAL_PACK_PROFILE, OPTIONAL_PACK_SCOPE_NAMES),
+        )
+        for index, (_, lane, profile, scopes) in enumerate(cases):
+            repo = self.repo if index == 0 else TaskRepo()
+            try:
+                service, claim_id = self._automatic_claim(repo)
+                result = repo.deliver(
+                    service,
+                    claim_id,
+                    OUTPUT_BUNDLE_DIGEST,
+                    lane,
+                    profile,
+                    scopes,
+                )
+                _validate_fixed_candidate(
+                    repo.candidate,
+                    repo.task_path,
+                    result["head"],
+                    RuntimeStore(repo.runtime_root),
+                )
+            finally:
+                if repo is not self.repo:
+                    repo.close()
 
     def test_automatic_delivery_rejects_result_drift_without_state_write(self) -> None:
         service, claim_id = self._automatic_claim()
