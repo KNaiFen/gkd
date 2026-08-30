@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O4 与 Python 3.9 compatibility 已完成。O4 compatibility R3 先以 merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 提供 lane/profile consumer；O4-R6 随后以 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720`、merge `c133de3e983f002259c68538aa644ca8fc7e0823` 完成 watcher/probe 历史 lane 隔离。默认 verifier 现在为 10 个 core scopes，Python 3.9.6/3.14.6 各 403 项通过；historical watcher 47 项两次 evidence 一致并保留 host `unsupported`。bridge execution context 与 pre-spawn acknowledgement/立即 claim 时序均由真实 executor route 验证。下一步刷新 development bundle 后启动 O5 runtime fixture 与测试输入拆分。
+- O1-O4 与 Python 3.9 compatibility 已完成。O4 compatibility R3 先以 merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 提供 lane/profile consumer；O4-R6 随后以 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720`、merge `c133de3e983f002259c68538aa644ca8fc7e0823` 完成 watcher/probe 历史 lane 隔离。默认 verifier 现在为 10 个 core scopes，Python 3.9.6/3.14.6 各 403 项通过；historical watcher 47 项两次 evidence 一致并保留 host `unsupported`。O5 首次自动尝试在 claim 前被 executor 观察到 `awaiting_claim` 后按 fail-closed 停止，trusted main 随后 block 并清理；该生命周期不得复用。下一步从新 trusted main 建立 O5-R1，严格在 spawn 前固定正确 head/revision，spawn 后立即 claim。
 
 ## Historical facts
 

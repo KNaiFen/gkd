@@ -583,3 +583,7 @@
 - [2026-08-30] O4-R6 收尾清理完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `689b3c4e6a608dde461cd0d578a82937dae7b720`，tree 与 squash merge `c133de3e983f002259c68538aa644ca8fc7e0823` 一致。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package 与一次性 route/ack/review 输入已移入可恢复 Trash。task records、acceptance、retrospective、PR 与 main merge 保留。
+
+- [2026-08-30] O5 首次 automatic attempt 因 spawn-to-claim 竞态受信 block。
+  - Why: executor 在 bridge claim 前读取 O5 的 `awaiting_claim`（revision 4）并按执行契约停止；trusted main 随后才完成 claim，进入 implementing。该 attempt 没有实现、delivery、PR 或 CI，且中途一次错误 CAS 使用了上一任务 head，未写入任何状态。
+  - Impact: trusted `gkd-task block` 以 `executor_preclaim_race` 在 revision 6/head `9495ce1bf2f0e2c3bf101d4e384aa03da97659b3` 固化 lifecycle；candidate、branch、runtime/package 和一次性输入已清理。O5-R1 必须从新 lifecycle 建立，不能复用 offer、claim 或 executor。
