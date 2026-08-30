@@ -559,3 +559,7 @@
 - [2026-08-30] 以人工顶层修复 bridge-to-executor execution context 自举缺口。
   - Why: 用户明确要求进行修复；诊断证明正确的 candidate worktree 与同一 absolute CLI 参数可由 trusted main 读取，但 bridge request 未携带可执行上下文，导致 executor 从 cwd 推断并失败。
   - Impact: `TrustedMainRuntimeBridge` 新增 trusted-main-only `execution_context(envelope_id)`，返回绝对 task CLI 与完整 status/doctor argv；`prepare()` 保持无路径机器输出，`gkd-execute` 强制使用该 context。新增非 candidate cwd subprocess contract，并保留路径最小化回归；完整 verifier 445 项通过。后续必须用 fresh automatic task 验证真实 host 行为，旧 blocked attempt 不复用。
+
+- [2026-08-30] compatibility R1 blocked attempt 已清理。
+  - Why: task 已受信 block，且未产生实现、delivery、PR、CI 或 merge。
+  - Impact: candidate worktree 与本地 branch 已删除，runtime/package 已移入可恢复 Trash；后续 fresh attempt 必须使用 `c15d985` 的 execution-context 修复。
