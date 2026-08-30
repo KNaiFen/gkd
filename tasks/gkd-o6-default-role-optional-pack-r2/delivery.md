@@ -2,7 +2,7 @@
 
 ## Implementation
 
-- Implementation head: `188b52558279872e8b67874cbfcf8d19b32203e7`
+- Implementation head: `8b63c4898a308d3e04189c3f7f94399899a7e4c3`
 - Code head: `e1214c16daa959124b9b427850e7ccc25300782c`
 - Base head: `ce2d6814a1a4b75e16fe9e096f66b399a28de07f`
 - Execution bundle digest: `fe1098fd1be01e8b59dd268b0ed45cc7b44217063e00e0a20afd0bf1c9b1014c`
@@ -23,7 +23,7 @@
 - Python 3.9.6 and Python 3.14.6 each passed the default/core verifier: 395 tests across eight scopes.
 - Their core canonical result digests are `80fed2d240a110cff257b629b268b81791c056d1f56de55d704a0f4dac55bd1a` and `72e775656c7dd8c023e6bb06bfb6270187e3f0a2e3b537691c1df4ec4608150d`.
 - Each interpreter passed 19 `optional-ci-advice`, 11 `optional-review-remediation`, and 30 combined `optional-packs` tests. Combined canonical result digests are `2cfc43711952d7333ebad68bbf9e9e809ff38bee871b40625004ce3b2f7230ed` and `8b0d3d93b004da3d6f25525d99db3707d57b7861b0e5613c24aaf08b2f5e6388`.
-- Fixed-tree sidecars bind verifier result digest `78b3ae7f171625ebc51a3c63aef18afd6789a42161b5e5542979aeeed4f88bbb` and evidence digest `0cb91e3ec0216f6fbe9a75e5693e2262cedf98429d74d5f999dca98e6b4be118`.
+- Fixed-tree sidecars bind verifier result digest `78b3ae7f171625ebc51a3c63aef18afd6789a42161b5e5542979aeeed4f88bbb` and evidence digest `0ff28be3e56fa83fa1abb1ba971eaad541e7aa0559a37688225eb62acec90e08`.
 - `git diff --check` passed. No dependency was installed and no production, AIO, settings, Secrets, runner, tag, Release, or published asset state changed.
 
 ## Stop Boundary
