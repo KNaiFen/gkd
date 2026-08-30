@@ -607,3 +607,7 @@
 - [2026-08-31] O6 blocked attempt 已完成可恢复清理。
   - Why: lifecycle 已受信 block，candidate 固定于 `b654587400e2a74bcaff7d46033225965995c554` 且 worktree clean；没有远端 task branch 或 PR 可清理。
   - Impact: candidate worktree 与本地 branch 已删除；runtime、package、route/ack、双解释器与 install 临时根已移入可恢复 Trash。已验证 development execution bundle 与 project staging 保留给 compatibility 新任务。
+
+- [2026-08-31] O6 delivery pack compatibility 已独立验收并合并。
+  - Why: O6 producer 将 default result 从十 scopes 改为八 scope core 并引入 optional lanes，但旧 execution bundle 的 delivery consumer 只能接受旧集合。compatibility task 冻结 schema-v1/full-install producer，并在 trusted consumer 中严格加入 schema-v2 pack ownership、core/pack/content digest、八 scope core 和 optional lane/profile 的 fixed-tree 解析与负向合同。
+  - Impact: PR #50 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0` 以 squash merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 进入 main。Python 3.9.6/3.14.6 各通过 411 项 default verifier 和 9 项 future consumer probe；本任务仍是 schema v1、107/111、七 Skills、十 default scopes。新的 O6 必须从 fresh lifecycle 重新建立，生产/AIO/settings/Secrets/runner/tag/Release 未变。

@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O5 与 Python 3.9 compatibility 已完成。O6 attempt 0 已实现 core/optional pack 分层并通过双解释器验证，但 current execution bundle 的 delivery consumer 仍要求旧十个 default scopes，候选八 scope sidecar 在状态写入前以 `INVALID_RESULT_MANIFEST` 拒绝；lifecycle 已受信 block，未 delivery、push 或创建 PR。下一步先建立 O6 delivery compatibility 前置任务，只升级 manifest-v2 pack 与 optional lane consumer，同时继续产出旧 default/install；通过后再用全新 O6 lifecycle。
+- O1-O5 与 Python 3.9 compatibility 已完成。O6 attempt 0 的八 scope/optional pack producer 因旧 delivery consumer block；其 compatibility 前置任务已以 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0`、merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 合入。该任务保留 schema-v1/full-install 与十 scope producer，但使受信 consumer 严格理解 schema-v2 packs、八 scope core 与 optional lanes。下一步从该 merge 的新 development bundle 建立 fresh O6 retry。
 
 ## Historical facts
 
