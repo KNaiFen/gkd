@@ -32,9 +32,10 @@ HISTORICAL_SCOPE_NAMES = (
     "watcher-core-and-live-negative",
 )
 
-# The current verifier continues to emit this legacy complete scope set.
 LEGACY_SCOPE_NAMES = DEFAULT_SCOPE_NAMES + HISTORICAL_SCOPE_NAMES
-SCOPE_NAMES = LEGACY_SCOPE_NAMES
+
+# Existing result consumers retain this name for the default verifier contract.
+SCOPE_NAMES = DEFAULT_SCOPE_NAMES
 
 DEFAULT_LANE = "default"
 DEFAULT_PROFILE = "core"
@@ -204,24 +205,21 @@ def write_manifest(
     base_sha: str,
     head_sha: str,
     verifier_digest: str,
-    lane: str | None = None,
-    profile: str | None = None,
+    lane: str = DEFAULT_LANE,
+    profile: str = DEFAULT_PROFILE,
 ) -> dict[str, Any]:
-    if (lane is None) != (profile is None):
-        raise CanonicalResultError("CANONICAL_RESULT_SCHEMA_INVALID")
-    scope_names = LEGACY_SCOPE_NAMES if lane is None else lane_profile_scopes(lane, profile or "")
+    scope_names = lane_profile_scopes(lane, profile)
     _require(scope_names is not None, "CANONICAL_RESULT_SCHEMA_INVALID")
     value: dict[str, Any] = {
         "baseSha": base_sha,
         "environment": environment_summary(),
         "headSha": head_sha,
-        "schemaVersion": SCHEMA_VERSION if lane is None else 2,
+        "lane": lane,
+        "profile": profile,
+        "schemaVersion": 2,
         "scopes": list(scope_names),
         "verifierDigest": verifier_digest,
     }
-    if lane is not None:
-        value["lane"] = lane
-        value["profile"] = profile
     value["manifestDigest"] = digest_object(value)
     path.write_bytes(canonical_bytes(value))
     return value

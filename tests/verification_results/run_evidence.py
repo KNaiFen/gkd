@@ -18,7 +18,7 @@ for _path in (LIBRARY, ROOT / "src", ROOT):
     sys.path.insert(0, str(_path))
 
 import gkd_bundle
-from gkd_task.results import CanonicalResultError, SCOPE_NAMES, canonical_bytes, digest_object, load_canonical_results
+from gkd_task.results import DEFAULT_SCOPE_NAMES, CanonicalResultError, canonical_bytes, digest_object, load_canonical_results
 
 
 SCOPE_PATHS = {
@@ -32,7 +32,6 @@ SCOPE_PATHS = {
     "runtime-bridge": "tests/runtime_bridge",
     "p1-production-migration": "tests/production_migration",
     "foundation": "tests/foundation",
-    "watcher-core-and-live-negative": "tests/watchdog",
 }
 
 
@@ -92,7 +91,7 @@ def main() -> int:
         before = gkd_bundle._snapshot_protected(protected)
         consumed = {
             scope: load_canonical_results(results_dir, scope, repository, _expected_ids(repository, scope))
-            for scope in SCOPE_NAMES
+            for scope in DEFAULT_SCOPE_NAMES
         }
         if any(temporary.iterdir()):
             raise CanonicalResultError("TEMPORARY_ROOT_NOT_CLEAN")
@@ -115,10 +114,10 @@ def main() -> int:
                     "reused": True,
                     "tests": len(consumed[scope]["tests"]),
                 }
-                for scope in SCOPE_NAMES
+                for scope in DEFAULT_SCOPE_NAMES
             },
             "task": "GKD-O3",
-            "totalTests": sum(len(consumed[scope]["tests"]) for scope in SCOPE_NAMES),
+            "totalTests": sum(len(consumed[scope]["tests"]) for scope in DEFAULT_SCOPE_NAMES),
             "protected": {"before": before, "after": after, "unchanged": True},
             "temporaryRoot": {"cleanBefore": True, "cleanAfter": True},
             "outcome": "verifier_result_reuse_ready",

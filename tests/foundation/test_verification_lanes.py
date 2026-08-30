@@ -48,14 +48,7 @@ class VerificationLaneContracts(unittest.TestCase):
             historical = root / "historical"
             default.mkdir()
             historical.mkdir()
-            write_manifest(
-                default / "manifest.json",
-                base_sha=self.head,
-                head_sha=self.head,
-                verifier_digest=self.digest,
-                lane=DEFAULT_LANE,
-                profile=DEFAULT_PROFILE,
-            )
+            write_manifest(default / "manifest.json", base_sha=self.head, head_sha=self.head, verifier_digest=self.digest)
             self._scope(default, "foundation")
             write_manifest(
                 historical / "manifest.json",
@@ -67,6 +60,8 @@ class VerificationLaneContracts(unittest.TestCase):
             )
             self._scope(historical, "watcher-core-and-live-negative")
 
+            self.assertEqual(DEFAULT_LANE, "default")
+            self.assertEqual(DEFAULT_PROFILE, "core")
             self.assertNotIn("watcher-core-and-live-negative", DEFAULT_SCOPE_NAMES)
             self.assertEqual(HISTORICAL_SCOPE_NAMES, ("watcher-core-and-live-negative",))
             self.assertEqual("foundation", load_canonical_results(default, "foundation", self.repository)["scope"])
@@ -80,14 +75,7 @@ class VerificationLaneContracts(unittest.TestCase):
     def test_unknown_or_mismatched_lane_profile_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            write_manifest(
-                root / "manifest.json",
-                base_sha=self.head,
-                head_sha=self.head,
-                verifier_digest=self.digest,
-                lane=DEFAULT_LANE,
-                profile=DEFAULT_PROFILE,
-            )
+            write_manifest(root / "manifest.json", base_sha=self.head, head_sha=self.head, verifier_digest=self.digest)
             self._scope(root, "foundation")
             manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
             manifest["profile"] = HISTORICAL_PROFILE
