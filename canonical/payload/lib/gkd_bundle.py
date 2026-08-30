@@ -25,6 +25,7 @@ STABLE_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][
 HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 ALLOWED_MODES = {"0644", "0755"}
 ALLOWED_KINDS = {"executable", "library"}
+ALLOWED_INPUT_KINDS = {"test", "release-verification"}
 METADATA_ROOT = "gkd/.bundle"
 SCHEMA_TARGET = f"{METADATA_ROOT}/manifest.schema.json"
 MANIFEST_TARGET = f"{METADATA_ROOT}/manifest.json"
@@ -282,7 +283,7 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         raise BundleError("INVALID_SOURCE_DECLARATION")
     _require_keys(
         declaration,
-        {"schema_version", "bundle_version", "release_status", "components"},
+        {"schema_version", "bundle_version", "release_status", "components", "inputs"},
         "INVALID_SOURCE_DECLARATION",
     )
     if declaration["schema_version"] != SCHEMA_VERSION:
@@ -300,6 +301,52 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     names: set[str] = set()
     sources: set[str] = set()
     targets: set[str] = set()
+    inputs = declaration["inputs"]
+    if not isinstance(inputs, list) or not inputs:
+        raise BundleError("INVALID_SOURCE_DECLARATION")
+    input_names: set[str] = set()
+    input_sources: set[str] = set()
+    normalized_inputs = []
+    for input_file in inputs:
+        if not isinstance(input_file, dict):
+            raise BundleError("INVALID_INPUT_FILE")
+        _require_keys(input_file, {"name", "kind", "source", "mode"}, "INVALID_INPUT_FILE")
+        name = input_file["name"]
+        kind = input_file["kind"]
+        source = _relative_path(input_file["source"], "INVALID_INPUT_PATH", "inputs/")
+        mode = input_file["mode"]
+        if (
+            not isinstance(name, str)
+            or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
+            or name in input_names
+            or kind not in ALLOWED_INPUT_KINDS
+            or mode not in ALLOWED_MODES
+            or source in input_sources
+            or source in sources
+            or _forbidden_content(name.encode("utf-8"))
+            or _forbidden_content(source.encode("utf-8"))
+        ):
+            raise BundleError("INVALID_INPUT_FILE")
+        input_names.add(name)
+        input_sources.add(source)
+        input_path = source_root / source
+        _require_regular_mode(
+            input_path, int(mode, 8), "INVALID_INPUT_FILE", "INPUT_MODE_MISMATCH"
+        )
+        content = input_path.read_bytes()
+        if _forbidden_content(content):
+            raise BundleError("FORBIDDEN_SOURCE_CONTENT")
+        normalized_inputs.append(
+            {
+                "name": name,
+                "kind": kind,
+                "source": source,
+                "type": "file",
+                "mode": mode,
+                "size": len(content),
+                "sha256": sha256_bytes(content),
+            }
+        )
     normalized_components = []
     for component in components:
         if not isinstance(component, dict):
@@ -347,6 +394,10 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     actual_sources = {f"payload/{path}" for path in payload_files}
     if actual_sources != sources:
         raise BundleError("UNDECLARED_OR_MISSING_PAYLOAD")
+    input_files = _walk_regular_files(source_root / "inputs", "INVALID_INPUT_TYPE")
+    actual_inputs = {f"inputs/{path}" for path in input_files}
+    if actual_inputs != input_sources:
+        raise BundleError("UNDECLARED_OR_MISSING_INPUT")
     for source in sorted(sources):
         path = source_root / source
         actual_mode = stat.S_IMODE(path.lstat().st_mode)
@@ -366,6 +417,7 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         "bundleVersion": version,
         "releaseStatus": expected_status,
         "components": sorted(normalized_components, key=lambda x: x["name"]),
+        "inputs": sorted(normalized_inputs, key=lambda x: x["source"]),
     }
 
 
@@ -402,7 +454,11 @@ def _validate_project_contamination(source_root: Path) -> None:
 def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     _validate_generated_metadata_modes(source_root)
     schema_bytes = _load_schema(source_root)
-    manifest = _load_source_declaration(source_root)
+    declaration = _load_source_declaration(source_root)
+    manifest = {
+        key: declaration[key]
+        for key in ("schemaVersion", "bundleVersion", "releaseStatus", "components")
+    }
     manifest_bytes = canonical_bytes(manifest)
     digest_inputs = [
         _digest_record("manifest.schema.json", "0644", schema_bytes),
@@ -424,6 +480,16 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
                     "sha256": sha256_bytes(content),
                 }
             )
+    input_files = [dict(item) for item in declaration["inputs"]]
+    for item in input_files:
+        digest_inputs.append(
+            {
+                "path": item["source"],
+                "type": item["type"],
+                "mode": item["mode"],
+                "sha256": item["sha256"],
+            }
+        )
     digest_inputs.sort(key=lambda item: item["path"])
     install_files.sort(key=lambda item: item["source"])
     content_digest = sha256_bytes(b"".join(canonical_bytes(item) for item in digest_inputs))
@@ -435,6 +501,7 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
         "manifestSha256": sha256_bytes(manifest_bytes),
         "digestInputs": digest_inputs,
         "installFiles": install_files,
+        "inputFiles": input_files,
         "contentDigest": content_digest,
     }
     return manifest, lock
@@ -471,6 +538,30 @@ def _validated_source(source_root_value: Path) -> tuple[Path, dict[str, Any], di
     if actual_lock != expected_lock:
         raise BundleError("LOCK_OR_DIGEST_MISMATCH")
     return source_root, actual_manifest, actual_lock
+
+
+def verify_input(source_root_value: Path, name: str) -> dict[str, Any]:
+    """Verify one explicit test or release-verification input outside the install surface."""
+
+    source_root, _, lock = _validated_source(source_root_value)
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+        raise BundleError("INVALID_INPUT_NAME")
+    for item in lock["inputFiles"]:
+        if item["name"] != name:
+            continue
+        path = source_root / item["source"]
+        _require_regular_mode(path, int(item["mode"], 8), "INPUT_MISSING", "INPUT_MODE_MISMATCH")
+        content = path.read_bytes()
+        if len(content) != item["size"] or sha256_bytes(content) != item["sha256"]:
+            raise BundleError("INPUT_CONTENT_MISMATCH")
+        return {
+            "status": "verified",
+            "name": item["name"],
+            "kind": item["kind"],
+            "source": item["source"],
+            "sha256": item["sha256"],
+        }
+    raise BundleError("INPUT_UNKNOWN")
 
 
 def verify_bundle_root(bundle_root_value: Path) -> dict[str, Any]:
@@ -591,6 +682,39 @@ def _scan_installed(target: Path) -> tuple[set[str], set[str]]:
     return files, directories
 
 
+def _validate_input_records(inputs: Any, code: str) -> None:
+    if not isinstance(inputs, list) or not inputs:
+        raise BundleError(code)
+    names: set[str] = set()
+    sources: set[str] = set()
+    for item in inputs:
+        if not isinstance(item, dict):
+            raise BundleError(code)
+        _require_keys(item, {"name", "kind", "source", "type", "mode", "size", "sha256"}, code)
+        name = item["name"]
+        source = _relative_path(item["source"], code, "inputs/")
+        if (
+            not isinstance(name, str)
+            or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
+            or name in names
+            or item["kind"] not in ALLOWED_INPUT_KINDS
+            or item["type"] != "file"
+            or item["mode"] not in ALLOWED_MODES
+            or not isinstance(item["size"], int)
+            or item["size"] < 0
+            or not isinstance(item["sha256"], str)
+            or not HEX_SHA256.fullmatch(item["sha256"])
+            or source in sources
+            or _forbidden_content(name.encode("utf-8"))
+            or _forbidden_content(source.encode("utf-8"))
+        ):
+            raise BundleError(code)
+        names.add(name)
+        sources.add(source)
+    if inputs != sorted(inputs, key=lambda item: item["source"]):
+        raise BundleError(code)
+
+
 def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
     _require_keys(
         manifest,
@@ -708,6 +832,7 @@ def _verify_target(target: Path) -> dict[str, Any]:
             "manifestSha256",
             "digestInputs",
             "installFiles",
+            "inputFiles",
             "contentDigest",
         },
         "INSTALLED_LOCK_INVALID",
@@ -719,6 +844,7 @@ def _verify_target(target: Path) -> dict[str, Any]:
         or lock["schemaSha256"] != sha256_bytes(schema_bytes)
         or lock["manifestSha256"] != sha256_bytes(canonical_bytes(manifest))
         or not isinstance(lock["installFiles"], list)
+        or not isinstance(lock["inputFiles"], list)
         or not isinstance(lock["digestInputs"], list)
         or not isinstance(lock["contentDigest"], str)
         or not HEX_SHA256.fullmatch(lock["contentDigest"])
@@ -730,6 +856,7 @@ def _verify_target(target: Path) -> dict[str, Any]:
         for component in manifest["components"]
         for item in component["files"]
     }
+    _validate_input_records(lock["inputFiles"], "INSTALLED_LOCK_INVALID")
     digest_inputs = [
         _digest_record(
             "manifest.schema.json",
@@ -742,6 +869,15 @@ def _verify_target(target: Path) -> dict[str, Any]:
             canonical_bytes(manifest),
         ),
     ]
+    for item in lock["inputFiles"]:
+        digest_inputs.append(
+            {
+                "path": item["source"],
+                "type": item["type"],
+                "mode": item["mode"],
+                "sha256": item["sha256"],
+            }
+        )
     normalized_files = []
     seen_sources: set[str] = set()
     for item in lock["installFiles"]:
@@ -1131,6 +1267,10 @@ def _parser() -> MachineParser:
     install_parser.add_argument("--temporary-root", type=Path, required=True)
     install_parser.add_argument("--target", type=Path, required=True)
 
+    input_parser = commands.add_parser("verify-input")
+    input_parser.add_argument("--source-root", type=Path, required=True)
+    input_parser.add_argument("--name", required=True)
+
     for name in ("verify", "version"):
         command = commands.add_parser(name)
         command.add_argument("--temporary-root", type=Path, required=True)
@@ -1157,6 +1297,8 @@ def main(argv: list[str] | None = None) -> int:
             result = generate(args.source_root)
         elif args.command == "install":
             result = install(args.source_root, args.temporary_root, args.target)
+        elif args.command == "verify-input":
+            result = verify_input(args.source_root, args.name)
         elif args.command == "verify":
             result = verify(args.temporary_root, args.target)
         elif args.command == "version":

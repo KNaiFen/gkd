@@ -42,8 +42,8 @@ from tests.ci_policy.helpers import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TRACEABILITY = ROOT / "canonical/payload/fixtures/release/traceability.json"
-TRUSTED_MAIN_EVALUATION = ROOT / "canonical/payload/fixtures/release/trusted-main-evaluation.json"
+TRACEABILITY = ROOT / "canonical/inputs/release/traceability.json"
+TRUSTED_MAIN_EVALUATION = ROOT / "canonical/inputs/release/trusted-main-evaluation.json"
 SANDBOX_REPOSITORY = "github.com/KNaiFen/gkd-sandbox"
 
 

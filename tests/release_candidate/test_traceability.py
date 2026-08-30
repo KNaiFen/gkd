@@ -11,7 +11,7 @@ from gkd_task.errors import TaskError
 
 class ReleaseCandidateContracts(unittest.TestCase):
     def setUp(self) -> None:
-        self.traceability = json.loads(Path("canonical/payload/fixtures/release/traceability.json").read_text())
+        self.traceability = json.loads(Path("canonical/inputs/release/traceability.json").read_text())
 
     def test_all_decisions_have_positive_negative_and_critical_mutations(self) -> None:
         validate_traceability(self.traceability)

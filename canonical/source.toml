@@ -2,6 +2,30 @@ schema_version = 1
 bundle_version = "0.1.5"
 release_status = "release-candidate"
 
+[[inputs]]
+name = "finalization-generic-input"
+kind = "test"
+source = "inputs/finalization/generic-input.json"
+mode = "0644"
+
+[[inputs]]
+name = "release-traceability"
+kind = "release-verification"
+source = "inputs/release/traceability.json"
+mode = "0644"
+
+[[inputs]]
+name = "release-trusted-main-evaluation"
+kind = "release-verification"
+source = "inputs/release/trusted-main-evaluation.json"
+mode = "0644"
+
+[[inputs]]
+name = "review-multi-repository"
+kind = "test"
+source = "inputs/review/multi-repository.json"
+mode = "0644"
+
 [[components]]
 name = "ci-monitor-cli"
 kind = "executable"
@@ -44,19 +68,10 @@ name = "release-candidate"
 kind = "library"
 files = [
   { source = "payload/bin/gkd-release", target = "gkd/bin/gkd-release", mode = "0755" },
-  { source = "payload/fixtures/release/trusted-main-evaluation.json", target = "gkd/fixtures/release/trusted-main-evaluation.json", mode = "0644" },
-  { source = "payload/fixtures/release/traceability.json", target = "gkd/fixtures/release/traceability.json", mode = "0644" },
   { source = "payload/lib/gkd_release/__init__.py", target = "gkd/lib/gkd_release/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_release/cli.py", target = "gkd/lib/gkd_release/cli.py", mode = "0644" },
   { source = "payload/lib/gkd_release/core.py", target = "gkd/lib/gkd_release/core.py", mode = "0644" },
   { source = "payload/lib/gkd_release/verification.py", target = "gkd/lib/gkd_release/verification.py", mode = "0644" },
-]
-
-[[components]]
-name = "review-fixtures"
-kind = "library"
-files = [
-  { source = "payload/fixtures/review/multi-repository.json", target = "gkd/fixtures/review/multi-repository.json", mode = "0644" },
 ]
 
 [[components]]
@@ -130,13 +145,6 @@ name = "finalization-cli"
 kind = "executable"
 files = [
   { source = "payload/bin/gkd-finalize", target = "gkd/bin/gkd-finalize", mode = "0755" },
-]
-
-[[components]]
-name = "finalization-fixtures"
-kind = "library"
-files = [
-  { source = "payload/fixtures/finalization/generic-input.json", target = "gkd/fixtures/finalization/generic-input.json", mode = "0644" },
 ]
 
 [[components]]
