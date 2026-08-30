@@ -595,3 +595,7 @@
 - [2026-08-30] O5 runtime fixture split 已通过 fresh acceptor 独立验收并合并。
   - Why: R2 将四个仅供测试、演练或 release traceability 的输入从 core payload 字节不变迁移到显式 `canonical/inputs`，由 source declaration/lock 和 `verify-input` 绑定实际文件；双解释器、固定 head CI、安装泄漏负向合同和 tree 一致性均通过。首个 acceptor 因绝对 policy path 得到 `POLICY_PATH_UNSUPPORTED`，按门禁未重试；全新 acceptor 使用相对 `.gkd/policy.json` 完成验收。
   - Impact: PR #49 fixed head `fcef63b4d75b39932fcb02bb83560def3c426056` 以 squash merge `03524c0070bb3b13b5417239cdad37b21922c278` 进入 main，candidate bundle digest 为 `b7f1d783cf01cdcecfb12f98ce426877aec99b7b4647dacc542fdae8cc053d02`。core payload/install 为 107/111 个文件且无 fixture 目录，Python 3.9.6/3.14.6 各 405 项；生产、AIO、settings、Secrets、runner、tag/Release 与既有资产未变。
+
+- [2026-08-30] O5-R2 收尾清理完成。
+  - Why: accepted candidate 在清理前保持 clean、固定于 `fcef63b4d75b39932fcb02bb83560def3c426056`，candidate tree 与 squash merge tree 均为 `5eb721ce350872723be6781e2a9ad8a9eca207a7`。
+  - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、双解释器临时根和一次性 route/ack/review 输入已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 main merge 保留。
