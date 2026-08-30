@@ -58,11 +58,7 @@ class ReworkContracts(unittest.TestCase):
             failure_hook=failure_hook,
         )
 
-    def _automatic_delivery(
-        self,
-        lane: str | None = None,
-        profile: str | None = None,
-    ) -> tuple[dict[str, object], dict[str, object], str]:
+    def _automatic_delivery(self, lane: str = "default", profile: str = "core") -> tuple[dict[str, object], dict[str, object], str]:
         self.repo.ready_and_authorized()
         digest = bundle_digest()
         stage_project(BUNDLE_ROOT, digest, self.repo.main, self.repo.production)

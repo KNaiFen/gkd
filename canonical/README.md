@@ -49,14 +49,14 @@ task state, planning and authorization gates, portable worktree resolution,
 offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
 The foundation `gkd-bundle` command surface remains unchanged.
 
-The repository verifier keeps its default invocation and legacy complete scope
-list. With an explicit `--results-dir`, it writes a path-free canonical result
-manifest plus one result per scope. Schema v2 manifests bind a known lane and
-profile to its complete, duplicate-free scope set: `default/core` and
-`historical/watcher`. Schema v1 remains a strict legacy path for the current
-complete default result set. Evidence runners and fixed-tree delivery,
-acceptance, and rework consumers share these checks before running protected
-surface, temporary-root, and output checks.
+The repository verifier keeps its default invocation and core scope list.
+`scripts/gkd-verify --lane historical` is the explicit watcher/probe historical
+lane; it never runs from the default command. With an explicit `--results-dir`,
+each lane runs its scopes once and writes a versioned,
+path-free canonical result manifest plus one result per scope. Evidence runners
+may consume that directory with `--canonical-results`; they re-check the
+current fixed head, base ancestry, environment, test IDs/statuses and digests
+before running their own protected-surface, temporary-root and output checks.
 
 Trusted acceptance uses the installed `gkd-github-acceptance` executable as its
 GitHub REST adapter. It returns canonical newline-delimited snapshots, maps a
