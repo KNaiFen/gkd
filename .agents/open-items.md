@@ -117,4 +117,4 @@
 - [ ] O6 默认角色与 optional pack 拆分：从 O5 merge 后的新 development bundle 建立全新 task/offer/claim，收窄默认 executor context，并验证 optional pack 可显式 stage/self-verify。
 - [x] O6 attempt 0 已受信 block：实现和双解释器 core 8 scopes/387 tests、optional 19/11/30 tests 均完成，但 current delivery consumer 对八 scope sidecar 返回 `INVALID_RESULT_MANIFEST`；block head `b654587400e2a74bcaff7d46033225965995c554`、revision 6，未 delivery、push、PR、CI 或 acceptance，不得复用该 lifecycle。candidate/branch/runtime/package/一次性输入已完成可恢复清理。
 - [x] O6 delivery compatibility 前置任务已完成：PR #50 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0` merge 为 `d3703bf57c5047f41db57e97d9117550acf7ffc9`；旧 schema-v1/full-install/十 scope producer 保持，新 consumer 严格理解 schema-v2 packs、八 scope core 与 optional lanes。candidate/branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
-- [ ] O6 retry：从 compatibility merge 的新 execution bundle 建立新 task/offer/claim，实施默认角色、core 安装面与 explicit optional pack 拆分；不得复用 O6 attempt 0 lifecycle。
+- [ ] O6 R2：fresh lifecycle 已完成默认角色、core 安装面与 explicit optional pack 拆分，并通过双解释器 core/optional lane 验证；等待 canonical delivery、fixed-head CI 与独立 acceptance，不得复用 O6 attempt 0 lifecycle。

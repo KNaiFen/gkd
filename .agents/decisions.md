@@ -615,3 +615,7 @@
 - [2026-08-31] O6 delivery pack compatibility 收尾清理完成。
   - Why: accepted candidate 清理前保持 clean、固定于 `e01a9cd856df2186787c17452c2d2e3ac95d23b0`，candidate tree 与 squash merge tree 均为 `b8f5fc7e6bc9a8c682f7e2ba38d1e5d93018f8ff`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、review、route 与双解释器/install/evidence 临时根已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 merge 保留。
+
+- [2026-08-31] O6 R2 候选将默认 executor 与安装面收窄为 core，并以显式 pack 保留 CI advice 与 review/remediation。
+  - Why: PR #50 已使受信 delivery consumer 严格理解 schema-v2 pack/core/optional lane，O6 可以在新 lifecycle 中安全改变 producer，避免把按需能力隐式放入默认 context、install 或 verifier。
+  - Impact: source/manifest/lock 现在以 `ci-advice`、`review-remediation` pack 绑定文件、mode、size 与 digest；默认 executor 只含 execute/local-verify/ci-monitor，v1 full-install 仍可读。双解释器 core 与 optional verification 均通过，候选尚未 canonical delivery 或 acceptance。
