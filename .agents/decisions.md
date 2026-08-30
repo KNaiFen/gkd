@@ -603,3 +603,7 @@
 - [2026-08-31] O6 attempt 0 因 delivery consumer 的旧 default scope 假设受信 block。
   - Why: executor 已实现默认 core 与两个 optional pack，Python 3.9.6/3.14.6 均通过 core 8 scopes/387 tests 及 optional 19/11/30 tests；但 accepted execution bundle 在 canonical delivery 中仍要求旧十个 default scopes，对八 scope sidecar 返回 `INVALID_RESULT_MANIFEST`。实现、evidence 与 delivery document 已提交，但 lifecycle 未进入 delivered。
   - Impact: trusted `gkd-task block` 以 `delivery_consumer_optional_scope_compatibility` 在 revision 6/head `b654587400e2a74bcaff7d46033225965995c554` 固化旧 attempt；未 push、未创建 PR、CI 或 acceptance。下一任务先以旧 default/install producer 交付 forward-compatible manifest-v2 pack 与 optional lane consumer，O6 再从新 lifecycle 重启。
+
+- [2026-08-31] O6 blocked attempt 已完成可恢复清理。
+  - Why: lifecycle 已受信 block，candidate 固定于 `b654587400e2a74bcaff7d46033225965995c554` 且 worktree clean；没有远端 task branch 或 PR 可清理。
+  - Impact: candidate worktree 与本地 branch 已删除；runtime、package、route/ack、双解释器与 install 临时根已移入可恢复 Trash。已验证 development execution bundle 与 project staging 保留给 compatibility 新任务。
