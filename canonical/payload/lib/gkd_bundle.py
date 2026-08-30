@@ -20,6 +20,8 @@ sys.dont_write_bytecode = True
 
 
 SCHEMA_VERSION = 1
+FUTURE_SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {SCHEMA_VERSION, FUTURE_SCHEMA_VERSION}
 DEVELOPMENT_VERSION = re.compile(r"^0\.0\.0-dev\.[0-9]+$")
 STABLE_VERSION = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 HEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -229,7 +231,7 @@ def _walk_regular_files(root: Path, code: str) -> dict[str, Path]:
     return found
 
 
-def _validate_schema_document(schema: Any) -> None:
+def _validate_schema_document(schema: Any, expected_version: int = SCHEMA_VERSION) -> None:
     if not isinstance(schema, dict):
         raise BundleError("INVALID_MANIFEST_SCHEMA")
     _require_keys(
@@ -237,21 +239,25 @@ def _validate_schema_document(schema: Any) -> None:
         {"schemaVersion", "title", "type", "additionalProperties", "required", "properties"},
         "INVALID_MANIFEST_SCHEMA",
     )
+    required = ["schemaVersion", "bundleVersion", "releaseStatus", "components"]
+    properties = {"schemaVersion", "bundleVersion", "releaseStatus", "components"}
+    if expected_version == FUTURE_SCHEMA_VERSION:
+        required.append("packs")
+        properties.add("packs")
     if (
-        schema["schemaVersion"] != SCHEMA_VERSION
+        expected_version not in SUPPORTED_SCHEMA_VERSIONS
+        or schema["schemaVersion"] != expected_version
         or schema["type"] != "object"
         or schema["additionalProperties"] is not False
-        or schema["required"]
-        != ["schemaVersion", "bundleVersion", "releaseStatus", "components"]
+        or schema["required"] != required
         or not isinstance(schema["properties"], dict)
-        or set(schema["properties"])
-        != {"schemaVersion", "bundleVersion", "releaseStatus", "components"}
-        or schema["properties"].get("schemaVersion") != {"const": SCHEMA_VERSION}
+        or set(schema["properties"]) != properties
+        or schema["properties"].get("schemaVersion") != {"const": expected_version}
     ):
         raise BundleError("INVALID_MANIFEST_SCHEMA")
 
 
-def _load_schema(source_root: Path) -> bytes:
+def _load_schema(source_root: Path, expected_version: int) -> bytes:
     path = source_root / "manifest.schema.json"
     _require_regular_mode(
         path,
@@ -264,7 +270,7 @@ def _load_schema(source_root: Path) -> bytes:
         schema = json.loads(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         raise BundleError("INVALID_MANIFEST_SCHEMA") from None
-    _validate_schema_document(schema)
+    _validate_schema_document(schema, expected_version)
     return raw
 
 
@@ -281,13 +287,28 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         raise BundleError("INVALID_SOURCE_DECLARATION") from None
     if not isinstance(declaration, dict):
         raise BundleError("INVALID_SOURCE_DECLARATION")
-    _require_keys(
-        declaration,
-        {"schema_version", "bundle_version", "release_status", "components", "inputs"},
-        "INVALID_SOURCE_DECLARATION",
-    )
-    if declaration["schema_version"] != SCHEMA_VERSION:
+    schema_version = declaration.get("schema_version")
+    source_keys = {"schema_version", "bundle_version", "release_status", "components", "inputs"}
+    if schema_version == FUTURE_SCHEMA_VERSION:
+        source_keys.add("packs")
+    _require_keys(declaration, source_keys, "INVALID_SOURCE_DECLARATION")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise BundleError("INVALID_SOURCE_DECLARATION")
+    pack_names: set[str] = set()
+    if schema_version == FUTURE_SCHEMA_VERSION:
+        packs = declaration["packs"]
+        if not isinstance(packs, list) or not packs:
+            raise BundleError("INVALID_PACK")
+        for pack in packs:
+            if (
+                not isinstance(pack, dict)
+                or set(pack) != {"name"}
+                or not isinstance(pack["name"], str)
+                or not re.fullmatch(r"[a-z][a-z0-9-]*", pack["name"])
+                or pack["name"] in pack_names
+            ):
+                raise BundleError("INVALID_PACK")
+            pack_names.add(pack["name"])
     version = declaration["bundle_version"]
     if not isinstance(version, str) or not (DEVELOPMENT_VERSION.fullmatch(version) or STABLE_VERSION.fullmatch(version)):
         raise BundleError("INVALID_BUNDLE_VERSION")
@@ -310,11 +331,15 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     for input_file in inputs:
         if not isinstance(input_file, dict):
             raise BundleError("INVALID_INPUT_FILE")
-        _require_keys(input_file, {"name", "kind", "source", "mode"}, "INVALID_INPUT_FILE")
+        input_keys = {"name", "kind", "source", "mode"}
+        if schema_version == FUTURE_SCHEMA_VERSION and "pack" in input_file:
+            input_keys.add("pack")
+        _require_keys(input_file, input_keys, "INVALID_INPUT_FILE")
         name = input_file["name"]
         kind = input_file["kind"]
         source = _relative_path(input_file["source"], "INVALID_INPUT_PATH", "inputs/")
         mode = input_file["mode"]
+        pack = input_file.get("pack")
         if (
             not isinstance(name, str)
             or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
@@ -325,6 +350,7 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
             or source in sources
             or _forbidden_content(name.encode("utf-8"))
             or _forbidden_content(source.encode("utf-8"))
+            or (pack is not None and pack not in pack_names)
         ):
             raise BundleError("INVALID_INPUT_FILE")
         input_names.add(name)
@@ -336,25 +362,30 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         content = input_path.read_bytes()
         if _forbidden_content(content):
             raise BundleError("FORBIDDEN_SOURCE_CONTENT")
-        normalized_inputs.append(
-            {
-                "name": name,
-                "kind": kind,
-                "source": source,
-                "type": "file",
-                "mode": mode,
-                "size": len(content),
-                "sha256": sha256_bytes(content),
-            }
-        )
+        normalized = {
+            "name": name,
+            "kind": kind,
+            "source": source,
+            "type": "file",
+            "mode": mode,
+            "size": len(content),
+            "sha256": sha256_bytes(content),
+        }
+        if schema_version == FUTURE_SCHEMA_VERSION:
+            normalized["pack"] = pack
+        normalized_inputs.append(normalized)
     normalized_components = []
     for component in components:
         if not isinstance(component, dict):
             raise BundleError("INVALID_COMPONENT")
-        _require_keys(component, {"name", "kind", "files"}, "INVALID_COMPONENT")
+        component_keys = {"name", "kind", "files"}
+        if schema_version == FUTURE_SCHEMA_VERSION and "pack" in component:
+            component_keys.add("pack")
+        _require_keys(component, component_keys, "INVALID_COMPONENT")
         name = component["name"]
         kind = component["kind"]
         files = component["files"]
+        pack = component.get("pack")
         if (
             not isinstance(name, str)
             or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
@@ -362,6 +393,7 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
             or kind not in ALLOWED_KINDS
             or not isinstance(files, list)
             or not files
+            or (pack is not None and pack not in pack_names)
         ):
             raise BundleError("INVALID_COMPONENT")
         if _forbidden_content(name.encode("utf-8")):
@@ -386,9 +418,10 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
             normalized_files.append(
                 {"source": source, "target": target, "type": "file", "mode": mode}
             )
-        normalized_components.append(
-            {"name": name, "kind": kind, "files": sorted(normalized_files, key=lambda x: x["source"])}
-        )
+        normalized = {"name": name, "kind": kind, "files": sorted(normalized_files, key=lambda x: x["source"])}
+        if schema_version == FUTURE_SCHEMA_VERSION and pack is not None:
+            normalized["pack"] = pack
+        normalized_components.append(normalized)
 
     payload_files = _walk_regular_files(source_root / "payload", "INVALID_PAYLOAD_TYPE")
     actual_sources = {f"payload/{path}" for path in payload_files}
@@ -412,13 +445,26 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         if _forbidden_content(path.read_bytes()):
             raise BundleError("FORBIDDEN_SOURCE_CONTENT")
 
-    return {
-        "schemaVersion": SCHEMA_VERSION,
+    result = {
+        "schemaVersion": schema_version,
         "bundleVersion": version,
         "releaseStatus": expected_status,
         "components": sorted(normalized_components, key=lambda x: x["name"]),
         "inputs": sorted(normalized_inputs, key=lambda x: x["source"]),
     }
+    if schema_version == FUTURE_SCHEMA_VERSION:
+        component_packs = {item.get("pack") for item in normalized_components if item.get("pack") is not None}
+        if component_packs != pack_names:
+            raise BundleError("INVALID_PACK")
+        result["packs"] = [
+            {
+                "name": name,
+                "components": sorted(item["name"] for item in normalized_components if item.get("pack") == name),
+                "inputs": sorted(item["name"] for item in normalized_inputs if item.get("pack") == name),
+            }
+            for name in sorted(pack_names)
+        ]
+    return result
 
 
 def _digest_record(path: str, mode: str, content: bytes) -> dict[str, Any]:
@@ -428,6 +474,48 @@ def _digest_record(path: str, mode: str, content: bytes) -> dict[str, Any]:
         "mode": mode,
         "sha256": sha256_bytes(content),
     }
+
+
+def _pack_lock_records(
+    manifest: dict[str, Any],
+    install_files: list[dict[str, Any]],
+    input_files: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    records = []
+    for pack in manifest.get("packs", ()):
+        files = [
+            {key: item[key] for key in ("source", "target", "mode", "size", "sha256")}
+            for item in install_files
+            if item.get("pack") == pack["name"]
+        ]
+        inputs = [
+            {key: item[key] for key in ("name", "source", "mode", "size", "sha256")}
+            for item in input_files
+            if item.get("pack") == pack["name"]
+        ]
+        unsigned = {"name": pack["name"], "files": files, "inputs": inputs}
+        records.append(
+            {
+                **unsigned,
+                "packDigest": sha256_bytes(
+                    b"".join(canonical_bytes(item) for item in (*files, *inputs))
+                ),
+            }
+        )
+    return records
+
+
+def _core_digest(
+    digest_inputs: list[dict[str, Any]],
+    install_files: list[dict[str, Any]],
+    input_files: list[dict[str, Any]],
+) -> str:
+    core_sources = {
+        item["source"] for item in (*install_files, *input_files) if item.get("pack") is None
+    }
+    return sha256_bytes(
+        b"".join(canonical_bytes(item) for item in digest_inputs if item["path"] in core_sources)
+    )
 
 
 def _validate_generated_metadata_modes(source_root: Path) -> None:
@@ -453,12 +541,12 @@ def _validate_project_contamination(source_root: Path) -> None:
 
 def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     _validate_generated_metadata_modes(source_root)
-    schema_bytes = _load_schema(source_root)
     declaration = _load_source_declaration(source_root)
-    manifest = {
-        key: declaration[key]
-        for key in ("schemaVersion", "bundleVersion", "releaseStatus", "components")
-    }
+    schema_bytes = _load_schema(source_root, declaration["schemaVersion"])
+    manifest_keys = ("schemaVersion", "bundleVersion", "releaseStatus", "components")
+    if declaration["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        manifest_keys += ("packs",)
+    manifest = {key: declaration[key] for key in manifest_keys}
     manifest_bytes = canonical_bytes(manifest)
     digest_inputs = [
         _digest_record("manifest.schema.json", "0644", schema_bytes),
@@ -469,17 +557,18 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
         for item in component["files"]:
             content = (source_root / item["source"]).read_bytes()
             digest_inputs.append(_digest_record(item["source"], item["mode"], content))
-            install_files.append(
-                {
-                    "component": component["name"],
-                    "source": item["source"],
-                    "target": item["target"],
-                    "type": "file",
-                    "mode": item["mode"],
-                    "size": len(content),
-                    "sha256": sha256_bytes(content),
-                }
-            )
+            record = {
+                "component": component["name"],
+                "source": item["source"],
+                "target": item["target"],
+                "type": "file",
+                "mode": item["mode"],
+                "size": len(content),
+                "sha256": sha256_bytes(content),
+            }
+            if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+                record["pack"] = component.get("pack")
+            install_files.append(record)
     input_files = [dict(item) for item in declaration["inputs"]]
     for item in input_files:
         digest_inputs.append(
@@ -494,7 +583,7 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
     install_files.sort(key=lambda item: item["source"])
     content_digest = sha256_bytes(b"".join(canonical_bytes(item) for item in digest_inputs))
     lock = {
-        "schemaVersion": SCHEMA_VERSION,
+        "schemaVersion": manifest["schemaVersion"],
         "bundleVersion": manifest["bundleVersion"],
         "releaseStatus": manifest["releaseStatus"],
         "schemaSha256": sha256_bytes(schema_bytes),
@@ -504,6 +593,9 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
         "inputFiles": input_files,
         "contentDigest": content_digest,
     }
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        lock["packs"] = _pack_lock_records(manifest, install_files, input_files)
+        lock["coreDigest"] = _core_digest(digest_inputs, install_files, input_files)
     return manifest, lock
 
 
@@ -554,13 +646,16 @@ def verify_input(source_root_value: Path, name: str) -> dict[str, Any]:
         content = path.read_bytes()
         if len(content) != item["size"] or sha256_bytes(content) != item["sha256"]:
             raise BundleError("INPUT_CONTENT_MISMATCH")
-        return {
+        result = {
             "status": "verified",
             "name": item["name"],
             "kind": item["kind"],
             "source": item["source"],
             "sha256": item["sha256"],
         }
+        if "pack" in item:
+            result["pack"] = item["pack"]
+        return result
     raise BundleError("INPUT_UNKNOWN")
 
 
@@ -571,22 +666,28 @@ def verify_bundle_root(bundle_root_value: Path) -> dict[str, Any]:
     source_root = bundle_root.parent
     if bundle_root.name == "payload" and (source_root / "source.toml").is_file():
         _, manifest, lock = _validated_source(source_root)
-        return {
+        result = {
             "status": "verified",
             "layout": "canonical-source",
             "bundleVersion": manifest["bundleVersion"],
             "contentDigest": lock["contentDigest"],
             "files": len(lock["installFiles"]),
         }
+        if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+            result["availablePacks"] = list(_pack_names(manifest))
+        return result
     if bundle_root.name == "gkd" and (bundle_root / ".bundle").is_dir():
-        result = _verify_target(bundle_root.parent)
-        return {
-            "status": result["status"],
+        installed = _verify_target(bundle_root.parent)
+        result = {
+            "status": installed["status"],
             "layout": "installed",
-            "bundleVersion": result["bundleVersion"],
-            "contentDigest": result["contentDigest"],
-            "files": len(result["files"]),
+            "bundleVersion": installed["bundleVersion"],
+            "contentDigest": installed["contentDigest"],
+            "files": len(installed["files"]),
         }
+        if "installedPacks" in installed:
+            result["installedPacks"] = installed["installedPacks"]
+        return result
     raise BundleError("INVALID_BUNDLE_ROOT")
 
 
@@ -620,7 +721,26 @@ def _safe_temp_paths(temporary_root_value: Path, target_value: Path) -> tuple[Pa
     return temporary_root, target
 
 
-def _install_record(manifest: dict[str, Any], lock: dict[str, Any]) -> dict[str, Any]:
+def _pack_names(manifest: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(pack["name"] for pack in manifest.get("packs", ()))
+
+
+def _selected_install_files(
+    lock: dict[str, Any], installed_packs: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    selected = set(installed_packs)
+    return [
+        item
+        for item in lock["installFiles"]
+        if item.get("pack") is None or item.get("pack") in selected
+    ]
+
+
+def _install_record(
+    manifest: dict[str, Any],
+    lock: dict[str, Any],
+    installed_packs: tuple[str, ...] = (),
+) -> dict[str, Any]:
     metadata = (
         (SCHEMA_TARGET, lock["schemaSha256"]),
         (MANIFEST_TARGET, lock["manifestSha256"]),
@@ -634,20 +754,23 @@ def _install_record(manifest: dict[str, Any], lock: dict[str, Any]) -> dict[str,
             "size": item["size"],
             "sha256": item["sha256"],
         }
-        for item in lock["installFiles"]
+        for item in _selected_install_files(lock, installed_packs)
     ]
     for path, digest in metadata:
         owned_files.append(
             {"path": path, "type": "file", "mode": "0644", "sha256": digest}
         )
     owned_files.sort(key=lambda item: item["path"])
-    return {
-        "schemaVersion": SCHEMA_VERSION,
+    result = {
+        "schemaVersion": manifest["schemaVersion"],
         "bundleVersion": manifest["bundleVersion"],
         "releaseStatus": manifest["releaseStatus"],
         "contentDigest": lock["contentDigest"],
         "ownedFiles": owned_files,
     }
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        result["installedPacks"] = list(installed_packs)
+    return result
 
 
 def _expected_directories(files: set[str]) -> set[str]:
@@ -682,7 +805,12 @@ def _scan_installed(target: Path) -> tuple[set[str], set[str]]:
     return files, directories
 
 
-def _validate_input_records(inputs: Any, code: str) -> None:
+def _validate_input_records(
+    inputs: Any,
+    code: str,
+    schema_version: int,
+    pack_names: tuple[str, ...] = (),
+) -> None:
     if not isinstance(inputs, list) or not inputs:
         raise BundleError(code)
     names: set[str] = set()
@@ -690,9 +818,13 @@ def _validate_input_records(inputs: Any, code: str) -> None:
     for item in inputs:
         if not isinstance(item, dict):
             raise BundleError(code)
-        _require_keys(item, {"name", "kind", "source", "type", "mode", "size", "sha256"}, code)
+        expected = {"name", "kind", "source", "type", "mode", "size", "sha256"}
+        if schema_version == FUTURE_SCHEMA_VERSION:
+            expected.add("pack")
+        _require_keys(item, expected, code)
         name = item["name"]
         source = _relative_path(item["source"], code, "inputs/")
+        pack = item.get("pack")
         if (
             not isinstance(name, str)
             or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
@@ -707,6 +839,11 @@ def _validate_input_records(inputs: Any, code: str) -> None:
             or source in sources
             or _forbidden_content(name.encode("utf-8"))
             or _forbidden_content(source.encode("utf-8"))
+            or (
+                schema_version == FUTURE_SCHEMA_VERSION
+                and pack is not None
+                and (not isinstance(pack, str) or pack not in pack_names)
+            )
         ):
             raise BundleError(code)
         names.add(name)
@@ -716,13 +853,12 @@ def _validate_input_records(inputs: Any, code: str) -> None:
 
 
 def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
-    _require_keys(
-        manifest,
-        {"schemaVersion", "bundleVersion", "releaseStatus", "components"},
-        "INSTALLED_MANIFEST_INVALID",
-    )
+    keys = {"schemaVersion", "bundleVersion", "releaseStatus", "components"}
+    if manifest.get("schemaVersion") == FUTURE_SCHEMA_VERSION:
+        keys.add("packs")
+    _require_keys(manifest, keys, "INSTALLED_MANIFEST_INVALID")
     if (
-        manifest["schemaVersion"] != SCHEMA_VERSION
+        manifest["schemaVersion"] not in SUPPORTED_SCHEMA_VERSIONS
         or not isinstance(manifest["bundleVersion"], str)
         or not (DEVELOPMENT_VERSION.fullmatch(manifest["bundleVersion"]) or STABLE_VERSION.fullmatch(manifest["bundleVersion"]))
         or manifest["releaseStatus"] != ("development" if DEVELOPMENT_VERSION.fullmatch(manifest["bundleVersion"]) else "release-candidate")
@@ -736,8 +872,12 @@ def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
     for component in manifest["components"]:
         if not isinstance(component, dict):
             raise BundleError("INSTALLED_MANIFEST_INVALID")
-        _require_keys(component, {"name", "kind", "files"}, "INSTALLED_MANIFEST_INVALID")
+        component_keys = {"name", "kind", "files"}
+        if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION and "pack" in component:
+            component_keys.add("pack")
+        _require_keys(component, component_keys, "INSTALLED_MANIFEST_INVALID")
         name = component["name"]
+        pack = component.get("pack")
         if (
             not isinstance(name, str)
             or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
@@ -746,6 +886,10 @@ def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
             or component["kind"] not in ALLOWED_KINDS
             or not isinstance(component["files"], list)
             or not component["files"]
+            or (
+                manifest["schemaVersion"] != FUTURE_SCHEMA_VERSION
+                and pack is not None
+            )
         ):
             raise BundleError("INSTALLED_MANIFEST_INVALID")
         seen_names.add(name)
@@ -771,6 +915,38 @@ def _validate_installed_manifest(manifest: dict[str, Any]) -> None:
         for component in manifest["components"]
     ):
         raise BundleError("INSTALLED_MANIFEST_INVALID")
+    if manifest["schemaVersion"] != FUTURE_SCHEMA_VERSION:
+        return
+    packs = manifest["packs"]
+    if not isinstance(packs, list) or not packs:
+        raise BundleError("INSTALLED_MANIFEST_INVALID")
+    names: list[str] = []
+    for pack in packs:
+        if not isinstance(pack, dict):
+            raise BundleError("INSTALLED_MANIFEST_INVALID")
+        _require_keys(pack, {"name", "components", "inputs"}, "INSTALLED_MANIFEST_INVALID")
+        name = pack["name"]
+        if (
+            not isinstance(name, str)
+            or not re.fullmatch(r"[a-z][a-z0-9-]*", name)
+            or not isinstance(pack["components"], list)
+            or not isinstance(pack["inputs"], list)
+            or any(not isinstance(item, str) for item in (*pack["components"], *pack["inputs"]))
+            or pack["components"] != sorted(set(pack["components"]))
+            or pack["inputs"] != sorted(set(pack["inputs"]))
+            or pack["components"]
+            != sorted(component["name"] for component in manifest["components"] if component.get("pack") == name)
+        ):
+            raise BundleError("INSTALLED_MANIFEST_INVALID")
+        names.append(name)
+    if names != sorted(set(names)):
+        raise BundleError("INSTALLED_MANIFEST_INVALID")
+    if {
+        component.get("pack")
+        for component in manifest["components"]
+        if component.get("pack") is not None
+    } != set(names):
+        raise BundleError("INSTALLED_MANIFEST_INVALID")
 
 
 def _verify_target(target: Path) -> dict[str, Any]:
@@ -791,7 +967,8 @@ def _verify_target(target: Path) -> dict[str, Any]:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         raise BundleError("INSTALLED_SCHEMA_INVALID") from None
     try:
-        _validate_schema_document(schema)
+        schema_version = schema.get("schemaVersion") if isinstance(schema, dict) else None
+        _validate_schema_document(schema, schema_version)
     except BundleError:
         raise BundleError("INSTALLED_SCHEMA_INVALID") from None
     manifest_metadata = _require_regular_mode(
@@ -822,23 +999,22 @@ def _verify_target(target: Path) -> dict[str, Any]:
         install_path, "INSTALL_RECORD_INVALID", "TARGET_DRIFT_MODE"
     )
     _validate_installed_manifest(manifest)
-    _require_keys(
-        lock,
-        {
-            "schemaVersion",
-            "bundleVersion",
-            "releaseStatus",
-            "schemaSha256",
-            "manifestSha256",
-            "digestInputs",
-            "installFiles",
-            "inputFiles",
-            "contentDigest",
-        },
-        "INSTALLED_LOCK_INVALID",
-    )
+    lock_keys = {
+        "schemaVersion",
+        "bundleVersion",
+        "releaseStatus",
+        "schemaSha256",
+        "manifestSha256",
+        "digestInputs",
+        "installFiles",
+        "inputFiles",
+        "contentDigest",
+    }
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        lock_keys |= {"packs", "coreDigest"}
+    _require_keys(lock, lock_keys, "INSTALLED_LOCK_INVALID")
     if (
-        lock["schemaVersion"] != SCHEMA_VERSION
+        lock["schemaVersion"] != manifest["schemaVersion"]
         or lock["bundleVersion"] != manifest["bundleVersion"]
         or lock["releaseStatus"] != manifest["releaseStatus"]
         or lock["schemaSha256"] != sha256_bytes(schema_bytes)
@@ -848,15 +1024,56 @@ def _verify_target(target: Path) -> dict[str, Any]:
         or not isinstance(lock["digestInputs"], list)
         or not isinstance(lock["contentDigest"], str)
         or not HEX_SHA256.fullmatch(lock["contentDigest"])
+        or (
+            manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION
+            and (
+                not isinstance(lock["packs"], list)
+                or not isinstance(lock["coreDigest"], str)
+                or not HEX_SHA256.fullmatch(lock["coreDigest"])
+            )
+        )
     ):
         raise BundleError("INSTALLED_LOCK_INVALID")
 
     manifest_mapping = {
-        item["source"]: (component["name"], item["target"], item["mode"])
+        item["source"]: (
+            component["name"],
+            item["target"],
+            item["mode"],
+            component.get("pack"),
+        )
         for component in manifest["components"]
         for item in component["files"]
     }
-    _validate_input_records(lock["inputFiles"], "INSTALLED_LOCK_INVALID")
+    pack_names = _pack_names(manifest)
+    _validate_input_records(
+        lock["inputFiles"],
+        "INSTALLED_LOCK_INVALID",
+        manifest["schemaVersion"],
+        pack_names,
+    )
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        if (
+            [item.get("name") if isinstance(item, dict) else None for item in lock["packs"]]
+            != list(pack_names)
+            or any(
+                not isinstance(item, dict)
+                or item.get("pack") not in {*pack_names, None}
+                for item in lock["installFiles"]
+            )
+        ):
+            raise BundleError("INSTALLED_LOCK_INVALID")
+        installed_packs = install_record.get("installedPacks")
+        if (
+            not isinstance(installed_packs, list)
+            or any(not isinstance(name, str) for name in installed_packs)
+            or installed_packs != sorted(set(installed_packs))
+            or not set(installed_packs).issubset(pack_names)
+        ):
+            raise BundleError("INSTALL_RECORD_INVALID")
+        selected_packs = tuple(installed_packs)
+    else:
+        selected_packs = ()
     digest_inputs = [
         _digest_record(
             "manifest.schema.json",
@@ -880,19 +1097,27 @@ def _verify_target(target: Path) -> dict[str, Any]:
         )
     normalized_files = []
     seen_sources: set[str] = set()
+    selected_sources = {
+        item["source"] for item in _selected_install_files(lock, selected_packs)
+    }
     for item in lock["installFiles"]:
         if not isinstance(item, dict):
             raise BundleError("INSTALLED_LOCK_INVALID")
         _require_keys(
             item,
-            {"component", "source", "target", "type", "mode", "size", "sha256"},
+            (
+                {"component", "source", "target", "type", "mode", "size", "sha256", "pack"}
+                if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION
+                else {"component", "source", "target", "type", "mode", "size", "sha256"}
+            ),
             "INSTALLED_LOCK_INVALID",
         )
         source = item["source"]
         if (
             source not in manifest_mapping
             or source in seen_sources
-            or manifest_mapping[source] != (item["component"], item["target"], item["mode"])
+            or manifest_mapping[source]
+            != (item["component"], item["target"], item["mode"], item.get("pack"))
             or item["type"] != "file"
             or not isinstance(item["size"], int)
             or not isinstance(item["sha256"], str)
@@ -900,6 +1125,16 @@ def _verify_target(target: Path) -> dict[str, Any]:
         ):
             raise BundleError("INSTALLED_LOCK_INVALID")
         seen_sources.add(source)
+        digest_inputs.append(
+            {
+                "path": source,
+                "type": "file",
+                "mode": item["mode"],
+                "sha256": item["sha256"],
+            }
+        )
+        if source not in selected_sources:
+            continue
         path = target / item["target"]
         try:
             metadata = path.lstat()
@@ -912,7 +1147,7 @@ def _verify_target(target: Path) -> dict[str, Any]:
             raise BundleError("TARGET_DRIFT_MODE")
         if len(content) != item["size"] or sha256_bytes(content) != item["sha256"]:
             raise BundleError("TARGET_DRIFT_CONTENT")
-        digest_inputs.append(_digest_record(source, item["mode"], content))
+        digest_inputs[-1] = _digest_record(source, item["mode"], content)
         normalized_files.append(
             {
                 "path": item["target"],
@@ -931,7 +1166,27 @@ def _verify_target(target: Path) -> dict[str, Any]:
     if digest != lock["contentDigest"]:
         raise BundleError("INSTALLED_DIGEST_MISMATCH")
 
-    expected_install = _install_record(manifest, lock)
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        if (
+            lock["packs"]
+            != _pack_lock_records(manifest, lock["installFiles"], lock["inputFiles"])
+            or lock["coreDigest"]
+            != _core_digest(digest_inputs, lock["installFiles"], lock["inputFiles"])
+        ):
+            raise BundleError("INSTALLED_LOCK_INVALID")
+        input_names = {
+            name: sorted(
+                item["name"] for item in lock["inputFiles"] if item["pack"] == name
+            )
+            for name in pack_names
+        }
+        if any(
+            pack["inputs"] != input_names[pack["name"]]
+            for pack in manifest["packs"]
+        ):
+            raise BundleError("INSTALLED_LOCK_INVALID")
+
+    expected_install = _install_record(manifest, lock, selected_packs)
     if install_record != expected_install:
         raise BundleError("INSTALL_RECORD_INVALID")
     expected_files = {item["path"] for item in expected_install["ownedFiles"]}
@@ -954,16 +1209,35 @@ def _verify_target(target: Path) -> dict[str, Any]:
             }
         )
     normalized_files.sort(key=lambda item: item["path"])
-    return {
+    result = {
         "status": "verified",
         "bundleVersion": manifest["bundleVersion"],
         "contentDigest": lock["contentDigest"],
         "files": normalized_files,
     }
+    if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
+        result["coreDigest"] = lock["coreDigest"]
+        result["installedPacks"] = list(selected_packs)
+    return result
 
 
-def install(source_root_value: Path, temporary_root_value: Path, target_value: Path) -> dict[str, Any]:
+def _requested_packs(manifest: dict[str, Any], names: Any) -> tuple[str, ...]:
+    if not isinstance(names, (list, tuple)) or any(not isinstance(name, str) for name in names):
+        raise BundleError("INVALID_PACK_NAME")
+    requested = tuple(sorted(names))
+    if len(requested) != len(set(requested)) or not set(requested).issubset(_pack_names(manifest)):
+        raise BundleError("PACK_UNKNOWN")
+    return requested
+
+
+def install(
+    source_root_value: Path,
+    temporary_root_value: Path,
+    target_value: Path,
+    packs: tuple[str, ...] = (),
+) -> dict[str, Any]:
     source_root, manifest, lock = _validated_source(source_root_value)
+    selected_packs = _requested_packs(manifest, packs)
     temporary_root, target = _safe_temp_paths(temporary_root_value, target_value)
     owned_root = target / "gkd"
     if owned_root.exists() or owned_root.is_symlink():
@@ -974,18 +1248,23 @@ def install(source_root_value: Path, temporary_root_value: Path, target_value: P
         if (
             verified["bundleVersion"] != manifest["bundleVersion"]
             or verified["contentDigest"] != lock["contentDigest"]
+            or tuple(verified.get("installedPacks", ())) != selected_packs
         ):
             raise BundleError("TARGET_NOT_CLEAN")
-        return {
+        result = {
             "status": "already_installed",
             "bundleVersion": verified["bundleVersion"],
             "contentDigest": verified["contentDigest"],
             "files": len(verified["files"]),
         }
+        if "installedPacks" in verified:
+            result["coreDigest"] = verified["coreDigest"]
+            result["installedPacks"] = verified["installedPacks"]
+        return result
 
     stage = Path(tempfile.mkdtemp(prefix="gkd-stage-", dir=temporary_root))
     try:
-        for item in lock["installFiles"]:
+        for item in _selected_install_files(lock, selected_packs):
             destination = stage / item["target"]
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source_root / item["source"], destination, follow_symlinks=False)
@@ -993,17 +1272,24 @@ def install(source_root_value: Path, temporary_root_value: Path, target_value: P
         _atomic_write(stage / SCHEMA_TARGET, (source_root / "manifest.schema.json").read_bytes())
         _atomic_write(stage / MANIFEST_TARGET, canonical_bytes(manifest))
         _atomic_write(stage / LOCK_TARGET, canonical_bytes(lock))
-        _atomic_write(stage / INSTALL_TARGET, canonical_bytes(_install_record(manifest, lock)))
+        _atomic_write(
+            stage / INSTALL_TARGET,
+            canonical_bytes(_install_record(manifest, lock, selected_packs)),
+        )
         verified = _verify_target(stage)
         os.replace(stage / "gkd", owned_root)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
-    return {
+    result = {
         "status": "installed",
         "bundleVersion": verified["bundleVersion"],
         "contentDigest": verified["contentDigest"],
         "files": len(verified["files"]),
     }
+    if "installedPacks" in verified:
+        result["coreDigest"] = verified["coreDigest"]
+        result["installedPacks"] = verified["installedPacks"]
+    return result
 
 
 def verify(temporary_root_value: Path, target_value: Path) -> dict[str, Any]:

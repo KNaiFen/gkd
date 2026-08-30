@@ -28,9 +28,26 @@ DEFAULT_SCOPE_NAMES = (
     "foundation",
 )
 
+# O6 moves these two scopes to explicit optional lanes.  The current producer
+# remains on the full default surface; consumers accept this fixed future core.
+O6_CORE_SCOPE_NAMES = (
+    "m5-release-candidate",
+    "m4-finalization",
+    "m3-ci-policy",
+    "task-core",
+    "role-routing",
+    "runtime-bridge",
+    "p1-production-migration",
+    "foundation",
+)
+
 HISTORICAL_SCOPE_NAMES = (
     "watcher-core-and-live-negative",
 )
+
+CI_ADVICE_SCOPE_NAMES = ("m3-resource-scanner",)
+REVIEW_REMEDIATION_SCOPE_NAMES = ("m3-review-core",)
+OPTIONAL_PACK_SCOPE_NAMES = CI_ADVICE_SCOPE_NAMES + REVIEW_REMEDIATION_SCOPE_NAMES
 
 LEGACY_SCOPE_NAMES = DEFAULT_SCOPE_NAMES + HISTORICAL_SCOPE_NAMES
 
@@ -41,9 +58,18 @@ DEFAULT_LANE = "default"
 DEFAULT_PROFILE = "core"
 HISTORICAL_LANE = "historical"
 HISTORICAL_PROFILE = "watcher"
+CI_ADVICE_LANE = "optional-ci-advice"
+CI_ADVICE_PROFILE = "ci-advice"
+REVIEW_REMEDIATION_LANE = "optional-review-remediation"
+REVIEW_REMEDIATION_PROFILE = "review-remediation"
+OPTIONAL_PACK_LANE = "optional-packs"
+OPTIONAL_PACK_PROFILE = "all"
 LANE_PROFILES = {
     (DEFAULT_LANE, DEFAULT_PROFILE): DEFAULT_SCOPE_NAMES,
     (HISTORICAL_LANE, HISTORICAL_PROFILE): HISTORICAL_SCOPE_NAMES,
+    (CI_ADVICE_LANE, CI_ADVICE_PROFILE): CI_ADVICE_SCOPE_NAMES,
+    (REVIEW_REMEDIATION_LANE, REVIEW_REMEDIATION_PROFILE): REVIEW_REMEDIATION_SCOPE_NAMES,
+    (OPTIONAL_PACK_LANE, OPTIONAL_PACK_PROFILE): OPTIONAL_PACK_SCOPE_NAMES,
 }
 
 
@@ -116,6 +142,17 @@ def lane_profile_scopes(lane: str, profile: str) -> tuple[str, ...] | None:
     return LANE_PROFILES.get((lane, profile))
 
 
+def valid_lane_profile_scopes(lane: str, profile: str) -> tuple[tuple[str, ...], ...]:
+    """Return every strict scope contract accepted for a lane/profile pair."""
+
+    current = lane_profile_scopes(lane, profile)
+    if current is None:
+        return ()
+    if (lane, profile) == (DEFAULT_LANE, DEFAULT_PROFILE):
+        return (DEFAULT_SCOPE_NAMES, O6_CORE_SCOPE_NAMES)
+    return (current,)
+
+
 def _validate_manifest(value: dict[str, Any]) -> tuple[str, ...]:
     legacy_keys = {"baseSha", "environment", "headSha", "manifestDigest", "schemaVersion", "scopes", "verifierDigest"}
     lane_keys = legacy_keys | {"lane", "profile"}
@@ -125,8 +162,11 @@ def _validate_manifest(value: dict[str, Any]) -> tuple[str, ...]:
     elif value.get("schemaVersion") == 2:
         _require(set(value) == lane_keys, "CANONICAL_RESULT_SCHEMA_INVALID")
         _require(isinstance(value["lane"], str) and isinstance(value["profile"], str), "CANONICAL_RESULT_SCHEMA_INVALID")
-        scope_names = lane_profile_scopes(value["lane"], value["profile"])
-        _require(scope_names is not None, "CANONICAL_RESULT_SCHEMA_INVALID")
+        contracts = valid_lane_profile_scopes(value["lane"], value["profile"])
+        _require(contracts, "CANONICAL_RESULT_SCHEMA_INVALID")
+        _require(isinstance(value["scopes"], list), "CANONICAL_RESULT_SCOPE_MISMATCH")
+        scope_names = tuple(value["scopes"])
+        _require(scope_names in contracts, "CANONICAL_RESULT_SCOPE_MISMATCH")
     else:
         raise CanonicalResultError("CANONICAL_RESULT_SCHEMA_INVALID")
     _require(isinstance(value["baseSha"], str) and SHA1_RE.fullmatch(value["baseSha"]), "CANONICAL_RESULT_SCHEMA_INVALID")

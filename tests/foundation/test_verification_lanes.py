@@ -17,6 +17,7 @@ from gkd_task.results import (
     HISTORICAL_PROFILE,
     HISTORICAL_SCOPE_NAMES,
     LEGACY_SCOPE_NAMES,
+    O6_CORE_SCOPE_NAMES,
     canonical_bytes,
     digest_object,
     load_canonical_results,
@@ -83,6 +84,33 @@ class VerificationLaneContracts(unittest.TestCase):
             (root / "manifest.json").write_bytes(canonical_bytes(manifest))
             with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_SCHEMA_INVALID"):
                 load_canonical_results(root, "foundation", self.repository)
+
+    def test_o6_core_manifest_is_an_explicit_future_default_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "baseSha": self.head,
+                "environment": {
+                    "dependenciesInstalled": False,
+                    "platform": platform.system().lower(),
+                    "pythonVersion": sys.version.split()[0],
+                },
+                "headSha": self.head,
+                "lane": DEFAULT_LANE,
+                "profile": DEFAULT_PROFILE,
+                "schemaVersion": 2,
+                "scopes": list(O6_CORE_SCOPE_NAMES),
+                "verifierDigest": self.digest,
+            }
+            manifest["manifestDigest"] = digest_object(manifest)
+            (root / "manifest.json").write_bytes(canonical_bytes(manifest))
+            self._scope(root, "foundation")
+            self.assertEqual(10, len(DEFAULT_SCOPE_NAMES))
+            self.assertEqual(8, len(O6_CORE_SCOPE_NAMES))
+            self.assertEqual(
+                "foundation",
+                load_canonical_results(root, "foundation", self.repository)["scope"],
+            )
 
             manifest["lane"] = "unknown"
             manifest["profile"] = "unknown"

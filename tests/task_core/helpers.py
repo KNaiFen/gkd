@@ -239,11 +239,13 @@ class TaskRepo:
         candidate_output_bundle_digest: str,
         lane: str = DEFAULT_LANE,
         profile: str = DEFAULT_PROFILE,
+        scope_names: tuple[str, ...] | None = None,
     ) -> tuple[str, str]:
         state = self.state()
-        scope_names = lane_profile_scopes(lane, profile)
-        if scope_names is None:
+        expected_scope_names = lane_profile_scopes(lane, profile)
+        if expected_scope_names is None:
             raise AssertionError("unknown verification lane")
+        scopes = scope_names or expected_scope_names
         results_path = self.task_root / "verification-results.json"
         evidence_path = self.task_root / "verification-evidence.json"
         manifest_path = self.task_root / "result-manifest.json"
@@ -255,8 +257,8 @@ class TaskRepo:
             "lane": lane,
             "profile": profile,
             "schemaVersion": 2,
-            "scopes": {scope: 1 for scope in scope_names},
-            "tests": len(scope_names),
+            "scopes": {scope: 1 for scope in scopes},
+            "tests": len(scopes),
         }
         results_raw = canonical_bytes(results)
         verifier_digest = hashlib.sha256(results_raw).hexdigest()
@@ -273,7 +275,7 @@ class TaskRepo:
             "lane": lane,
             "profile": profile,
             "schemaVersion": 2,
-            "scopes": list(scope_names),
+            "scopes": list(scopes),
             "kind": "automatic-delivery-result-manifest",
             "taskId": state["taskId"],
             "repository": state["repository"]["identity"],
@@ -312,9 +314,10 @@ class TaskRepo:
         candidate_output_bundle_digest: str | None = None,
         lane: str = DEFAULT_LANE,
         profile: str = DEFAULT_PROFILE,
+        scope_names: tuple[str, ...] | None = None,
     ):
         artifacts = (
-            self.prepare_automatic_artifacts(candidate_output_bundle_digest, lane, profile)
+            self.prepare_automatic_artifacts(candidate_output_bundle_digest, lane, profile, scope_names)
             if candidate_output_bundle_digest is not None
             else (None, None)
         )
