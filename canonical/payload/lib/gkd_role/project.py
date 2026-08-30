@@ -164,12 +164,12 @@ def _desired_files(
         raise TaskError("OPTIONAL_PACK_NOT_INSTALLED")
     validate_policy_binding(policy)
     source, _ = load_role_source(root)
-    catalog = role_catalog(root, bundle_digest)
+    catalog = role_catalog(root, bundle_digest, selected_packs)
     definition = next(item for item in source["roles"] if item["name"] == "gkd_executor")
     role = role_record(catalog, "gkd_executor")
     config = _project_config(definition["description"])
     _validate_project_config(config, definition["description"])
-    role_bytes = role_files(root, bundle_digest)["gkd_executor.toml"]
+    role_bytes = role_files(root, bundle_digest, selected_packs)["gkd_executor.toml"]
     if sha256_bytes(role_bytes) != role["configDigest"]:
         raise TaskError("ROLE_CONFIG_DRIFT")
     files: dict[str, tuple[bytes, int]] = {
@@ -184,9 +184,8 @@ def _desired_files(
     for skill in optional_skills:
         files.update(_skill_files(root, skill, Path(".codex/skills")))
     expected_skills = set(EXECUTOR_SKILLS) | set(PARENT_SKILLS) | set(optional_skills)
-    if set(role["skills"]) != set(EXECUTOR_SKILLS):
+    if set(role["skills"]) != set(EXECUTOR_SKILLS) | set(optional_skills):
         raise TaskError("INVALID_PROJECT_SKILLS")
-    pack_catalog = role_catalog(root, bundle_digest, selected_packs)
     facts = {
         "executionBundleDigest": bundle_digest,
         "roleName": "gkd_executor",
@@ -194,7 +193,7 @@ def _desired_files(
         "configDigest": role["configDigest"],
         "projectConfigDigest": sha256_bytes(config),
         "skillDigests": {
-            name: pack_catalog["skillDigests"][name]
+            name: catalog["skillDigests"][name]
             for name in sorted(expected_skills)
         },
         "optionalPacks": list(selected_packs),

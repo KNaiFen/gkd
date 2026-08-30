@@ -10,8 +10,11 @@ import tempfile
 import unittest
 
 import gkd_bundle
+import gkd_toml as tomllib
 from gkd_role.project import remove_project, stage_project, verify_project
+from gkd_role.roles import role_catalog, role_record
 from gkd_task.canonical import canonical_bytes
+from gkd_task.canonical import sha256_bytes
 from gkd_task.errors import TaskError
 from tests.runtime_bridge.helpers import BUNDLE_ROOT, bundle_digest, init_repo, run
 
@@ -94,6 +97,63 @@ class ProjectStagingContracts(unittest.TestCase):
         skill.write_bytes(skill.read_bytes().rstrip(b"\n") + b"\n")
         self.assertEqual("removed", remove_project(project, self.production)["status"])
         self.assertFalse((project / ".codex").exists())
+
+    def test_project_stage_renders_pack_aware_executor_toml_and_rejects_extra_skill(self) -> None:
+        executor_skills = ("gkd-ci-monitor", "gkd-execute", "gkd-local-verify")
+        core_config = (
+            "gkd-accept",
+            "gkd-ci-monitor",
+            "gkd-execute",
+            "gkd-local-verify",
+            "gkd-main",
+        )
+        cases = (
+            ("core", (), executor_skills),
+            ("ci-advice", ("ci-advice",), (*executor_skills, "gkd-optimize-ci")),
+            ("review-remediation", ("review-remediation",), (*executor_skills, "gkd-review-remediation")),
+            (
+                "combined",
+                ("ci-advice", "review-remediation"),
+                (*executor_skills, "gkd-optimize-ci", "gkd-review-remediation"),
+            ),
+        )
+        for name, packs, skills in cases:
+            with self.subTest(name=name):
+                project = self._project(f"pack-role-{name}")
+                staged = stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs=packs)
+                role_bytes = (project / ".codex" / "agents" / "gkd_executor.toml").read_bytes()
+                role = tomllib.loads(role_bytes.decode("utf-8"))
+                expected = [
+                    {"path": f"../skills/{skill}/SKILL.md", "enabled": skill in skills}
+                    for skill in (*core_config, *(skill for skill in skills if skill not in core_config))
+                ]
+                self.assertEqual(expected, role["skills"]["config"])
+                if not packs:
+                    self.assertEqual(
+                        [],
+                        [
+                            entry
+                            for entry in role["skills"]["config"]
+                            if entry["path"].endswith("gkd-optimize-ci/SKILL.md")
+                            or entry["path"].endswith("gkd-review-remediation/SKILL.md")
+                        ],
+                    )
+                catalog = role_catalog(BUNDLE_ROOT, bundle_digest(), packs)
+                expected_role = role_record(catalog, "gkd_executor")
+                self.assertEqual(expected_role["roleDigest"], staged["roleDigest"])
+                self.assertEqual(expected_role["configDigest"], staged["configDigest"])
+                self.assertEqual(sha256_bytes(role_bytes), staged["configDigest"])
+                self.assertEqual("verified", verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs)["status"])
+
+        project = self._project("pack-role-extra")
+        stage_project(BUNDLE_ROOT, bundle_digest(), project, self.production, packs=("ci-advice",))
+        role_file = project / ".codex" / "agents" / "gkd_executor.toml"
+        role_file.write_bytes(
+            role_file.read_bytes()
+            + b'\n[[skills.config]]\npath = "../skills/gkd-review-remediation/SKILL.md"\nenabled = true\n'
+        )
+        with self.assertRaisesRegex(TaskError, "PROJECT_STAGE_DRIFT"):
+            verify_project(BUNDLE_ROOT, bundle_digest(), project, self.production, ("ci-advice",))
 
     def test_policy_is_required_and_staged_inventory_rejects_live_drift(self) -> None:
         missing = self._project("missing-policy")

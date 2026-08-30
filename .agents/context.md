@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O5 与 Python 3.9 compatibility 已完成。O6 attempt 0 的八 scope/optional pack producer 因旧 delivery consumer block；其 compatibility 前置任务已以 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0`、merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 合入。O6 R2 候选现在以 schema-v2 pack 声明保留 84 个 core runtime 文件，并将 23 个 CI advice/review-remediation 文件及一个 review input 拆至两个 explicit pack；default core 安装为 88 个文件（含 metadata），executor 只注入 `gkd-execute`、`gkd-local-verify`、`gkd-ci-monitor`。epoch 1 P1 以 schema-version 分派修复 schema-v1 source loader 的 v2-only `packs` 访问，并新增 v1 source CLI generate/verify 和 v1/v2 source-pack 负向契约；Python 3.9.6/3.14.6 已各通过 395 项 core、19 项 CI advice、11 项 review/remediation 与 30 项组合 lane；canonical delivery、fixed-head CI 和独立验收仍待执行。
+- O1-O5 与 Python 3.9 compatibility 已完成。O6 attempt 0 的八 scope/optional pack producer 因旧 delivery consumer block；其 compatibility 前置任务已以 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0`、merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 合入。O6 R2 候选现在以 schema-v2 pack 声明保留 84 个 core runtime 文件，并将 23 个 CI advice/review-remediation 文件及一个 review input 拆至两个 explicit pack；default core 安装为 88 个文件（含 metadata），executor 只注入 `gkd-execute`、`gkd-local-verify`、`gkd-ci-monitor`。epoch 1 P1 以 schema-version 分派修复 schema-v1 source loader 的 v2-only `packs` 访问；epoch 2 P2 使 project stage 从 selected packs 共同渲染 executor TOML、role/config 与 inventory digest，并以解析 TOML 的 core/single/combined/tamper contracts 覆盖。Python 3.9.6/3.14.6 已各通过 396 项 core、19 项 CI advice、11 项 review/remediation 与 30 项组合 lane；canonical delivery、fixed-head CI 和独立验收仍待执行。
 
 ## Historical facts
 
