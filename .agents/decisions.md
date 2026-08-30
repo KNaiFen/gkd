@@ -571,3 +571,7 @@
 - [2026-08-30] lane manifest compatibility 已经 canonical rework 后独立验收并合并。
   - Why: R3 的真实 executor route 证明 execution context 和 spawn-to-claim 顺序可用，并交付严格 lane/profile consumer。首轮 acceptor 因误传绝对 policy 路径得到唯一 `POLICY_PATH_UNSUPPORTED` 终态，按规则不能重跑；canonical rework 的 epoch 1 使用相对 `.gkd/policy.json` 后，双解释器各 450 项、fixed-head CI、bundle、PR snapshot 与独立 review 全部通过。
   - Impact: PR #47 accepted head `f95b43868ca3a3d87fe4104cdee0f6da6754780f` 以 squash merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 进入 main，candidate bundle digest 为 `04efd9ce5f1e0f678f9853eef5d9fb20606fff6e667aba69d9b204bddeb9b5d6`。后续完整 O4 可用新 accepted bundle 改变 default scope；生产/AIO/发布面未改变。
+
+- [2026-08-30] lane manifest compatibility R3 收尾清理完成。
+  - Why: accepted candidate 在清理前保持 clean、固定于 `f95b43868ca3a3d87fe4104cdee0f6da6754780f`，tree 与 squash merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 一致。
+  - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package 与一次性 route/ack/review 输入已移入可恢复 Trash。PR、main acceptance/retrospective 与 rejected epoch 历史保留。
