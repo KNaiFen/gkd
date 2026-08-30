@@ -13,4 +13,6 @@ Canonical CLI、project staging 与 automatic runtime bridge 最低支持 Python
 需要供 evidence runner 复用时，可显式传入 `--results-dir <directory>`；各 scope
 runner 使用 `--canonical-results <directory>` 消费同一份固定结果。automatic
 delivery 可额外使用 `--summary-output <path>` 生成待固定树校验的 canonical
-verifier summary。
+verifier summary。当前默认产物继续使用完整 legacy scope 集合；schema v2 的
+result manifest 显式绑定 `default/core` 或 `historical/watcher` profile 与其完整
+scope 集合，delivery、acceptance 与 rework 使用同一严格校验。

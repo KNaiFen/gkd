@@ -17,7 +17,7 @@ from gkd_task.acceptance import MergeIndeterminate
 from gkd_task.canonical import FixedClock, SystemNonce, canonical_bytes, digest_object
 from gkd_task.documents import PLAN_MATERIAL_SECTIONS
 from gkd_task.model import read_state, validate_state
-from gkd_task.results import SCOPE_NAMES
+from gkd_task.results import SCOPE_NAMES, lane_profile_scopes
 from gkd_task.runtime import RuntimeStore
 from gkd_task.service import TaskService, bootstrap_task
 from tests.task_core.evidence_support import FixtureEvidenceProvider, make_fixture_evidence
@@ -234,8 +234,18 @@ class TaskRepo:
         run("git", "commit", "-m", "prepare delivery document", "--", relative, cwd=self.candidate)
         return relative, hashlib.sha256(path.read_bytes()).hexdigest()
 
-    def prepare_automatic_artifacts(self, candidate_output_bundle_digest: str) -> tuple[str, str]:
+    def prepare_automatic_artifacts(
+        self,
+        candidate_output_bundle_digest: str,
+        lane: str | None = None,
+        profile: str | None = None,
+    ) -> tuple[str, str]:
         state = self.state()
+        if (lane is None) != (profile is None):
+            raise AssertionError("incomplete verification lane")
+        scope_names = SCOPE_NAMES if lane is None else lane_profile_scopes(lane, profile or "")
+        if scope_names is None:
+            raise AssertionError("unknown verification lane")
         results_path = self.task_root / "verification-results.json"
         evidence_path = self.task_root / "verification-evidence.json"
         manifest_path = self.task_root / "result-manifest.json"
@@ -244,10 +254,13 @@ class TaskRepo:
             "canonicalResultsDigest": hashlib.sha256(self.head().encode("ascii")).hexdigest(),
             "dependenciesInstalled": False,
             "outcome": "pass",
-            "schemaVersion": 1,
-            "scopes": {scope: 1 for scope in SCOPE_NAMES},
-            "tests": len(SCOPE_NAMES),
+            "schemaVersion": 1 if lane is None else 2,
+            "scopes": {scope: 1 for scope in scope_names},
+            "tests": len(scope_names),
         }
+        if lane is not None:
+            results["lane"] = lane
+            results["profile"] = profile
         results_raw = canonical_bytes(results)
         verifier_digest = hashlib.sha256(results_raw).hexdigest()
         evidence = {
@@ -260,7 +273,6 @@ class TaskRepo:
         evidence["evidenceDigest"] = digest_object(evidence)
         evidence_raw = canonical_bytes(evidence)
         manifest = {
-            "schemaVersion": 1,
             "kind": "automatic-delivery-result-manifest",
             "taskId": state["taskId"],
             "repository": state["repository"]["identity"],
@@ -271,6 +283,13 @@ class TaskRepo:
             "verifierResultDigest": verifier_digest,
             "evidenceDigest": hashlib.sha256(evidence_raw).hexdigest(),
         }
+        if lane is None:
+            manifest["schemaVersion"] = 1
+        else:
+            manifest["lane"] = lane
+            manifest["profile"] = profile
+            manifest["schemaVersion"] = 2
+            manifest["scopes"] = list(scope_names)
         manifest["manifestDigest"] = digest_object(manifest)
         results_path.write_bytes(results_raw)
         evidence_path.write_bytes(evidence_raw)
@@ -292,9 +311,16 @@ class TaskRepo:
         )
         return results_relative, evidence_relative
 
-    def deliver(self, service: TaskService, claim_id: str, candidate_output_bundle_digest: str | None = None):
+    def deliver(
+        self,
+        service: TaskService,
+        claim_id: str,
+        candidate_output_bundle_digest: str | None = None,
+        lane: str | None = None,
+        profile: str | None = None,
+    ):
         artifacts = (
-            self.prepare_automatic_artifacts(candidate_output_bundle_digest)
+            self.prepare_automatic_artifacts(candidate_output_bundle_digest, lane, profile)
             if candidate_output_bundle_digest is not None
             else (None, None)
         )
