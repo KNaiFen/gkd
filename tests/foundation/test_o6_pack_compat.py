@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tests.foundation.helpers import copy_source, gkd_bundle
+from tests.foundation.helpers import copy_source, gkd_bundle, run_cli
 
 
 class O6PackCompatibilityContracts(unittest.TestCase):
@@ -23,6 +23,57 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         source = copy_source(destination)
         gkd_bundle.generate(source)
         return source
+
+    def _legacy_source(self, name: str = "legacy") -> Path:
+        source = self._future_source(name)
+        declaration_path = source / "source.toml"
+        declaration = declaration_path.read_text(encoding="utf-8")
+        declaration = declaration.replace("schema_version = 2", "schema_version = 1", 1)
+        declaration = declaration.replace('[[packs]]\nname = "ci-advice"\n\n', "", 1)
+        declaration = declaration.replace('[[packs]]\nname = "review-remediation"\n\n', "", 1)
+        declaration = declaration.replace('pack = "ci-advice"\n', "")
+        declaration = declaration.replace('pack = "review-remediation"\n', "")
+        declaration_path.write_text(declaration, encoding="utf-8")
+        schema_path = source / "manifest.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        schema["schemaVersion"] = 1
+        schema["required"].remove("packs")
+        schema["properties"].pop("packs")
+        schema["properties"]["schemaVersion"] = {"const": 1}
+        schema_path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
+        return source
+
+    def test_v1_source_cli_generate_and_verify_remain_supported(self) -> None:
+        source = self._legacy_source()
+        generated = run_cli("generate", "--source-root", str(source))
+        self.assertEqual(0, generated.returncode, generated.stderr)
+        manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+        lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(1, manifest["schemaVersion"])
+        self.assertNotIn("packs", manifest)
+        self.assertNotIn("packs", lock)
+        self.assertNotIn("coreDigest", lock)
+        verified = gkd_bundle.verify_bundle_root(source / "payload")
+        self.assertEqual("verified", verified["status"])
+        self.assertEqual([], verified["availablePacks"])
+
+    def test_source_schema_and_pack_declaration_contracts_fail_closed(self) -> None:
+        cases = (
+            ("v1-packs", "schema_version = 2", "schema_version = 1", "INVALID_SOURCE_DECLARATION"),
+            ("v2-missing-packs", '[[packs]]\nname = "ci-advice"\n\n[[packs]]\nname = "review-remediation"\n\n', "", "INVALID_SOURCE_DECLARATION"),
+            ("unknown-schema", "schema_version = 2", "schema_version = 3", "INVALID_SOURCE_DECLARATION"),
+            ("pack-owner-drift", 'pack = "ci-advice"', "", "INVALID_PACK"),
+        )
+        for name, before, after, error in cases:
+            with self.subTest(name=name):
+                source = self._future_source(name)
+                declaration_path = source / "source.toml"
+                declaration_path.write_text(
+                    declaration_path.read_text(encoding="utf-8").replace(before, after),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(gkd_bundle.BundleError, error):
+                    gkd_bundle.generate(source)
 
     def test_v2_producer_and_consumer_bind_declared_packs(self) -> None:
         current_root = self.root / "current"

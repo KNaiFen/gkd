@@ -619,3 +619,7 @@
 - [2026-08-31] O6 R2 候选将默认 executor 与安装面收窄为 core，并以显式 pack 保留 CI advice 与 review/remediation。
   - Why: PR #50 已使受信 delivery consumer 严格理解 schema-v2 pack/core/optional lane，O6 可以在新 lifecycle 中安全改变 producer，避免把按需能力隐式放入默认 context、install 或 verifier。
   - Impact: source/manifest/lock 现在以 `ci-advice`、`review-remediation` pack 绑定文件、mode、size 与 digest；默认 executor 只含 execute/local-verify/ci-monitor，v1 full-install 仍可读。双解释器 core 与 optional verification 均通过，候选尚未 canonical delivery 或 acceptance。
+
+- [2026-08-31] O6 R2 P1 source loader 按 schema version 严格分派。
+  - Why: schema-v1 source 在 v2-only `packs` 上发生无条件访问，破坏旧 canonical source 的 generate/verify 兼容入口。
+  - Impact: v1 source 只生成和验证 v1 manifest/lock 字段；v2 才要求并校验 pack 声明。v1 含 v2 field、v2 缺 pack、unknown schema 与 pack ownership drift 都保持 fail-closed。

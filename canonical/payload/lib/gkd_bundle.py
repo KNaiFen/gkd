@@ -315,20 +315,6 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
     expected_status = "development" if DEVELOPMENT_VERSION.fullmatch(version) else "release-candidate"
     if declaration["release_status"] != expected_status:
         raise BundleError("INVALID_RELEASE_STATUS")
-    packs = declaration["packs"]
-    if not isinstance(packs, list) or not packs:
-        raise BundleError("INVALID_PACK")
-    pack_names: set[str] = set()
-    for pack in packs:
-        if (
-            not isinstance(pack, dict)
-            or set(pack) != {"name"}
-            or not isinstance(pack["name"], str)
-            or not re.fullmatch(r"[a-z][a-z0-9-]*", pack["name"])
-            or pack["name"] in pack_names
-        ):
-            raise BundleError("INVALID_PACK")
-        pack_names.add(pack["name"])
     components = declaration["components"]
     if not isinstance(components, list) or not components:
         raise BundleError("INVALID_SOURCE_DECLARATION")
@@ -464,14 +450,6 @@ def _load_source_declaration(source_root: Path) -> dict[str, Any]:
         "bundleVersion": version,
         "releaseStatus": expected_status,
         "components": sorted(normalized_components, key=lambda x: x["name"]),
-        "packs": [
-            {
-                "name": name,
-                "components": sorted(item["name"] for item in normalized_components if item.get("pack") == name),
-                "inputs": sorted(item["name"] for item in normalized_inputs if item.get("pack") == name),
-            }
-            for name in sorted(pack_names)
-        ],
         "inputs": sorted(normalized_inputs, key=lambda x: x["source"]),
     }
     if schema_version == FUTURE_SCHEMA_VERSION:
@@ -604,7 +582,6 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
     digest_inputs.sort(key=lambda item: item["path"])
     install_files.sort(key=lambda item: item["source"])
     content_digest = sha256_bytes(b"".join(canonical_bytes(item) for item in digest_inputs))
-    pack_records = _pack_lock_records(manifest, install_files, input_files)
     lock = {
         "schemaVersion": manifest["schemaVersion"],
         "bundleVersion": manifest["bundleVersion"],
@@ -614,8 +591,6 @@ def _build_source_outputs(source_root: Path) -> tuple[dict[str, Any], dict[str, 
         "digestInputs": digest_inputs,
         "installFiles": install_files,
         "inputFiles": input_files,
-        "packs": pack_records,
-        "coreDigest": _core_digest(digest_inputs, install_files, input_files),
         "contentDigest": content_digest,
     }
     if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
