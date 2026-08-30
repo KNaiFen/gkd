@@ -2,28 +2,27 @@
 
 ## Implementation
 
-- Implementation head: `c5ba1cb784253bb4a8222c15d469225c35d451d6`
-- Code head: `e1214c16daa959124b9b427850e7ccc25300782c`
+- Implementation head: `87ad0a9f2fb41c11f2b48b9255d592edec0b6969`
 - Base head: `ce2d6814a1a4b75e16fe9e096f66b399a28de07f`
 - Execution bundle digest: `fe1098fd1be01e8b59dd268b0ed45cc7b44217063e00e0a20afd0bf1c9b1014c`
-- Candidate output bundle digest: `a06a8f75ad1b6fd4811e1a85b38e39de3c68ff193b4dad55525b7aa466f288b5`
-- Core digest: `7b5ef2e92891d0a591a19b75a94bbe8b3b9938c9f14d4948a8fc3d7b21a3c9ce`
+- Candidate output bundle digest: `8c34b7474d4fb55c1d688f515dbd2f4f7cac32c8706865a4bc8eea2060bd10b3`
+- Core digest: `ee344ae248afbc21d07987634db13efcb7273769f64960f44588008b8babeebc`
 
 ## Delivered Contract
 
 - The default executor context contains only `gkd-execute`, `gkd-local-verify`, and `gkd-ci-monitor`. `gkd-main` and `gkd-accept` retain their existing trusted role boundaries.
 - The default core installation owns 84 runtime files and installs 88 files including metadata. It excludes resource/recommendation/scanner, review/adapter/remediation, their dedicated schemas/input, and both optional Skills.
 - `ci-advice` owns 11 files with pack digest `f2e570ec6e72f31e73ff83ca9d4916dc84445c3570585c7dc06e0310e4383af9`. `review-remediation` owns 12 files and one explicit input with pack digest `a6da97399e28cdca7965cb68f5748494f32a521cf0ce8da639d4ecaaa4cdc9d9`.
-- `gkd-bundle pack-stage`, `pack-verify`, and `pack-remove` accept declared names only. Role context and project staging use explicit repeated `--pack` values and bind pack, Skill, role, config, project inventory, file, mode, size, and SHA-256 facts.
+- `gkd-bundle pack-stage`, `pack-verify`, and `pack-remove` accept declared names only. Role context and project staging use explicit repeated `--pack` values; each selected set renders the actual executor TOML and binds its pack, Skill, role, config, project inventory, file, mode, size, and SHA-256 facts.
 - Existing optional CLIs and Skills remain available after explicit staging. The default verifier no longer runs their scopes; separate and combined optional lanes retain their contracts.
 - Schema-v1 source generate/verify and full installs remain readable; schema-v2 alone requires pack declarations. V1 v2-field, v2 missing-pack, unknown-schema, and pack-ownership drift inputs fail closed. Task/route/bridge/acceptance/rework, fixed-head monitor, migration duplicate-Skill disabling, production migration, finalization, release, and legacy task/result formats retain their existing behavior.
 
 ## Verification
 
-- Python 3.9.6 and Python 3.14.6 each passed the default/core verifier: 395 tests across eight scopes.
-- Their core canonical result digests are `80fed2d240a110cff257b629b268b81791c056d1f56de55d704a0f4dac55bd1a` and `d5ae47c7d1460b9def82423efa5b50b9b9de32be1e89bbf871885a545a550a0c`.
-- Each interpreter passed 19 `optional-ci-advice`, 11 `optional-review-remediation`, and 30 combined `optional-packs` tests. Combined canonical result digests are `2cfc43711952d7333ebad68bbf9e9e809ff38bee871b40625004ce3b2f7230ed` and `8b0d3d93b004da3d6f25525d99db3707d57b7861b0e5613c24aaf08b2f5e6388`.
-- Fixed-tree sidecars bind verifier result digest `24f12a22e32dab06fff462cb5ff84d40964ffcb2526a322d52449bc828ece5dd` and evidence digest `8d0f18c1ffb987cac4f2263708a8ff62ca59a1b84f9cb4d5001ff7d36c4fa58d`.
+- Python 3.9.6 and Python 3.14.6 each passed the default/core verifier: 396 tests across eight scopes.
+- Their core canonical result digests are `5082134bf1ab697056ab799bd5bf6514853b9e1b4ae75697d26005670d3ab932` and `fa0907ac8a74fc2ca827d915e0305ccd987bb8120146301c69f98ed7d22aa859`.
+- Each interpreter passed 19 `optional-ci-advice`, 11 `optional-review-remediation`, and 30 combined `optional-packs` tests. Combined canonical result digests are `1340c7bb52216d83a869c4da7abd7f837fe7ef7097ec49781de3466fb9b3a132` and `6fcc66484611f735ff8eb14850ae0f273e8c5179a8d59b539b0205340b6126b0`.
+- Fixed-tree sidecars bind verifier result digest `2d36ec5f7ab285383889503b1041f8e5db53e2f5fbfc687bb374e240ec33a780` and evidence digest `462b03b07f8d97e81cf07802b1aedfae5620fabffbe5acf724ad6f9ec2f58937`.
 - `git diff --check` passed. No dependency was installed and no production, AIO, settings, Secrets, runner, tag, Release, or published asset state changed.
 
 ## Stop Boundary
