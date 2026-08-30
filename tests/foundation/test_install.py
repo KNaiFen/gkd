@@ -133,6 +133,17 @@ class InstallationContracts(unittest.TestCase):
             (self.source / "manifest.lock.json").read_bytes(),
         )
 
+    def test_explicit_inputs_are_not_installed_and_fixture_leak_fails_closed(self) -> None:
+        target = self._installed()
+        lock = json.loads((target / gkd_bundle.LOCK_TARGET).read_text(encoding="utf-8"))
+        self.assertEqual(4, len(lock["inputFiles"]))
+        self.assertFalse((target / "gkd/fixtures").exists())
+        leaked = target / "gkd/fixtures/release/traceability.json"
+        leaked.parent.mkdir(parents=True)
+        leaked.write_text("{}\n", encoding="utf-8")
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_EXTRA_OR_MISSING"):
+            gkd_bundle.verify(self.boundary, target)
+
 
 if __name__ == "__main__":
     unittest.main()

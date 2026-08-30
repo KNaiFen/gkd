@@ -39,6 +39,11 @@ class ManifestContracts(unittest.TestCase):
         )
         self.assertEqual(lock["digestInputs"], sorted(lock["digestInputs"], key=lambda item: item["path"]))
         self.assertEqual(lock["installFiles"], sorted(lock["installFiles"], key=lambda item: item["source"]))
+        self.assertEqual(4, len(lock["inputFiles"]))
+        self.assertEqual(
+            [item["source"] for item in lock["inputFiles"]],
+            sorted(item["source"] for item in lock["inputFiles"]),
+        )
 
     def test_manifest_schema_shape_mutation_is_rejected(self) -> None:
         path = self.source / "manifest.schema.json"
@@ -97,6 +102,22 @@ class ManifestContracts(unittest.TestCase):
         (self.source / "payload/bin/gkd-bundle").unlink()
         with self.assertRaisesRegex(gkd_bundle.BundleError, "UNDECLARED_OR_MISSING_PAYLOAD"):
             gkd_bundle.generate(self.source)
+
+    def test_explicit_inputs_are_verified_and_missing_or_tampered_input_fails_closed(self) -> None:
+        verified = gkd_bundle.verify_input(self.source, "release-traceability")
+        self.assertEqual("release-verification", verified["kind"])
+        self.assertEqual("inputs/release/traceability.json", verified["source"])
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "INPUT_UNKNOWN"):
+            gkd_bundle.verify_input(self.source, "unknown-input")
+        input_path = self.source / "inputs/release/traceability.json"
+        original = input_path.read_bytes()
+        input_path.write_bytes(original + b"\n")
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "LOCK_OR_DIGEST_MISMATCH"):
+            gkd_bundle.verify_input(self.source, "release-traceability")
+        input_path.write_bytes(original)
+        input_path.unlink()
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "INVALID_INPUT_FILE"):
+            gkd_bundle.verify_input(self.source, "release-traceability")
 
     def test_source_symlink_is_rejected(self) -> None:
         launcher = self.source / "payload/bin/gkd-bundle"

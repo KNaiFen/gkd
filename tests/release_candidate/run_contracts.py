@@ -64,7 +64,7 @@ def main() -> int:
             print(canonical_bytes({"error": error.code, "status": "error"}).decode(), end="")
             return 2
     traceability = json.loads(
-        (repository / "canonical/payload/fixtures/release/traceability.json").read_text(encoding="utf-8")
+        (repository / "canonical/inputs/release/traceability.json").read_text(encoding="utf-8")
     )
     release_candidate = build_release_candidate(
         {

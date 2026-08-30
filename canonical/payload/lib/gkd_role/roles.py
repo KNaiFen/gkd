@@ -132,7 +132,7 @@ def locked_bundle_digest(bundle_root: Path) -> str:
     if len(matches) != 1:
         raise TaskError("INVALID_BUNDLE_ROOT")
     lock = read_canonical_json(matches[0], "INVALID_BUNDLE_ROOT")
-    require_keys(lock, {"bundleVersion", "contentDigest", "digestInputs", "installFiles", "manifestSha256", "releaseStatus", "schemaSha256", "schemaVersion"}, "INVALID_BUNDLE_ROOT")
+    require_keys(lock, {"bundleVersion", "contentDigest", "digestInputs", "inputFiles", "installFiles", "manifestSha256", "releaseStatus", "schemaSha256", "schemaVersion"}, "INVALID_BUNDLE_ROOT")
     require_sha256(lock["contentDigest"], "INVALID_BUNDLE_ROOT")
     return lock["contentDigest"]
 

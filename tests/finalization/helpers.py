@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 
-FIXTURE = Path("canonical/payload/fixtures/finalization/generic-input.json")
+FIXTURE = Path("canonical/inputs/finalization/generic-input.json")
 ADAPTER_DIGEST = "f" * 64
 AUTHORIZATION_DIGEST = "9" * 64
 ASSET_DIGEST = "8" * 64

@@ -13,8 +13,12 @@ and the bundled, MIT-licensed Tomli 2.0.1 compatibility parser on Python 3.9.
 The content digest is SHA-256 over newline-delimited canonical JSON records,
 sorted by canonical source path. Each record binds path, file type, mode and
 content SHA-256. Inputs are `manifest.schema.json`, the generated
-`manifest.json`, and every declared payload file. The lock is excluded from its
-own digest by this rule, then binds the complete ordered input records.
+`manifest.json`, every declared payload file, and every declared explicit
+test or release-verification input. These external inputs stay under
+`canonical/inputs/`, are never installed into `gkd/`, and are verified by name
+through `gkd-bundle verify-input --source-root canonical --name <name>`. The
+lock is excluded from its own digest by this rule, then binds the complete
+ordered input records.
 Canonical metadata is required to be a regular `0644` file before generation;
 installed schema, manifest, lock and install metadata are checked against their
 actual type and mode during verification.
