@@ -567,3 +567,7 @@
 - [2026-08-30] automatic executor 的 spawn-to-claim 竞态必须与 execution-context 问题分离处理。
   - Why: fresh `GKD-O4-LANE-MANIFEST-COMPAT-R2` 的 bridge 已给出正确 absolute CLI、candidate/task/runtime 参数，但 executor 在 trusted main 的 claim 之前先执行 status，稳定看到正常的 `awaiting_claim` 而退出。该任务没有实现、delivery、PR、CI 或 merge；这证明剩余问题是主编排时序，不是 candidate identity、PATH 或 task state 损坏。
   - Impact: trusted main 以 `executor_preclaim_race` 在 revision 4/head `8179a59e4becc25270304d92f79aa80a77722966` block 该 lifecycle，并清理候选、branch、runtime 和 package。下一 attempt 必须在 spawn 前固定状态 CAS 与 host acknowledgement，在 `spawn_agent` 返回后不插入任何检查、记录或文件操作，直接调用 bridge claim；不放宽 `awaiting_claim`、不复用旧 offer/claim。
+
+- [2026-08-30] lane manifest compatibility 已经 canonical rework 后独立验收并合并。
+  - Why: R3 的真实 executor route 证明 execution context 和 spawn-to-claim 顺序可用，并交付严格 lane/profile consumer。首轮 acceptor 因误传绝对 policy 路径得到唯一 `POLICY_PATH_UNSUPPORTED` 终态，按规则不能重跑；canonical rework 的 epoch 1 使用相对 `.gkd/policy.json` 后，双解释器各 450 项、fixed-head CI、bundle、PR snapshot 与独立 review 全部通过。
+  - Impact: PR #47 accepted head `f95b43868ca3a3d87fe4104cdee0f6da6754780f` 以 squash merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 进入 main，candidate bundle digest 为 `04efd9ce5f1e0f678f9853eef5d9fb20606fff6e667aba69d9b204bddeb9b5d6`。后续完整 O4 可用新 accepted bundle 改变 default scope；生产/AIO/发布面未改变。
