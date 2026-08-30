@@ -28,7 +28,7 @@
         "status": { "enum": ["pass", "fail", "error", "skip"] }
       }
     },
-    "manifest": {
+    "legacyManifest": {
       "type": "object",
       "additionalProperties": false,
       "required": ["baseSha", "environment", "headSha", "manifestDigest", "schemaVersion", "scopes", "verifierDigest"],
@@ -41,6 +41,28 @@
         "scopes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
         "verifierDigest": { "$ref": "#/$defs/sha256" }
       }
+    },
+    "laneManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseSha", "environment", "headSha", "lane", "manifestDigest", "profile", "schemaVersion", "scopes", "verifierDigest"],
+      "properties": {
+        "baseSha": { "$ref": "#/$defs/sha1" },
+        "environment": { "$ref": "#/$defs/environment" },
+        "headSha": { "$ref": "#/$defs/sha1" },
+        "lane": { "type": "string", "minLength": 1 },
+        "manifestDigest": { "$ref": "#/$defs/sha256" },
+        "profile": { "type": "string", "minLength": 1 },
+        "schemaVersion": { "const": 2 },
+        "scopes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+        "verifierDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "manifest": {
+      "oneOf": [
+        { "$ref": "#/$defs/legacyManifest" },
+        { "$ref": "#/$defs/laneManifest" }
+      ]
     },
     "scope": {
       "type": "object",

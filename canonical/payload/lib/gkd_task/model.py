@@ -173,25 +173,37 @@ def _delivery_record(value: dict[str, Any]) -> None:
     require_utc(value["deliveredAt"], "INVALID_TASK_STATE")
 
 
-def validate_result_manifest(value: dict[str, Any]) -> None:
-    require_keys(
-        value,
-        {
-            "schemaVersion",
-            "kind",
-            "taskId",
-            "repository",
-            "taskBranch",
-            "taskPath",
-            "baseSha",
-            "candidateOutputBundleDigest",
-            "verifierResultDigest",
-            "evidenceDigest",
-            "manifestDigest",
-        },
-        "INVALID_RESULT_MANIFEST",
-    )
-    if value["schemaVersion"] != 1 or value["kind"] != "automatic-delivery-result-manifest":
+def validate_result_manifest(value: dict[str, Any]) -> tuple[str, ...]:
+    keys = {
+        "schemaVersion",
+        "kind",
+        "taskId",
+        "repository",
+        "taskBranch",
+        "taskPath",
+        "baseSha",
+        "candidateOutputBundleDigest",
+        "verifierResultDigest",
+        "evidenceDigest",
+        "manifestDigest",
+    }
+    if value.get("schemaVersion") == 1:
+        require_keys(value, keys, "INVALID_RESULT_MANIFEST")
+        from .results import LEGACY_SCOPE_NAMES
+
+        scope_names = LEGACY_SCOPE_NAMES
+    elif value.get("schemaVersion") == 2:
+        require_keys(value, keys | {"lane", "profile", "scopes"}, "INVALID_RESULT_MANIFEST")
+        from .results import lane_profile_scopes
+
+        require_string(value["lane"], "INVALID_RESULT_MANIFEST")
+        require_string(value["profile"], "INVALID_RESULT_MANIFEST")
+        scope_names = lane_profile_scopes(value["lane"], value["profile"])
+        if scope_names is None or value["scopes"] != list(scope_names):
+            raise TaskError("INVALID_RESULT_MANIFEST")
+    else:
+        raise TaskError("INVALID_RESULT_MANIFEST")
+    if value["kind"] != "automatic-delivery-result-manifest":
         raise TaskError("INVALID_RESULT_MANIFEST")
     for field in ("taskId", "repository", "taskBranch"):
         require_string(value[field], "INVALID_RESULT_MANIFEST")
@@ -208,6 +220,7 @@ def validate_result_manifest(value: dict[str, Any]) -> None:
     actual = unsigned.pop("manifestDigest")
     if digest_object(unsigned) != actual:
         raise TaskError("INVALID_RESULT_MANIFEST")
+    return scope_names
 
 
 def validate_result_manifest_binding(
@@ -220,8 +233,8 @@ def validate_result_manifest_binding(
     candidate_output_bundle_digest: str,
     verifier_result_digest: str,
     evidence_digest: str,
-) -> None:
-    validate_result_manifest(value)
+) -> tuple[str, ...]:
+    scope_names = validate_result_manifest(value)
     if (
         value["taskId"] != task_id
         or value["repository"] != repository
@@ -233,6 +246,7 @@ def validate_result_manifest_binding(
         or value["evidenceDigest"] != evidence_digest
     ):
         raise TaskError("RESULT_MANIFEST_BINDING_MISMATCH")
+    return scope_names
 
 
 def _rejected_attempt(value: Any) -> None:
