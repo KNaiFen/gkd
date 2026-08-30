@@ -3,7 +3,7 @@
 **制定日期：** 2026-08-28
 **依据：** [GKD 工作流精简审查报告](gkd-workflow-simplification-review-2026-08-28.md)
 **执行方式：** 每个任务独立固定基线，由 `gkd_executor` 交付，由独立 `gkd_acceptor` 验收；失败尝试保留终态，不沿旧 head 洗绿。
-**当前基线：** `c133de3e983f002259c68538aa644ca8fc7e0823`
+**当前基线：** `03524c0070bb3b13b5417239cdad37b21922c278`
 
 ## 目标与不变项
 
@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O4 与 P0 已完成。P0 的 R2 已通过独立验收并 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5`；GKD-GATE-REPAIR-R6 已 merge `f248962d9c223ba6c73c07e23a873fddb5fad1b0`。O4 compatibility R3 先合并 lane/profile consumer `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3`，完整 O4-R6 随后以 `c133de3e983f002259c68538aa644ca8fc7e0823` 合并：default/core 为 10 scopes/403 tests，historical/watcher 保留 47 tests 和 host `unsupported`。当前启动项为 O5 runtime fixture 与测试输入拆分。
+O1-O5 与 P0 已完成。O5-R2 fixed head `fcef63b4d75b39932fcb02bb83560def3c426056` 以 `03524c0070bb3b13b5417239cdad37b21922c278` 合并：四个 fixture 已迁移到显式 `canonical/inputs`，core payload/install 为 107/111 个文件且无 fixture 目录，Python 3.9.6/3.14.6 各 405 项通过。当前启动项为 O6 默认角色与 optional pack 拆分。

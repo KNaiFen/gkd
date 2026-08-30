@@ -591,3 +591,7 @@
 - [2026-08-30] O5-R1 因 executor 交接时的 candidate path identity drift 受信 block。
   - Why: executor status 能以 implementing/revision 5 读取 O5，但 doctor 实际调用了去掉 `gkd-worktrees` 的候选路径并报告目录不存在；trusted main 对完整 supplied path 的 doctor 返回 valid。executor 未编辑、验证或提交任何文件。
   - Impact: trusted `gkd-task block` 以 `executor_candidate_identity_mismatch` 在 revision 6/head `e96470635ba9828cb5f48e9464f7bb927d502892` 固化 lifecycle；candidate、branch、runtime/package 与一次性输入已清理。O5-R2 必须从新 lifecycle 建立，不得复用 R1。
+
+- [2026-08-30] O5 runtime fixture split 已通过 fresh acceptor 独立验收并合并。
+  - Why: R2 将四个仅供测试、演练或 release traceability 的输入从 core payload 字节不变迁移到显式 `canonical/inputs`，由 source declaration/lock 和 `verify-input` 绑定实际文件；双解释器、固定 head CI、安装泄漏负向合同和 tree 一致性均通过。首个 acceptor 因绝对 policy path 得到 `POLICY_PATH_UNSUPPORTED`，按门禁未重试；全新 acceptor 使用相对 `.gkd/policy.json` 完成验收。
+  - Impact: PR #49 fixed head `fcef63b4d75b39932fcb02bb83560def3c426056` 以 squash merge `03524c0070bb3b13b5417239cdad37b21922c278` 进入 main，candidate bundle digest 为 `b7f1d783cf01cdcecfb12f98ce426877aec99b7b4647dacc542fdae8cc053d02`。core payload/install 为 107/111 个文件且无 fixture 目录，Python 3.9.6/3.14.6 各 405 项；生产、AIO、settings、Secrets、runner、tag/Release 与既有资产未变。

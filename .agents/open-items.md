@@ -110,7 +110,8 @@
 - [x] `GKD-O4-LANE-MANIFEST-COMPAT-R3` 收尾完成：accepted candidate tree 与 merge tree 一致；candidate worktree、本地/远端 task branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
 - [x] 完整 O4 historical lane 已完成：PR #48 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720` merge `c133de3e983f002259c68538aa644ca8fc7e0823`；default/core 10 scopes/403 tests，historical/watcher 47 tests、两次 evidence 一致，双解释器、fixed-head CI 与独立验收通过。
 - [x] O4-R6 收尾完成：accepted candidate tree 与 merge tree 一致；candidate worktree、本地/远端 task branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
-- [ ] O5 runtime fixture 与测试输入拆分：从 O4 merge 后的新 development bundle 建立全新 task/offer/claim，把四个仅测试/演练 fixture 移出 core runtime 安装面，保留 schema、release traceability 与独立 verifier。
+- [x] O5 runtime fixture 与测试输入拆分已完成：四个输入迁移到显式 `canonical/inputs`，core payload/install 为 107/111 个文件且无 fixture 目录；PR #49 fixed head `fcef63b4d75b39932fcb02bb83560def3c426056` merge 为 `03524c0070bb3b13b5417239cdad37b21922c278`，双解释器各 405 项与 fixed-head CI 通过。
 - [x] O5 首次 automatic attempt 已受信 block：executor 在 claim 前观察到 `awaiting_claim` 并停止；block head `9495ce1bf2f0e2c3bf101d4e384aa03da97659b3`、revision 6、reason `executor_preclaim_race`。没有实现、delivery、PR 或 CI；candidate、branch、runtime/package 已清理，不得复用该 lifecycle。
 - [x] O5-R1 已受信 block：executor 将 candidate path 改写为缺失位置，trusted main 对完整 path 的 doctor valid；block head `e96470635ba9828cb5f48e9464f7bb927d502892`、revision 6、reason `executor_candidate_identity_mismatch`。没有实现、delivery、PR 或 CI；candidate、branch、runtime/package 已清理，不得复用该 lifecycle。
-- [ ] O5-R2：从 block 后新 trusted main 建立，进一步收紧 executor 交接输入，完成 fixture split、双解释器验证、独立验收与清理；如再次发生身份漂移，暂停自动路线并转人工诊断。
+- [x] O5-R2 已通过 fresh acceptor 独立验收并 canonical merge：candidate bundle `b7f1d783cf01cdcecfb12f98ce426877aec99b7b4647dacc542fdae8cc053d02`；首次 acceptor 的 `POLICY_PATH_UNSUPPORTED` 作为 terminal error 保留，第二个 acceptor 使用相对 `.gkd/policy.json` 成功。candidate/runtime/package/branch 清理待完成。
+- [ ] O6 默认角色与 optional pack 拆分：从 O5 merge 后的新 development bundle 建立全新 task/offer/claim，收窄默认 executor context，并验证 optional pack 可显式 stage/self-verify。

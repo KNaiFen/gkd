@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O4 与 Python 3.9 compatibility 已完成。O4 compatibility R3 先以 merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 提供 lane/profile consumer；O4-R6 随后以 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720`、merge `c133de3e983f002259c68538aa644ca8fc7e0823` 完成 watcher/probe 历史 lane 隔离。默认 verifier 现在为 10 个 core scopes，Python 3.9.6/3.14.6 各 403 项通过；historical watcher 47 项两次 evidence 一致并保留 host `unsupported`。O5 attempt 0 因 claim 前 race block，R1 又因 executor 将 candidate 路径改写为缺失位置而 block；两次均未产生实现、delivery 或 PR。下一步从新 trusted main 建立 O5-R2，严格验证 executor 交接路径后再继续。
+- O1-O5 与 Python 3.9 compatibility 已完成。O5-R2 以 fixed head `fcef63b4d75b39932fcb02bb83560def3c426056`、merge `03524c0070bb3b13b5417239cdad37b21922c278` 将四个 fixture 字节不变迁移到显式 `canonical/inputs`；core payload/install 为 107/111 个文件且无 fixture 目录，Python 3.9.6/3.14.6 各 405 项通过。首次 acceptor 的绝对 policy path 错误保留为 `POLICY_PATH_UNSUPPORTED`，全新 acceptor 使用相对路径完成验收。下一步从新 development bundle 建立 O6 默认角色与 optional pack 拆分。
 
 ## Historical facts
 
