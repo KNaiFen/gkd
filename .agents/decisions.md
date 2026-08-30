@@ -551,3 +551,7 @@
 - [2026-08-30] lane manifest compatibility attempt 0 已清理。
   - Why: candidate tree 在 block 后保持干净，未创建 PR 或远端 task branch。
   - Impact: candidate worktree 与本地 branch 已删除，runtime 和 planning package 已移入可恢复 Trash；R1 从记录该事实后的 trusted main 建立。
+
+- [2026-08-30] 自动 executor 路线因可重复的环境身份不一致暂停。
+  - Why: compatibility R1 executor 使用 supplied absolute CLI 和完整 candidate/task/runtime 参数仍报告 `CANDIDATE_IDENTITY_MISMATCH`；trusted main 对完全相同参数的 status/doctor 返回 valid。该事实排除了候选 task state、CAS 和 worktree 损坏，指向 executor 实际命令环境与交接不一致。
+  - Impact: R1 以 `executor_environment_identity_mismatch` 在 revision 5/head `f98ea68c62ed028a0b2c90834b6b7f454fcf9c29` block。暂停继续创建 automatic attempts；先修复/证明角色环境，或由用户明确选择人工顶层执行，之后再重启 compatibility 任务。
