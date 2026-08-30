@@ -108,4 +108,5 @@
 - [x] `GKD-O4-LANE-MANIFEST-COMPAT-R2` 已受信 block：executor 在任何实现前读取 `awaiting_claim`，而 trusted main 尚未写入 bridge claim；block head `8179a59e4becc25270304d92f79aa80a77722966`、revision 4、reason `executor_preclaim_race`。没有实现、delivery、PR、CI 或 merge；candidate worktree、本地 branch、runtime 和 package 已清理，不得复用该 lifecycle。
 - [x] 自动路线握手时序验证通过：R3 epoch 0/1 均在 spawn 前固定 acknowledgement 与 status CAS，`spawn_agent` 返回后立即 bridge claim，executor 正常进入 implementing 并完成 delivery；未引入 sleep、宽松状态或 lifecycle 复用。
 - [x] `GKD-O4-LANE-MANIFEST-COMPAT-R3` 收尾完成：accepted candidate tree 与 merge tree 一致；candidate worktree、本地/远端 task branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
-- [ ] 完整 O4 historical lane：从 compatibility merge 后的新 accepted development bundle 建立全新 task/offer/claim，移除 default watcher scope、保留显式 historical lane，并走双解释器、fixed-head CI 与独立验收。
+- [x] 完整 O4 historical lane 已完成：PR #48 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720` merge `c133de3e983f002259c68538aa644ca8fc7e0823`；default/core 10 scopes/403 tests，historical/watcher 47 tests、两次 evidence 一致，双解释器、fixed-head CI 与独立验收通过。
+- [ ] O5 runtime fixture 与测试输入拆分：从 O4 merge 后的新 development bundle 建立全新 task/offer/claim，把四个仅测试/演练 fixture 移出 core runtime 安装面，保留 schema、release traceability 与独立 verifier。

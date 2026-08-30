@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O3 已于 2026-08-28 以 merge `9009b089fb811eceaf91ada8b60397b39a451f97` 完成；O4 watcher/probe 历史 lane 的前两次候选分别因 requirements digest 不可更新、lifecycle 时间逆序和 fixed-head CI failure 被独立验收拒绝。Python 3.9 compatibility 与 GKD-GATE-REPAIR-R6 已分别以 merge `360ba876c83bed4c2b4fcea98a172eefe94838a5` / `f248962d9c223ba6c73c07e23a873fddb5fad1b0` 完成，双解释器、逻辑顺序、planning refresh 与 delivery artifact chain 均通过。O4-R5 的实现和 CI 通过但旧 trusted consumer 无法读取 lane manifest；compatibility R3 现已修复该 consumer，并在一次 `POLICY_PATH_UNSUPPORTED` canonical rework 后以 fixed head `f95b43868ca3a3d87fe4104cdee0f6da6754780f` 独立验收、merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 进入 main。bridge execution context 与预建 acknowledgement/立即 claim 时序均由真实 executor route 验证。下一步刷新 accepted development bundle 并用全新 lifecycle 重启完整 O4 historical lane。
+- O1-O4 与 Python 3.9 compatibility 已完成。O4 compatibility R3 先以 merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 提供 lane/profile consumer；O4-R6 随后以 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720`、merge `c133de3e983f002259c68538aa644ca8fc7e0823` 完成 watcher/probe 历史 lane 隔离。默认 verifier 现在为 10 个 core scopes，Python 3.9.6/3.14.6 各 403 项通过；historical watcher 47 项两次 evidence 一致并保留 host `unsupported`。bridge execution context 与 pre-spawn acknowledgement/立即 claim 时序均由真实 executor route 验证。下一步刷新 development bundle 后启动 O5 runtime fixture 与测试输入拆分。
 
 ## Historical facts
 

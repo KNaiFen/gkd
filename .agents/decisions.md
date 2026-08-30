@@ -575,3 +575,7 @@
 - [2026-08-30] lane manifest compatibility R3 收尾清理完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `f95b43868ca3a3d87fe4104cdee0f6da6754780f`，tree 与 squash merge `aeeeb2b57fc98289e341f4b04790b7cf34d78ee3` 一致。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package 与一次性 route/ack/review 输入已移入可恢复 Trash。PR、main acceptance/retrospective 与 rejected epoch 历史保留。
+
+- [2026-08-30] O4 watcher/probe 历史 lane 已独立验收并合并。
+  - Why: compatibility R3 已使 trusted fixed-tree consumer 严格理解 lane/profile。R6 以全新 offer/claim 将默认 verifier 收敛为 core scopes，并以显式 historical/watcher lane 保留 watcher contracts 与 host capability 事实；双解释器、两次 historical evidence、fixed-head CI、PR snapshot 和独立 review 均通过。
+  - Impact: PR #48 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720` 以 squash merge `c133de3e983f002259c68538aa644ca8fc7e0823` 进入 main。default/core 在 Python 3.9.6/3.14.6 各为 10 scopes/403 tests，historical/watcher 为 47 tests 且 evidence digest `2c1c4d7eb5f8428756b770a811dbdd8d7eed0ac40982e37b1a70987c5d336df9` 一致；生产/AIO/发布面不变。
