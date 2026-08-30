@@ -57,3 +57,4 @@
 ## Implementation Notes
 
 - 先建立当前 default role/context/install 与 optional consumer 的精确文件清单，再设计最小声明形状。实现必须使用 PR #50 已接受的 future result/pack consumer；所有 generator/schema/lock/packaging 更新进入 final implementation commit，delivery.md 是唯一直接子提交，delivery 后无实现提交。
+- Epoch 1 必须先修复 rejected finding P1：source loader 以 `schema_version` 显式分派，schema-v1 source 不读取 v2-only `packs`。新增从实际 v1 canonical source 执行 generate/verify 的正向合同，并覆盖 v1 source 含 v2 field、v2 source 缺 pack、unknown schema 与 pack ownership drift 的拒绝；禁止以宽泛异常映射掩盖错误。
