@@ -9,3 +9,5 @@
 第一步执行 bridge execution context 提供的精确 status/doctor argv，禁止裸 `gkd-task` 或 cwd 推断。先记录 default executor、main/acceptor、production migration 和两个 optional 能力的全部 consumer；以最小 API 实现 core/pack 分层，并覆盖未请求、组合 stage、remove、missing/extra/tampered/symlink/unknown pack 与 legacy migration。final implementation commit 必须含实际双解释器 verifier result/evidence/result-manifest；delivery 后停止。
 
 Epoch 1 先重现并修复 P1：接受 schema-v1 的 source loader 不得访问 `packs`。以版本化 parser 分派保持 v1 source generate/verify 正常，v2 才要求并验证 pack declaration；新增 source-side v1 回归与 v2 negative contracts，随后重跑完整 core/optional 验证。
+
+Epoch 2 修复 P2：stage selected packs 时必须从 pack-aware role catalog/files 渲染和验证 executor config，而不是先生成 core-only TOML 再复制 Skill 文件。解析 generated TOML 的合同绑定 role context、selected packs、config digest、inventory 及每项 `skills.config`，覆盖单 pack、组合 pack、core-only 和 tamper/extra 反例。
