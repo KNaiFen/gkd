@@ -579,3 +579,7 @@
 - [2026-08-30] O4 watcher/probe 历史 lane 已独立验收并合并。
   - Why: compatibility R3 已使 trusted fixed-tree consumer 严格理解 lane/profile。R6 以全新 offer/claim 将默认 verifier 收敛为 core scopes，并以显式 historical/watcher lane 保留 watcher contracts 与 host capability 事实；双解释器、两次 historical evidence、fixed-head CI、PR snapshot 和独立 review 均通过。
   - Impact: PR #48 fixed head `689b3c4e6a608dde461cd0d578a82937dae7b720` 以 squash merge `c133de3e983f002259c68538aa644ca8fc7e0823` 进入 main。default/core 在 Python 3.9.6/3.14.6 各为 10 scopes/403 tests，historical/watcher 为 47 tests 且 evidence digest `2c1c4d7eb5f8428756b770a811dbdd8d7eed0ac40982e37b1a70987c5d336df9` 一致；生产/AIO/发布面不变。
+
+- [2026-08-30] O4-R6 收尾清理完成。
+  - Why: accepted candidate 在清理前保持 clean、固定于 `689b3c4e6a608dde461cd0d578a82937dae7b720`，tree 与 squash merge `c133de3e983f002259c68538aa644ca8fc7e0823` 一致。
+  - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package 与一次性 route/ack/review 输入已移入可恢复 Trash。task records、acceptance、retrospective、PR 与 main merge 保留。
