@@ -36,6 +36,7 @@ def _parser() -> MachineParser:
         command = commands.add_parser(name)
         command.add_argument("--bundle-root", type=Path, required=True)
         command.add_argument("--bundle-digest", required=True)
+        command.add_argument("--pack", action="append", default=[])
         if name == "context":
             command.add_argument("--role", required=True)
     route = commands.add_parser("route")
@@ -81,6 +82,7 @@ def _parser() -> MachineParser:
         if name != "project-remove":
             command.add_argument("--bundle-root", type=Path, required=True)
             command.add_argument("--bundle-digest", required=True)
+            command.add_argument("--pack", action="append", default=[])
     prepare = commands.add_parser("automatic-prepare")
     prepare.add_argument("--candidate-root", type=Path, required=True)
     prepare.add_argument("--task-path", required=True)
@@ -121,9 +123,9 @@ def _dispatch(args: argparse.Namespace) -> dict:
     if args.command in {"automatic-prepare", "automatic-claim", "automatic-recover"}:
         raise TaskError("TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE")
     if args.command == "roles":
-        return role_catalog(args.bundle_root, args.bundle_digest)
+        return role_catalog(args.bundle_root, args.bundle_digest, tuple(args.pack))
     if args.command == "context":
-        return context_manifest(args.bundle_root, args.bundle_digest, args.role)
+        return context_manifest(args.bundle_root, args.bundle_digest, args.role, tuple(args.pack))
     if args.command == "route":
         return decide_route(_read(args.input, "INVALID_ROUTE_REQUEST"))
     if args.command == "role-action":
@@ -156,9 +158,9 @@ def _dispatch(args: argparse.Namespace) -> dict:
         role_catalog(bundle_root, locked_bundle_digest(bundle_root))
         raise TaskError("ACTIVATION_PROVIDER_UNAVAILABLE")
     if args.command == "project-stage":
-        return stage_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root)
+        return stage_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root, packs=tuple(args.pack))
     if args.command == "project-verify":
-        return verify_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root)
+        return verify_project(args.bundle_root, args.bundle_digest, args.project_root, args.production_root, tuple(args.pack))
     if args.command == "project-remove":
         return remove_project(args.project_root, args.production_root)
     raise TaskError("INVALID_ARGUMENTS")

@@ -652,6 +652,7 @@ def verify_input(source_root_value: Path, name: str) -> dict[str, Any]:
             "kind": item["kind"],
             "source": item["source"],
             "sha256": item["sha256"],
+            "pack": item.get("pack"),
         }
         if "pack" in item:
             result["pack"] = item["pack"]
@@ -672,6 +673,7 @@ def verify_bundle_root(bundle_root_value: Path) -> dict[str, Any]:
             "bundleVersion": manifest["bundleVersion"],
             "contentDigest": lock["contentDigest"],
             "files": len(lock["installFiles"]),
+            "availablePacks": list(_pack_names(manifest)),
         }
         if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
             result["availablePacks"] = list(_pack_names(manifest))
@@ -1165,7 +1167,6 @@ def _verify_target(target: Path) -> dict[str, Any]:
     digest = sha256_bytes(b"".join(canonical_bytes(item) for item in digest_inputs))
     if digest != lock["contentDigest"]:
         raise BundleError("INSTALLED_DIGEST_MISMATCH")
-
     if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
         if (
             lock["packs"]
@@ -1213,6 +1214,8 @@ def _verify_target(target: Path) -> dict[str, Any]:
         "status": "verified",
         "bundleVersion": manifest["bundleVersion"],
         "contentDigest": lock["contentDigest"],
+        "coreDigest": lock.get("coreDigest", lock["contentDigest"]),
+        "installedPacks": list(selected_packs),
         "files": normalized_files,
     }
     if manifest["schemaVersion"] == FUTURE_SCHEMA_VERSION:
@@ -1290,6 +1293,117 @@ def install(
         result["coreDigest"] = verified["coreDigest"]
         result["installedPacks"] = verified["installedPacks"]
     return result
+
+
+def _pack_result(status: str, manifest: dict[str, Any], lock: dict[str, Any], names: tuple[str, ...]) -> dict[str, Any]:
+    digests = {item["name"]: item["packDigest"] for item in lock["packs"] if item["name"] in names}
+    return {
+        "status": status,
+        "bundleVersion": manifest["bundleVersion"],
+        "contentDigest": lock["contentDigest"],
+        "packs": [{"name": name, "packDigest": digests[name]} for name in names],
+    }
+
+
+def stage_packs(
+    source_root_value: Path,
+    temporary_root_value: Path,
+    target_value: Path,
+    names: tuple[str, ...],
+) -> dict[str, Any]:
+    source_root, manifest, lock = _validated_source(source_root_value)
+    requested = _requested_packs(manifest, names)
+    _, target = _safe_temp_paths(temporary_root_value, target_value)
+    verified = _verify_target(target)
+    if verified["contentDigest"] != lock["contentDigest"]:
+        raise BundleError("PACK_BUNDLE_MISMATCH")
+    current = tuple(verified["installedPacks"])
+    desired = tuple(sorted(set(current) | set(requested)))
+    if desired == current:
+        return _pack_result("already_staged", manifest, lock, requested)
+    additions = [item for item in _selected_install_files(lock, desired) if item.get("pack") in set(desired) - set(current)]
+    written: list[Path] = []
+    created_directories: list[Path] = []
+    try:
+        for item in additions:
+            destination = target / item["target"]
+            current_path = target
+            for part in PurePosixPath(item["target"]).parts[:-1]:
+                current_path /= part
+                if current_path.is_symlink():
+                    raise BundleError("PACK_TARGET_SYMLINK")
+            if destination.exists() or destination.is_symlink():
+                raise BundleError("PACK_TARGET_CONFLICT")
+            missing = []
+            parent = destination.parent
+            while parent != target and not parent.exists():
+                missing.append(parent)
+                parent = parent.parent
+            for directory in reversed(missing):
+                directory.mkdir()
+                created_directories.append(directory)
+            shutil.copyfile(source_root / item["source"], destination, follow_symlinks=False)
+            os.chmod(destination, int(item["mode"], 8))
+            written.append(destination)
+        _atomic_write(target / INSTALL_TARGET, canonical_bytes(_install_record(manifest, lock, desired)))
+        _verify_target(target)
+    except (OSError, BundleError):
+        for path in reversed(written):
+            path.unlink(missing_ok=True)
+        for directory in reversed(created_directories):
+            if directory.is_dir() and not any(directory.iterdir()):
+                directory.rmdir()
+        _atomic_write(target / INSTALL_TARGET, canonical_bytes(_install_record(manifest, lock, current)))
+        raise
+    return _pack_result("staged", manifest, lock, requested)
+
+
+def verify_packs(temporary_root_value: Path, target_value: Path, names: tuple[str, ...]) -> dict[str, Any]:
+    _, target = _safe_temp_paths(temporary_root_value, target_value)
+    verified = _verify_target(target)
+    manifest = _read_canonical_json(target / MANIFEST_TARGET, "INSTALLED_MANIFEST_INVALID")
+    lock = _read_canonical_json(target / LOCK_TARGET, "INSTALLED_LOCK_INVALID")
+    requested = _requested_packs(manifest, names)
+    if not set(requested).issubset(verified["installedPacks"]):
+        raise BundleError("PACK_NOT_STAGED")
+    return _pack_result("verified", manifest, lock, requested)
+
+
+def remove_packs(temporary_root_value: Path, target_value: Path, names: tuple[str, ...]) -> dict[str, Any]:
+    temporary_root, target = _safe_temp_paths(temporary_root_value, target_value)
+    verified = _verify_target(target)
+    manifest = _read_canonical_json(target / MANIFEST_TARGET, "INSTALLED_MANIFEST_INVALID")
+    lock = _read_canonical_json(target / LOCK_TARGET, "INSTALLED_LOCK_INVALID")
+    requested = _requested_packs(manifest, names)
+    current = tuple(verified["installedPacks"])
+    if not set(requested).issubset(current):
+        raise BundleError("PACK_NOT_STAGED")
+    remaining = tuple(name for name in current if name not in set(requested))
+    removed = [item for item in lock["installFiles"] if item.get("pack") in requested]
+    backup = Path(tempfile.mkdtemp(prefix="gkd-pack-remove-", dir=temporary_root))
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for index, item in enumerate(removed):
+            source = target / item["target"]
+            destination = backup / str(index)
+            os.replace(source, destination)
+            moved.append((source, destination))
+        _atomic_write(target / INSTALL_TARGET, canonical_bytes(_install_record(manifest, lock, remaining)))
+        expected_files = {item["path"] for item in _install_record(manifest, lock, remaining)["ownedFiles"]} | {INSTALL_TARGET}
+        for directory in sorted((path for path in (target / "gkd").rglob("*") if path.is_dir()), key=lambda path: len(path.parts), reverse=True):
+            relative = directory.relative_to(target).as_posix()
+            if relative not in _expected_directories(expected_files) and not any(directory.iterdir()):
+                directory.rmdir()
+        _verify_target(target)
+    except (OSError, BundleError):
+        for source, destination in reversed(moved):
+            source.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(destination, source)
+        _atomic_write(target / INSTALL_TARGET, canonical_bytes(_install_record(manifest, lock, current)))
+        raise
+    finally:
+        shutil.rmtree(backup, ignore_errors=True)
+    return _pack_result("removed", manifest, lock, requested)
 
 
 def verify(temporary_root_value: Path, target_value: Path) -> dict[str, Any]:
@@ -1552,6 +1666,19 @@ def _parser() -> MachineParser:
     install_parser.add_argument("--source-root", type=Path, required=True)
     install_parser.add_argument("--temporary-root", type=Path, required=True)
     install_parser.add_argument("--target", type=Path, required=True)
+    install_parser.add_argument("--pack", action="append", default=[])
+
+    pack_stage = commands.add_parser("pack-stage")
+    pack_stage.add_argument("--source-root", type=Path, required=True)
+    pack_stage.add_argument("--temporary-root", type=Path, required=True)
+    pack_stage.add_argument("--target", type=Path, required=True)
+    pack_stage.add_argument("--pack", action="append", required=True)
+
+    for name in ("pack-verify", "pack-remove"):
+        command = commands.add_parser(name)
+        command.add_argument("--temporary-root", type=Path, required=True)
+        command.add_argument("--target", type=Path, required=True)
+        command.add_argument("--pack", action="append", required=True)
 
     input_parser = commands.add_parser("verify-input")
     input_parser.add_argument("--source-root", type=Path, required=True)
@@ -1582,7 +1709,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "generate":
             result = generate(args.source_root)
         elif args.command == "install":
-            result = install(args.source_root, args.temporary_root, args.target)
+            result = install(args.source_root, args.temporary_root, args.target, tuple(args.pack))
+        elif args.command == "pack-stage":
+            result = stage_packs(args.source_root, args.temporary_root, args.target, tuple(args.pack))
+        elif args.command == "pack-verify":
+            result = verify_packs(args.temporary_root, args.target, tuple(args.pack))
+        elif args.command == "pack-remove":
+            result = remove_packs(args.temporary_root, args.target, tuple(args.pack))
         elif args.command == "verify-input":
             result = verify_input(args.source_root, args.name)
         elif args.command == "verify":

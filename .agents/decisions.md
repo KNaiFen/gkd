@@ -615,3 +615,15 @@
 - [2026-08-31] O6 delivery pack compatibility 收尾清理完成。
   - Why: accepted candidate 清理前保持 clean、固定于 `e01a9cd856df2186787c17452c2d2e3ac95d23b0`，candidate tree 与 squash merge tree 均为 `b8f5fc7e6bc9a8c682f7e2ba38d1e5d93018f8ff`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、review、route 与双解释器/install/evidence 临时根已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 merge 保留。
+
+- [2026-08-31] O6 R2 候选将默认 executor 与安装面收窄为 core，并以显式 pack 保留 CI advice 与 review/remediation。
+  - Why: PR #50 已使受信 delivery consumer 严格理解 schema-v2 pack/core/optional lane，O6 可以在新 lifecycle 中安全改变 producer，避免把按需能力隐式放入默认 context、install 或 verifier。
+  - Impact: source/manifest/lock 现在以 `ci-advice`、`review-remediation` pack 绑定文件、mode、size 与 digest；默认 executor 只含 execute/local-verify/ci-monitor，v1 full-install 仍可读。双解释器 core 与 optional verification 均通过，候选尚未 canonical delivery 或 acceptance。
+
+- [2026-08-31] O6 R2 P1 source loader 按 schema version 严格分派。
+  - Why: schema-v1 source 在 v2-only `packs` 上发生无条件访问，破坏旧 canonical source 的 generate/verify 兼容入口。
+  - Impact: v1 source 只生成和验证 v1 manifest/lock 字段；v2 才要求并校验 pack 声明。v1 含 v2 field、v2 缺 pack、unknown schema 与 pack ownership drift 都保持 fail-closed。
+
+- [2026-08-31] O6 R2 P2 将 selected packs 绑定到实际 project executor config。
+  - Why: 旧 project stage 会复制 optional Skill 文件，却继续使用 core-only `gkd_executor.toml` 及其 role/config digest，导致选择状态与受管配置不一致。
+  - Impact: stage/verify 现在以同一 selected-pack role catalog 渲染 executor TOML、role/config/Skill digest 与 inventory；解析 TOML 的 core、单包、组合包和 extra-entry drift 合同在 Python 3.9.6/3.14.6 全部通过。canonical delivery、fixed-head CI 和独立验收仍待执行。

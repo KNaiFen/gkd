@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -143,6 +144,142 @@ class InstallationContracts(unittest.TestCase):
         leaked.write_text("{}\n", encoding="utf-8")
         with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_EXTRA_OR_MISSING"):
             gkd_bundle.verify(self.boundary, target)
+
+    def test_default_install_excludes_optional_pack_runtime_and_skills(self) -> None:
+        target = self._installed()
+        verified = gkd_bundle.verify(self.boundary, target)
+        self.assertEqual([], verified["installedPacks"])
+        for relative in (
+            "gkd/bin/gkd-resource-scanner",
+            "gkd/bin/gkd-review",
+            "gkd/lib/gkd_review",
+            "gkd/lib/gkd_ci/resources.py",
+            "gkd/schema/review",
+            "gkd/skills/gkd-optimize-ci",
+            "gkd/skills/gkd-review-remediation",
+        ):
+            self.assertFalse((target / relative).exists(), relative)
+
+    def test_optional_packs_stage_verify_and_remove_by_name(self) -> None:
+        target = self._installed()
+        names = ("ci-advice", "review-remediation")
+        staged = gkd_bundle.stage_packs(self.source, self.boundary, target, names)
+        self.assertEqual("staged", staged["status"])
+        self.assertEqual(names, tuple(item["name"] for item in staged["packs"]))
+        self.assertEqual(names, tuple(gkd_bundle.verify(self.boundary, target)["installedPacks"]))
+        self.assertEqual("verified", gkd_bundle.verify_packs(self.boundary, target, names)["status"])
+        self.assertTrue((target / "gkd/bin/gkd-resource-scanner").is_file())
+        self.assertTrue((target / "gkd/bin/gkd-review").is_file())
+        self.assertEqual("already_staged", gkd_bundle.stage_packs(self.source, self.boundary, target, names)["status"])
+        self.assertEqual("removed", gkd_bundle.remove_packs(self.boundary, target, names)["status"])
+        self.assertEqual([], gkd_bundle.verify(self.boundary, target)["installedPacks"])
+
+    def test_optional_pack_unknown_tampered_and_wrong_surface_fail_closed(self) -> None:
+        target = self._installed()
+        before = (target / gkd_bundle.INSTALL_TARGET).read_bytes()
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "PACK_UNKNOWN"):
+            gkd_bundle.stage_packs(self.source, self.boundary, target, ("unknown",))
+        self.assertEqual(before, (target / gkd_bundle.INSTALL_TARGET).read_bytes())
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "PACK_NOT_STAGED"):
+            gkd_bundle.verify_packs(self.boundary, target, ("ci-advice",))
+        pack_file = self.source / "payload/lib/gkd_ci/resources.py"
+        pack_file.write_bytes(pack_file.read_bytes() + b"\n")
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "LOCK_OR_DIGEST_MISMATCH"):
+            gkd_bundle.stage_packs(self.source, self.boundary, target, ("ci-advice",))
+        self.assertEqual(before, (target / gkd_bundle.INSTALL_TARGET).read_bytes())
+
+    def test_optional_pack_drift_is_detected_before_remove(self) -> None:
+        target = self._installed()
+        gkd_bundle.stage_packs(self.source, self.boundary, target, ("ci-advice",))
+        resource = target / "gkd/lib/gkd_ci/resources.py"
+        resource.write_bytes(resource.read_bytes() + b"\n")
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_CONTENT"):
+            gkd_bundle.verify_packs(self.boundary, target, ("ci-advice",))
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "TARGET_DRIFT_CONTENT"):
+            gkd_bundle.remove_packs(self.boundary, target, ("ci-advice",))
+
+    def test_optional_pack_cli_stages_verifies_and_removes(self) -> None:
+        target = self._installed()
+        common = ("--temporary-root", str(self.boundary), "--target", str(target), "--pack", "ci-advice")
+        staged = run_cli("pack-stage", "--source-root", str(self.source), *common)
+        self.assertEqual(0, staged.returncode, staged.stderr)
+        self.assertEqual("staged", json.loads(staged.stdout)["status"])
+        verified = run_cli("pack-verify", *common)
+        self.assertEqual(0, verified.returncode, verified.stderr)
+        self.assertEqual("verified", json.loads(verified.stdout)["status"])
+        removed = run_cli("pack-remove", *common)
+        self.assertEqual(0, removed.returncode, removed.stderr)
+        self.assertEqual("removed", json.loads(removed.stdout)["status"])
+
+    def test_legacy_schema_v1_full_install_remains_readable(self) -> None:
+        target = self._target("legacy-v1")
+        manifest = json.loads((self.source / "manifest.json").read_text(encoding="utf-8"))
+        manifest["schemaVersion"] = 1
+        manifest.pop("packs")
+        for component in manifest["components"]:
+            component.pop("pack", None)
+        schema = json.loads((self.source / "manifest.schema.json").read_text(encoding="utf-8"))
+        schema["schemaVersion"] = 1
+        schema["required"].remove("packs")
+        schema["properties"].pop("packs")
+        schema["properties"]["schemaVersion"] = {"const": 1}
+        schema_bytes = (json.dumps(schema, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        manifest_bytes = gkd_bundle.canonical_bytes(manifest)
+        current = json.loads((self.source / "manifest.lock.json").read_text(encoding="utf-8"))
+        install_files = [{key: value for key, value in item.items() if key != "pack"} for item in current["installFiles"]]
+        input_files = [{key: value for key, value in item.items() if key != "pack"} for item in current["inputFiles"]]
+        digest_inputs = [
+            gkd_bundle._digest_record("manifest.schema.json", "0644", schema_bytes),
+            gkd_bundle._digest_record("manifest.json", "0644", manifest_bytes),
+        ]
+        for item in install_files:
+            digest_inputs.append(gkd_bundle._digest_record(item["source"], item["mode"], (self.source / item["source"]).read_bytes()))
+        for item in input_files:
+            digest_inputs.append({key: item[key] for key in ("source", "type", "mode", "sha256")})
+            digest_inputs[-1]["path"] = digest_inputs[-1].pop("source")
+        digest_inputs.sort(key=lambda item: item["path"])
+        lock = {
+            "schemaVersion": 1,
+            "bundleVersion": manifest["bundleVersion"],
+            "releaseStatus": manifest["releaseStatus"],
+            "schemaSha256": gkd_bundle.sha256_bytes(schema_bytes),
+            "manifestSha256": gkd_bundle.sha256_bytes(manifest_bytes),
+            "digestInputs": digest_inputs,
+            "installFiles": install_files,
+            "inputFiles": input_files,
+            "contentDigest": gkd_bundle.sha256_bytes(b"".join(gkd_bundle.canonical_bytes(item) for item in digest_inputs)),
+        }
+        for item in install_files:
+            destination = target / item["target"]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.source / item["source"], destination)
+            os.chmod(destination, int(item["mode"], 8))
+        gkd_bundle._atomic_write(target / gkd_bundle.SCHEMA_TARGET, schema_bytes)
+        gkd_bundle._atomic_write(target / gkd_bundle.MANIFEST_TARGET, manifest_bytes)
+        gkd_bundle._atomic_write(target / gkd_bundle.LOCK_TARGET, gkd_bundle.canonical_bytes(lock))
+        gkd_bundle._atomic_write(target / gkd_bundle.INSTALL_TARGET, gkd_bundle.canonical_bytes(gkd_bundle._install_record(manifest, lock)))
+        verified = gkd_bundle.verify(self.boundary, target)
+        self.assertEqual(lock["contentDigest"], verified["contentDigest"])
+        self.assertEqual([], verified["installedPacks"])
+
+    def test_installed_pack_and_core_digest_drift_is_recomputed(self) -> None:
+        for field in ("packDigest", "coreDigest"):
+            with self.subTest(field=field):
+                target = self._installed(f"installed-{field}")
+                manifest = json.loads((target / gkd_bundle.MANIFEST_TARGET).read_text(encoding="utf-8"))
+                lock_path = target / gkd_bundle.LOCK_TARGET
+                lock = json.loads(lock_path.read_text(encoding="utf-8"))
+                if field == "packDigest":
+                    lock["packs"][0][field] = "0" * 64
+                else:
+                    lock[field] = "0" * 64
+                gkd_bundle._atomic_write(lock_path, gkd_bundle.canonical_bytes(lock))
+                gkd_bundle._atomic_write(
+                    target / gkd_bundle.INSTALL_TARGET,
+                    gkd_bundle.canonical_bytes(gkd_bundle._install_record(manifest, lock)),
+                )
+                with self.assertRaisesRegex(gkd_bundle.BundleError, "INSTALLED_LOCK_INVALID"):
+                    gkd_bundle.verify(self.boundary, target)
 
 
 if __name__ == "__main__":

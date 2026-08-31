@@ -48,20 +48,44 @@ class RoleContracts(unittest.TestCase):
             parsed = tomllib.loads(raw.decode("utf-8"))
             self.assertEqual(name.removesuffix(".toml"), parsed["name"])
             self.assertEqual(False, parsed["agents"]["enabled"])
-            self.assertEqual(7, len(parsed["skills"]["config"]))
+            self.assertEqual(5, len(parsed["skills"]["config"]))
             self.assertEqual({"name", "description", "model", "model_reasoning_effort", "sandbox_mode", "developer_instructions", "agents", "skills"}, set(parsed))
 
     def test_context_manifests_are_minimal_and_explicit_about_omissions(self) -> None:
         expected = {
-            "gkd_executor": {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"},
+            "gkd_executor": {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor"},
             "gkd_acceptor": {"gkd-accept", "gkd-local-verify", "gkd-ci-monitor"},
-            "gkd_ci_reviewer": {"gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"},
+            "gkd_ci_reviewer": {"gkd-ci-monitor"},
         }
         for role, skills in expected.items():
             manifest = context_manifest(BUNDLE_ROOT, self.digest, role)
             self.assertEqual(skills, {item["name"] for item in manifest["skills"]})
             self.assertFalse(skills & set(manifest["omittedSkills"]))
             self.assertIn("conversation-transcripts", manifest["omittedContext"])
+
+    def test_optional_packs_only_extend_explicit_role_context(self) -> None:
+        default = context_manifest(BUNDLE_ROOT, self.digest, "gkd_executor")
+        explicit = context_manifest(
+            BUNDLE_ROOT,
+            self.digest,
+            "gkd_executor",
+            ("ci-advice", "review-remediation"),
+        )
+        self.assertEqual([], default["optionalPacks"])
+        self.assertEqual({}, default["packDigests"])
+        self.assertEqual(
+            {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor"},
+            {item["name"] for item in default["skills"]},
+        )
+        self.assertEqual(["ci-advice", "review-remediation"], explicit["optionalPacks"])
+        self.assertEqual({"ci-advice", "review-remediation"}, set(explicit["packDigests"]))
+        self.assertEqual(
+            {"gkd-execute", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"},
+            {item["name"] for item in explicit["skills"]},
+        )
+        self.assertNotEqual(default["contextDigest"], explicit["contextDigest"])
+        with self.assertRaisesRegex(TaskError, "UNKNOWN_OPTIONAL_PACK"):
+            context_manifest(BUNDLE_ROOT, self.digest, "gkd_executor", ("unknown",))
 
     def test_role_authority_matrix_denies_every_forbidden_boundary(self) -> None:
         cases = (

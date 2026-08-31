@@ -21,7 +21,7 @@ class PackagingContracts(unittest.TestCase):
         manifest = json.loads((SOURCE_ROOT / "manifest.json").read_text(encoding="utf-8"))
         lock = json.loads((SOURCE_ROOT / "manifest.lock.json").read_text(encoding="utf-8"))
         names = {component["name"] for component in manifest["components"]}
-        self.assertTrue({"role-routing-cli", "role-routing-library", "role-routing-source", "role-routing-schemas", "workflow-skills"}.issubset(names))
+        self.assertTrue({"role-routing-cli", "role-routing-library", "role-routing-source", "role-routing-schemas", "workflow-core-skills"}.issubset(names))
         self.assertEqual(
             len([path for path in (SOURCE_ROOT / "payload").rglob("*") if path.is_file()]),
             len(lock["installFiles"]),
@@ -55,7 +55,11 @@ class PackagingContracts(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(3, len(json.loads(result.stdout)["roles"]))
             self.assertEqual("0755", oct(executable.stat().st_mode & 0o777).removeprefix("0o").zfill(4))
-            self.assertEqual(len(lock["installFiles"]) + 4, installed["files"])
+            core_files = [item for item in lock["installFiles"] if item["pack"] is None]
+            self.assertEqual(len(core_files) + 4, installed["files"])
+            self.assertEqual([], installed["installedPacks"])
+            self.assertFalse((target / "gkd" / "bin" / "gkd-resource-scanner").exists())
+            self.assertFalse((target / "gkd" / "bin" / "gkd-review").exists())
             inventory = json.loads((target / "gkd" / ".bundle" / "install.json").read_text(encoding="utf-8"))
             inventory_text = json.dumps(inventory, sort_keys=True)
             self.assertNotIn("FixtureEvidenceProvider", inventory_text)
@@ -71,6 +75,34 @@ class PackagingContracts(unittest.TestCase):
             self.assertTrue({"name", "description", "developer_instructions"}.issubset(role))
             self.assertIn(role["sandbox_mode"], {"read-only", "workspace-write"})
             self.assertTrue(all(item["path"].startswith("../skills/") and item["path"].endswith("/SKILL.md") for item in role["skills"]["config"]))
+
+    def test_installed_optional_pack_enables_explicit_role_context(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gkd-role-pack-") as root_name:
+            temporary = Path(root_name)
+            target = temporary / "target"
+            target.mkdir()
+            gkd_bundle.install(SOURCE_ROOT, temporary, target)
+            executable = target / "gkd" / "bin" / "gkd-role"
+            missing = subprocess.run(
+                [sys.executable, str(executable), "context", "--bundle-root", str(target / "gkd"), "--bundle-digest", bundle_digest(), "--role", "gkd_executor", "--pack", "ci-advice"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(2, missing.returncode)
+            gkd_bundle.stage_packs(SOURCE_ROOT, temporary, target, ("ci-advice",))
+            completed = subprocess.run(
+                [sys.executable, str(executable), "context", "--bundle-root", str(target / "gkd"), "--bundle-digest", bundle_digest(), "--role", "gkd_executor", "--pack", "ci-advice"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            context = json.loads(completed.stdout)
+            self.assertEqual(["ci-advice"], context["optionalPacks"])
+            self.assertIn("gkd-optimize-ci", {item["name"] for item in context["skills"]})
 
     def test_workflow_skills_have_progressive_disclosure_shape_and_generic_mechanism(self) -> None:
         for root in sorted((BUNDLE_ROOT / "skills").iterdir()):

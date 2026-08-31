@@ -30,8 +30,10 @@ class MigrationContracts(unittest.TestCase):
         agents = self.home / ".codex" / "agents"
         self.assertEqual({"gkd_acceptor.toml", "gkd_ci_reviewer.toml", "gkd_executor.toml"}, {path.name for path in agents.iterdir()})
         self.assertFalse((agents / "ci-reviewer.toml").exists())
-        for name in ("gkd-main", "gkd-execute", "gkd-accept", "gkd-local-verify", "gkd-ci-monitor", "gkd-optimize-ci", "gkd-review-remediation"):
+        for name in ("gkd-main", "gkd-execute", "gkd-accept", "gkd-local-verify", "gkd-ci-monitor"):
             self.assertTrue((self.home / ".codex" / "skills" / name / "SKILL.md").is_file())
+        for name in ("gkd-optimize-ci", "gkd-review-remediation"):
+            self.assertFalse((self.home / ".codex" / "skills" / name).exists())
         self.assertEqual("migration_applied", result["status"])
 
     def test_six_duplicate_paths_are_disabled_without_deleting_or_changing_bytes(self) -> None:

@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 bundle_version = "0.1.5"
 release_status = "release-candidate"
 
@@ -25,6 +25,13 @@ name = "review-multi-repository"
 kind = "test"
 source = "inputs/review/multi-repository.json"
 mode = "0644"
+pack = "review-remediation"
+
+[[packs]]
+name = "ci-advice"
+
+[[packs]]
+name = "review-remediation"
 
 [[components]]
 name = "ci-monitor-cli"
@@ -48,17 +55,25 @@ files = [
 name = "ci-monitor-schemas"
 kind = "library"
 files = [
-  { source = "payload/schema/ci/artifact-plan.schema.json", target = "gkd/schema/ci/artifact-plan.schema.json", mode = "0644" },
   { source = "payload/schema/ci/policy.schema.json", target = "gkd/schema/ci/policy.schema.json", mode = "0644" },
+  { source = "payload/schema/ci/terminal-result.schema.json", target = "gkd/schema/ci/terminal-result.schema.json", mode = "0644" },
+]
+
+[[components]]
+name = "ci-advice-schemas"
+kind = "library"
+pack = "ci-advice"
+files = [
+  { source = "payload/schema/ci/artifact-plan.schema.json", target = "gkd/schema/ci/artifact-plan.schema.json", mode = "0644" },
   { source = "payload/schema/ci/recommendation.schema.json", target = "gkd/schema/ci/recommendation.schema.json", mode = "0644" },
   { source = "payload/schema/ci/resource-facts.schema.json", target = "gkd/schema/ci/resource-facts.schema.json", mode = "0644" },
   { source = "payload/schema/ci/scanner-result.schema.json", target = "gkd/schema/ci/scanner-result.schema.json", mode = "0644" },
-  { source = "payload/schema/ci/terminal-result.schema.json", target = "gkd/schema/ci/terminal-result.schema.json", mode = "0644" },
 ]
 
 [[components]]
 name = "review-cli"
 kind = "executable"
+pack = "review-remediation"
 files = [
   { source = "payload/bin/gkd-review", target = "gkd/bin/gkd-review", mode = "0755" },
 ]
@@ -77,6 +92,7 @@ files = [
 [[components]]
 name = "review-library"
 kind = "library"
+pack = "review-remediation"
 files = [
   { source = "payload/lib/gkd_review/__init__.py", target = "gkd/lib/gkd_review/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_review/adapter.py", target = "gkd/lib/gkd_review/adapter.py", mode = "0644" },
@@ -88,6 +104,7 @@ files = [
 [[components]]
 name = "review-schemas"
 kind = "library"
+pack = "review-remediation"
 files = [
   { source = "payload/schema/review/adapter.schema.json", target = "gkd/schema/review/adapter.schema.json", mode = "0644" },
   { source = "payload/schema/review/recommendation.schema.json", target = "gkd/schema/review/recommendation.schema.json", mode = "0644" },
@@ -98,6 +115,7 @@ files = [
 [[components]]
 name = "resource-scanner-cli"
 kind = "executable"
+pack = "ci-advice"
 files = [
   { source = "payload/bin/gkd-resource-scanner", target = "gkd/bin/gkd-resource-scanner", mode = "0755" },
 ]
@@ -105,6 +123,7 @@ files = [
 [[components]]
 name = "resource-scanner-library"
 kind = "library"
+pack = "ci-advice"
 files = [
   { source = "payload/lib/gkd_ci/recommendations.py", target = "gkd/lib/gkd_ci/recommendations.py", mode = "0644" },
   { source = "payload/lib/gkd_ci/resource_cli.py", target = "gkd/lib/gkd_ci/resource_cli.py", mode = "0644" },
@@ -258,7 +277,7 @@ files = [
 ]
 
 [[components]]
-name = "workflow-skills"
+name = "workflow-core-skills"
 kind = "library"
 files = [
   { source = "payload/skills/gkd-accept/SKILL.md", target = "gkd/skills/gkd-accept/SKILL.md", mode = "0644" },
@@ -271,8 +290,22 @@ files = [
   { source = "payload/skills/gkd-local-verify/agents/openai.yaml", target = "gkd/skills/gkd-local-verify/agents/openai.yaml", mode = "0644" },
   { source = "payload/skills/gkd-main/SKILL.md", target = "gkd/skills/gkd-main/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-main/agents/openai.yaml", target = "gkd/skills/gkd-main/agents/openai.yaml", mode = "0644" },
+]
+
+[[components]]
+name = "ci-advice-skill"
+kind = "library"
+pack = "ci-advice"
+files = [
   { source = "payload/skills/gkd-optimize-ci/SKILL.md", target = "gkd/skills/gkd-optimize-ci/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-optimize-ci/agents/openai.yaml", target = "gkd/skills/gkd-optimize-ci/agents/openai.yaml", mode = "0644" },
+]
+
+[[components]]
+name = "review-remediation-skill"
+kind = "library"
+pack = "review-remediation"
+files = [
   { source = "payload/skills/gkd-review-remediation/SKILL.md", target = "gkd/skills/gkd-review-remediation/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-review-remediation/agents/openai.yaml", target = "gkd/skills/gkd-review-remediation/agents/openai.yaml", mode = "0644" },
 ]

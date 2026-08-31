@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "GKD bundle manifest",
   "type": "object",
   "additionalProperties": false,
@@ -7,10 +7,11 @@
     "schemaVersion",
     "bundleVersion",
     "releaseStatus",
-    "components"
+    "components",
+    "packs"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "bundleVersion": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$" },
     "releaseStatus": { "const": "release-candidate" },
     "components": {
@@ -23,6 +24,7 @@
         "properties": {
           "name": { "type": "string" },
           "kind": { "enum": ["executable", "library"] },
+          "pack": { "type": "string" },
           "files": {
             "type": "array",
             "minItems": 1,
@@ -38,6 +40,20 @@
               }
             }
           }
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "components", "inputs"],
+        "properties": {
+          "name": { "type": "string" },
+          "components": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+          "inputs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
         }
       }
     }
