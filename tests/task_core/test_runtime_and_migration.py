@@ -169,6 +169,18 @@ class LocatorAndMigrationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "CANDIDATE_SYMLINK"):
             self._resolve(candidate_link, None)
 
+    def test_locator_rejects_candidate_ancestor_symlink(self) -> None:
+        parent_link = self.repo.root / "candidate-parent-link"
+        parent_link.symlink_to(self.repo.root, target_is_directory=True)
+        with self.assertRaisesRegex(TaskError, "CANDIDATE_SYMLINK"):
+            self._resolve(parent_link / "candidate", None)
+
+    def test_locator_rejects_trusted_anchor_ancestor_symlink(self) -> None:
+        parent_link = self.repo.root / "anchor-parent-link"
+        parent_link.symlink_to(self.repo.root, target_is_directory=True)
+        with self.assertRaisesRegex(TaskError, "CANDIDATE_SYMLINK"):
+            self._resolve(None, parent_link / "main")
+
     def test_live_doctor_checks_attachment_and_transaction_state(self) -> None:
         result = self.repo.service().doctor("live")
         self.assertEqual({"status": "valid", "mode": "live", "taskId": self.repo.task_id, "phase": "planning", "revision": 0}, result)

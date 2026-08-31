@@ -14,7 +14,8 @@ from gkd_task.orchestrator import (
     resolve_trusted_task_context,
     resolve_trusted_task_context_from_runtime,
 )
-from gkd_task.runtime import RuntimeStore
+from gkd_task.runtime import RuntimeStore, runtime_key
+from gkd_task.canonical import canonical_bytes, digest_object
 from tests.task_core.helpers import TaskRepo, planning_documents
 
 
@@ -93,6 +94,31 @@ class TrustedTaskContextContracts(unittest.TestCase):
         inventory.write_bytes(inventory.read_bytes() + b"\n")
         with self.assertRaisesRegex(Exception, "INVALID_PROJECT_INVENTORY|PROJECT_STAGE_DRIFT"):
             resolve_trusted_task_context(self.repo.candidate, BUNDLE_ROOT, runtime=self.runtime)
+
+    def test_candidate_cwd_ancestor_symlink_fails_before_git_resolution(self) -> None:
+        alias = self.repo.root / "candidate-parent-alias"
+        alias.symlink_to(self.repo.root, target_is_directory=True)
+        with self.assertRaisesRegex(Exception, "TASK_CONTEXT_SYMLINK"):
+            resolve_trusted_task_context(alias / "candidate", BUNDLE_ROOT, runtime=self.runtime)
+
+    def test_runtime_attachment_candidate_root_ancestor_symlink_fails_closed(self) -> None:
+        alias = self.repo.root / "attachment-parent-alias"
+        alias.symlink_to(self.repo.root, target_is_directory=True)
+        attachment = self.runtime.read_attachment(
+            self.repo.identity,
+            self.repo.task_id,
+            self.repo.task_branch,
+        )
+        attachment["candidateRoot"] = str(alias / "candidate")
+        unsigned = dict(attachment)
+        unsigned.pop("attachmentDigest")
+        unsigned["attachmentDigest"] = digest_object(unsigned)
+        attachment_path = self.runtime.root / "attachments" / (
+            f"{runtime_key(self.repo.identity, self.repo.task_id, self.repo.task_branch)}.json"
+        )
+        attachment_path.write_bytes(canonical_bytes(unsigned))
+        with self.assertRaisesRegex(Exception, "INVALID_RUNTIME_ATTACHMENT"):
+            resolve_trusted_task_context_from_runtime(self.runtime, BUNDLE_ROOT, self.repo.task_id)
 
     def test_explicit_selector_skips_unrelated_history_records(self) -> None:
         unrelated = self.repo.main / "tasks" / "historical" / "task.json"

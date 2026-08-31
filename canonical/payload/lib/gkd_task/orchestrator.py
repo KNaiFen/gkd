@@ -16,7 +16,7 @@ from gkd_role.project import inspect_project_inventory
 from .canonical import digest_object, require_sha256, require_string, sha256_bytes
 from .documents import DOCUMENT_NAMES, inspect_package
 from .errors import TaskError
-from .gitops import branch, common_dir, git_root, repository_identity, unique_branch_worktree, verified_relative_path, verify_identity
+from .gitops import branch, common_dir, git_root, reject_symlink_ancestors, repository_identity, unique_branch_worktree, verified_relative_path, verify_identity
 from .model import read_state
 from .runtime import RuntimeStore
 
@@ -80,6 +80,8 @@ def _attachment_candidate(attachment: dict[str, Any]) -> tuple[Path, str, dict[s
     task_path = attachment["taskPath"]
     candidate = Path(attachment["candidateRoot"])
     common = Path(attachment["commonDir"])
+    reject_symlink_ancestors(candidate, "CANDIDATE_SYMLINK")
+    reject_symlink_ancestors(common, "CANDIDATE_SYMLINK")
     root = verify_identity(candidate, repository, task_branch, common)
     task_root = verified_relative_path(root, task_path)
     state = read_state(task_root / "task.json", task_root)
@@ -230,6 +232,7 @@ def resolve_trusted_task_context(
 
     if task_id is not None:
         require_string(task_id, "INVALID_TASK_SELECTOR")
+    reject_symlink_ancestors(current_path, "TASK_CONTEXT_SYMLINK")
     if current_path.is_symlink():
         raise TaskError("TASK_CONTEXT_SYMLINK")
     current = git_root(current_path)

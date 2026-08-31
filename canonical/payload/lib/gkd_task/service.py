@@ -44,6 +44,7 @@ from .gitops import (
     is_clean,
     read_tree_file,
     require_regular_tree_file,
+    reject_symlink_ancestors,
     verified_relative_path,
     verify_identity,
 )
@@ -261,6 +262,7 @@ class TaskService:
         failure_hook: Any | None = None,
         allow_document_drift: bool = False,
     ) -> None:
+        reject_symlink_ancestors(candidate_root, "CANDIDATE_SYMLINK")
         if candidate_root.is_symlink():
             raise TaskError("CANDIDATE_SYMLINK")
         if not candidate_root.is_dir():
