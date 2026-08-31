@@ -10,50 +10,8 @@ from pathlib import Path
 import sys
 import unittest
 
-from gkd_task.results import CanonicalResultError, canonical_bytes, load_canonical_results
-
-
-CONTRACT_SUFFIXES = {
-    "manifest_lock_and_digest": (
-        "ManifestContracts.test_schema_manifest_lock_and_canonical_sort_are_valid",
-        "ManifestContracts.test_repeated_generation_is_byte_identical",
-        "ManifestContracts.test_mutation_content_tamper_without_digest_update_is_rejected",
-        "ManifestContracts.test_metadata_mode_mutations_are_rejected_before_generation",
-    ),
-    "source_inventory_and_paths": (
-        "ManifestContracts.test_unknown_payload_file_is_rejected",
-        "ManifestContracts.test_missing_payload_file_is_rejected",
-        "ManifestContracts.test_source_path_traversal_is_rejected",
-        "ManifestContracts.test_machine_specific_source_content_is_rejected",
-        "ManifestContracts.test_bare_usernames_and_unrelated_aio_substrings_are_portable",
-        "ManifestContracts.test_project_specific_install_target_is_deferred_to_repository_scan",
-    ),
-    "temporary_installation_and_drift": (
-        "InstallationContracts.test_two_clean_installs_match_and_repeat_is_idempotent",
-        "InstallationContracts.test_cli_has_no_default_target_or_temporary_root",
-        "InstallationContracts.test_verify_detects_content_drift",
-        "InstallationContracts.test_verify_detects_missing_file",
-        "InstallationContracts.test_verify_detects_extra_file",
-        "InstallationContracts.test_verify_detects_mode_drift",
-        "InstallationContracts.test_verify_detects_symlink_drift",
-    ),
-    "vision_and_documentation": (
-        "GovernanceContracts.test_vision_has_exactly_seven_required_sections",
-        "GovernanceContracts.test_mutation_missing_vision_section_is_rejected",
-        "GovernanceContracts.test_readme_and_agents_must_link_without_copying_vision",
-        "GovernanceContracts.test_document_layering_and_templates_are_complete",
-        "GovernanceContracts.test_alignment_template_is_generated_and_cannot_expand_authorization",
-    ),
-    "deterministic_evidence": (
-        "EvidenceContracts.test_two_clean_evidence_generations_are_byte_identical",
-        "EvidenceContracts.test_evidence_digest_is_canonical_and_self_excluding",
-        "EvidenceContracts.test_evidence_contains_no_temporary_or_machine_path",
-        "EvidenceContracts.test_output_inside_protected_root_fails_without_writing",
-        "EvidenceContracts.test_cleanup_failure_cannot_publish_ready_evidence",
-        "EvidenceContracts.test_final_snapshot_occurs_only_after_install_cleanup",
-        "EvidenceContracts.test_project_specific_path_fails_at_evidence_boundary",
-    ),
-}
+from gkd_task.results import CanonicalResultError, canonical_bytes, select_canonical_results
+from tests.contract_catalog import FOUNDATION_CONTRACT_TEST_IDS, validate_contract_coverage
 
 
 def _flatten(suite: unittest.TestSuite):
@@ -74,13 +32,6 @@ class RecordingResult(unittest.TextTestResult):
         self.success_ids.add(test.id())
 
 
-def _matching(success_ids: set[str], suffix: str) -> str:
-    matches = sorted(test_id for test_id in success_ids if test_id.endswith(suffix))
-    if len(matches) != 1:
-        raise RuntimeError(f"contract mapping mismatch: {suffix}")
-    return matches[0]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -95,6 +46,7 @@ def main() -> int:
     )
     tests = list(_flatten(suite))
     discovered_ids = [test.id() for test in tests]
+    canonical_selection = None
     if args.canonical_results is None:
         result = runner.run(suite)
         if not result.wasSuccessful():
@@ -102,11 +54,18 @@ def main() -> int:
         success_ids = result.success_ids
     else:
         try:
-            load_canonical_results(args.canonical_results, "foundation", repository, discovered_ids)
+            canonical_selection = select_canonical_results(
+                args.canonical_results,
+                "foundation",
+                repository,
+                discovered_ids,
+                discovered_ids,
+            )
         except CanonicalResultError as error:
             sys.stderr.buffer.write(canonical_bytes({"error": error.code, "status": "error"}))
             return 2
-        success_ids = set(discovered_ids)
+        success_ids = {item["id"] for item in canonical_selection["tests"]}
+    validate_contract_coverage(FOUNDATION_CONTRACT_TEST_IDS, success_ids)
     test_ids = sorted(success_ids)
     evidence = {
         "schemaVersion": 1,
@@ -119,9 +78,14 @@ def main() -> int:
         "contracts": {
             contract: {
                 "status": "pass",
-                "tests": [_matching(success_ids, suffix) for suffix in suffixes],
+                "tests": list(contract_test_ids),
+                "result": {
+                    "headSha": canonical_selection["headSha"] if canonical_selection is not None else None,
+                    "resultDigest": canonical_selection["resultDigest"] if canonical_selection is not None else None,
+                    "scope": "foundation",
+                },
             }
-            for contract, suffixes in sorted(CONTRACT_SUFFIXES.items())
+            for contract, contract_test_ids in FOUNDATION_CONTRACT_TEST_IDS.items()
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

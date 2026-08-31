@@ -15,21 +15,13 @@ import unittest
 import gkd_bundle
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object
 from gkd_task.errors import TaskError
-from gkd_task.results import CanonicalResultError, load_canonical_results
+from gkd_task.results import CanonicalResultError, select_canonical_results
+from tests.contract_catalog import DELIVERY_CONTRACT_TEST_IDS
 
 
 EXECUTION_BUNDLE_DIGEST = "71c4b2d3562c2e5a6a784bf3436a7d5920cd00b3ad387f320a2563d4b5b88766"
-CONTRACTS = (
-    "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_requires_precommitted_canonical_document_binding",
-    "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_rejects_document_commit_with_extra_tracked_path",
-    "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_rejects_path_traversal_before_any_write",
-    "tests.task_core.test_lifecycle.LifecycleContracts.test_delivery_rejects_duplicate_document_on_fresh_attempt",
-    "tests.task_core.test_acceptance.AcceptanceContracts.test_exact_head_acceptance_performs_two_reads_and_one_merge",
-    "tests.task_core.test_acceptance.AcceptanceContracts.test_legacy_delivery_without_document_binding_is_readable_but_not_acceptable",
-    "tests.task_core.test_acceptance.AcceptanceContracts.test_post_delivery_document_commit_is_not_a_fixed_candidate",
-    "tests.task_core.test_mutations.MutationContracts.test_mutation_delivery_document_digest_check_is_killed",
-    "tests.task_core.test_mutations.MutationContracts.test_mutation_delivery_document_commit_paths_check_is_killed",
-)
+CONTRACT_ID = "delivery_document_binding"
+CONTRACTS = DELIVERY_CONTRACT_TEST_IDS[CONTRACT_ID]
 
 
 def _directory(path: Path, code: str) -> Path:
@@ -102,19 +94,23 @@ def main() -> int:
         all_test_ids = sorted(test.id() for test in all_tests)
         if len(all_test_ids) != len(set(all_test_ids)):
             raise TaskError("DUPLICATE_CONTRACT_ID")
-        suite = unittest.TestSuite(
-            unittest.defaultTestLoader.loadTestsFromName(identifier)
-            for identifier in CONTRACTS
-        )
+        canonical_selection = None
         if args.canonical_results is None:
+            suite = unittest.TestSuite(
+                unittest.defaultTestLoader.loadTestsFromName(identifier)
+                for identifier in CONTRACTS
+            )
             result = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
             if not result.wasSuccessful():
                 return 1
         else:
-            canonical = load_canonical_results(args.canonical_results, "task-core", repository, all_test_ids)
-            available = {item["id"] for item in canonical["tests"]}
-            if any(identifier not in available for identifier in CONTRACTS):
-                raise CanonicalResultError("CANONICAL_RESULT_TEST_IDS_MISMATCH")
+            canonical_selection = select_canonical_results(
+                args.canonical_results,
+                "task-core",
+                repository,
+                all_test_ids,
+                list(CONTRACTS),
+            )
         if any(temporary.iterdir()):
             raise TaskError("TEMPORARY_ROOT_NOT_CLEAN")
         after = gkd_bundle._snapshot_protected(protected)
@@ -134,6 +130,14 @@ def main() -> int:
                 "count": len(CONTRACTS),
                 "idDigestSha256": hashlib.sha256("\n".join(CONTRACTS).encode("utf-8")).hexdigest(),
                 "ids": list(CONTRACTS),
+            },
+            "contractResults": {
+                CONTRACT_ID: {
+                    "headSha": canonical_selection["headSha"] if canonical_selection is not None else None,
+                    "resultDigest": canonical_selection["resultDigest"] if canonical_selection is not None else None,
+                    "scope": "task-core",
+                    "testIds": list(CONTRACTS),
+                },
             },
             "sequence": {
                 "documentBeforeDeliveryState": True,

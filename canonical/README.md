@@ -66,8 +66,10 @@ lane; it never runs from the default command. With an explicit `--results-dir`,
 each lane runs its scopes once and writes a versioned,
 path-free canonical result manifest plus one result per scope. Evidence runners
 may consume that directory with `--canonical-results`; they re-check the
-current fixed head, base ancestry, environment, test IDs/statuses and digests
-before running their own protected-surface, temporary-root and output checks.
+current fixed head, base ancestry, environment, complete scope test IDs/statuses
+and digests before selecting any contract-owned test IDs. Shared contract tests
+therefore reuse one canonical execution result while each evidence runner still
+runs its own protected-surface, temporary-root and output checks.
 The resource/scanner and review scopes likewise run only through
 `optional-ci-advice`, `optional-review-remediation`, or the combined
 `optional-packs` lane.
