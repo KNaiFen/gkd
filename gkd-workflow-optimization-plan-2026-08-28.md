@@ -3,7 +3,7 @@
 **制定日期：** 2026-08-28
 **依据：** [GKD 工作流精简审查报告](gkd-workflow-simplification-review-2026-08-28.md)
 **执行方式：** 每个任务独立固定基线，由 `gkd_executor` 交付，由独立 `gkd_acceptor` 验收；失败尝试保留终态，不沿旧 head 洗绿。
-**当前基线：** `d3703bf57c5047f41db57e97d9117550acf7ffc9`
+**当前基线：** `71c90ffdd3e3250be33746acd465b2b3e58de053`
 
 ## 目标与不变项
 
@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O5 与 P0 已完成。O6 attempt 0 因旧 delivery consumer 不接受八 scope core sidecar 被 block；前置 compatibility 任务已以 `d3703bf57c5047f41db57e97d9117550acf7ffc9` 合入，producer 仍为 schema-v1/full-install/十 scope default，但受信 consumer 已严格支持 schema-v2 packs、八 scope core 与 optional lanes。当前启动项为 fresh O6 retry：默认角色与 optional pack 拆分。
+O1-O6 与 P0 已完成。O6-R2 在 PR #50 compatibility 前置后以 `71c90ffdd3e3250be33746acd465b2b3e58de053` 合入：default core 为 8 scopes/396 tests、84/88 runtime/install，CI/review 只作为显式 optional packs（19/11/30 tests）进入角色/项目上下文。当前启动项为 O7 contract 索引与重复断言收敛。

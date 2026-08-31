@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O5 与 Python 3.9 compatibility 已完成。O6 attempt 0 的八 scope/optional pack producer 因旧 delivery consumer block；其 compatibility 前置任务已以 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0`、merge `d3703bf57c5047f41db57e97d9117550acf7ffc9` 合入。O6 R2 候选现在以 schema-v2 pack 声明保留 84 个 core runtime 文件，并将 23 个 CI advice/review-remediation 文件及一个 review input 拆至两个 explicit pack；default core 安装为 88 个文件（含 metadata），executor 只注入 `gkd-execute`、`gkd-local-verify`、`gkd-ci-monitor`。epoch 1 P1 以 schema-version 分派修复 schema-v1 source loader 的 v2-only `packs` 访问；epoch 2 P2 使 project stage 从 selected packs 共同渲染 executor TOML、role/config 与 inventory digest，并以解析 TOML 的 core/single/combined/tamper contracts 覆盖。Python 3.9.6/3.14.6 已各通过 396 项 core、19 项 CI advice、11 项 review/remediation 与 30 项组合 lane；canonical delivery、fixed-head CI 和独立验收仍待执行。
+- O1-O6 与 Python 3.9 compatibility 已完成。O6-R2 epoch 2 以 fixed head `35ee34a4a456879b1efd747388f5d3c93504cc0d`、merge `71c90ffdd3e3250be33746acd465b2b3e58de053` 完成 core/optional pack 拆分：core runtime/install 为 84/88 文件、default/core 为 8 scopes/396 tests，optional packs 为 19/11/30 tests。epoch 0 的 source-v1 loader 与 epoch 1 的 pack TOML 缺口都保留为 rejected 历史。下一步从新 development bundle 建立 O7 contract 索引与重复断言收敛。
 
 ## Historical facts
 

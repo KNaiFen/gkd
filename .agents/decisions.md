@@ -627,3 +627,7 @@
 - [2026-08-31] O6 R2 P2 将 selected packs 绑定到实际 project executor config。
   - Why: 旧 project stage 会复制 optional Skill 文件，却继续使用 core-only `gkd_executor.toml` 及其 role/config digest，导致选择状态与受管配置不一致。
   - Impact: stage/verify 现在以同一 selected-pack role catalog 渲染 executor TOML、role/config/Skill digest 与 inventory；解析 TOML 的 core、单包、组合包和 extra-entry drift 合同在 Python 3.9.6/3.14.6 全部通过。canonical delivery、fixed-head CI 和独立验收仍待执行。
+
+- [2026-08-31] O6 default role and optional pack split 已经两轮 canonical rework 后独立验收并合并。
+  - Why: epoch 0 首先暴露旧 delivery consumer 不理解八 scope core；PR #50 先行合入 future consumer compatibility。O6-R2 epoch 0 随后发现 schema-v1 source loader 无条件读 v2 `packs`，epoch 1 又发现 selected pack 仅复制文件却未生成有效 executor TOML；两次均由 independent rejection 退役。epoch 2 以版本分派修复 source 兼容，并使 project stage 的 selected packs 参与 role/config/inventory 与 TOML 渲染。
+  - Impact: PR #51 fixed head `35ee34a4a456879b1efd747388f5d3c93504cc0d` 以 squash merge `71c90ffdd3e3250be33746acd465b2b3e58de053` 进入 main；candidate bundle/core digest 为 `8c34b7474d4fb55c1d688f515dbd2f4f7cac32c8706865a4bc8eea2060bd10b3` / `ee344ae248afbc21d07987634db13efcb7273769f64960f44588008b8babeebc`。默认 core 8 scopes/396 tests，CI/review optional packs 为 19/11/30；生产、AIO、settings、Secrets、runner、tag/Release 未变。
