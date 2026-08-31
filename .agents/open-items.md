@@ -120,3 +120,4 @@
 - [x] O6 R2 已在 epoch 2 completed：独立 acceptance/CI 通过；candidate worktree、本地/远端 branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
 - [x] O7 contract 索引与重复断言收敛已完成：PR #52 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0` merge 为 `5534269e490eb6eb783d451e18f82e670a0db4f4`；delivery canonical-result 模式不重跑九项 task-core 测试，watchdog/foundation 以完整 test ID 的双向索引保持合同覆盖与可查询性。candidate/branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
 - [ ] O8 compatibility matrix 降频与发布边界评估：从 O7 merge 的新 execution bundle 建立 task；core 保留每种公开旧格式的 read 与 reject/restore 正例，完整历史矩阵进入 release-upgrade lane，并只完成 release/finalize shared-engine 的 ADR/迁移任务边界评估。
+- [ ] O8 implementation candidate: release-upgrade/matrix, versioned legacy-format catalog, ADR-001, and Python 3.9.6/3.14.6 verifier evidence are prepared; delivery and independent acceptance remain pending.

@@ -137,7 +137,7 @@ class InstallationContracts(unittest.TestCase):
     def test_explicit_inputs_are_not_installed_and_fixture_leak_fails_closed(self) -> None:
         target = self._installed()
         lock = json.loads((target / gkd_bundle.LOCK_TARGET).read_text(encoding="utf-8"))
-        self.assertEqual(4, len(lock["inputFiles"]))
+        self.assertEqual(5, len(lock["inputFiles"]))
         self.assertFalse((target / "gkd/fixtures").exists())
         leaked = target / "gkd/fixtures/release/traceability.json"
         leaked.parent.mkdir(parents=True)
@@ -261,6 +261,14 @@ class InstallationContracts(unittest.TestCase):
         verified = gkd_bundle.verify(self.boundary, target)
         self.assertEqual(lock["contentDigest"], verified["contentDigest"])
         self.assertEqual([], verified["installedPacks"])
+
+    def test_legacy_schema_v1_rejects_pack_fields(self) -> None:
+        manifest = json.loads((self.source / "manifest.json").read_text(encoding="utf-8"))
+        manifest["schemaVersion"] = 1
+        manifest.pop("packs")
+        manifest["components"][0]["pack"] = "ci-advice"
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "INSTALLED_MANIFEST_INVALID"):
+            gkd_bundle._validate_installed_manifest(manifest)
 
     def test_installed_pack_and_core_digest_drift_is_recomputed(self) -> None:
         for field in ("packDigest", "coreDigest"):

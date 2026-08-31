@@ -304,22 +304,5 @@ class LocatorAndMigrationContracts(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "worktree_missing"):
             migrate_v1(self.repo.candidate, self.repo.task_path, self.runtime, self.repo.head(), state["revision"], FixedClock(FIXED_TIME), SystemNonce())
 
-    def test_archived_v1_missing_worktree_migrates_without_live_attachment(self) -> None:
-        service, candidate_head = self.repo.delivered()
-        state = self.repo.state()
-        accepted = record_acceptance_state(state, candidate_head, REVIEWER_DIGEST, True, FIXED_TIME)
-        completed = record_completion_state(accepted, self.repo.base_sha, digest_object({"archive": "fixture"}), FIXED_TIME)
-        legacy = make_legacy_v1(completed, str(self.repo.root / "deleted-worktree"), True)
-        (self.repo.task_root / "task.json").write_bytes(canonical_bytes(legacy))
-        run("git", "add", f"{self.repo.task_path}/task.json", cwd=self.repo.candidate)
-        run("git", "commit", "-m", "archived legacy", cwd=self.repo.candidate)
-        result = migrate_v1(self.repo.candidate, self.repo.task_path, self.runtime, self.repo.head(), completed["revision"], FixedClock(FIXED_TIME), SystemNonce())
-        self.assertEqual("migrated_v1", result["status"])
-        self.assertEqual("completed", self.repo.state()["lifecycle"]["phase"])
-        with self.assertRaisesRegex(TaskError, "worktree_missing"):
-            self.runtime.read_attachment(self.repo.identity, self.repo.task_id, self.repo.task_branch)
-        self.assertEqual("valid", self.repo.service().doctor("historical")["status"])
-
-
 if __name__ == "__main__":
     unittest.main()
