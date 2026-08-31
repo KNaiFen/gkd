@@ -687,3 +687,7 @@
 - [2026-08-31] 插入 P2 activation handoff 修复任务，等待子代理派发恢复。
   - Why: P2-R1 已验证 claim 前生成 sealed context 可避免 envelope 消费顺序错误，但当前运行时无法把 post-claim 激活消息发送给 executor；继续手填交接或伪造 host 事实会扩大流程风险。
   - Impact: `GKD-P2-ACTIVATION-HANDOFF-FACADE` 已从 trusted main `7f959bfd51eee0e2681200e106464b94b6fe272d` fresh bootstrap，requirements-ready 与 plan-approve 均通过，尚未 offer/claim。该任务将把 sealed context 与一次 host acknowledgement 绑定在同一 trusted transition，完成后再退役 P2-R1 并继续 P2。
+
+- [2026-08-31] activation handoff attempt 0 因 executor 无绑定终态卸载而受信 block。
+  - Why: trusted bridge 已成功 claim 至 `f1c8ec3f0e6652bd675e43f9b8669be974cd9839`，executor 随后留下单文件未提交修改但没有 terminal、commit、delivery 或 PR；宿主会话已不再活跃，不能把工作区内容或队列返回当作机器绑定终态。
+  - Impact: 未提交 diff 已保存为 `/private/tmp/gkd-p2-activation-uncommitted.patch`，SHA-256 为 `11f67cee3fc7b2961daa56980e09ecd76a2fbab813976aba2a93738cb1596616`，仅作可恢复失败证据且不得用于下一 attempt。候选恢复到 claim head 后，trusted `gkd-task block` 以 reason `executor_unloaded_without_terminal_activation_handoff` 固定于 head `d8cfc963f04d675748871a06a68abef38c5a8dfe`、revision 5。R1 必须使用 fresh task/offer/claim/runtime/candidate，并在首次 spawn 中携带 sealed context 与 canonical claim-receipt barrier，不再依赖第二条消息。
