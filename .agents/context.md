@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O7 与 Python 3.9 compatibility 已完成。O7 以 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`、merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 完成 contract 索引和 result reuse：default/core 为 8 scopes/404 tests，delivery 在 canonical-result 路径不再重跑九项 task-core 测试，watchdog/foundation 证据可从完整 test ID 反查多个 contract。下一步从 O7 merge 建立 O8 compatibility matrix 降频与 release 边界评估。
+- O1-O7 与 Python 3.9 compatibility 已完成。O7 以 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`、merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 完成 contract 索引和 result reuse：default/core 为 8 scopes/404 tests，delivery 在 canonical-result 路径不再重跑九项 task-core 测试，watchdog/foundation 证据可从完整 test ID 反查多个 contract；候选 worktree 与 task branch 已清理，运行时和一次性输入可恢复移入 Trash。下一步从 O7 merge 建立 O8 compatibility matrix 降频与 release 边界评估。
 
 ## Historical facts
 
