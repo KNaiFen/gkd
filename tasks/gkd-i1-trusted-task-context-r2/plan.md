@@ -11,7 +11,7 @@
 
 ## Behavior And Defaults
 
-- high-level normal path 优先 candidate cwd；trusted main cwd 必须有显式 task selector，attachment fallback 必须唯一且重验 candidate/task identity。歧义和 drift 一律拒绝。
+- high-level normal path 优先 candidate cwd；trusted main cwd 必须有显式 task selector，attachment fallback 必须唯一且重验 candidate/task identity。显式 selector 直接定位匹配 task record，不得先递归读取或校验无关历史 task；歧义和 drift 一律拒绝。
 - context 的 bundle 只能来自 high-level CLI 自身已验证 payload，并与 project inventory/policy 比对；不可由 repo、candidate 或任意 source/target 路径猜测。
 - planning package 由三份人类文档内容生成受管 selector；既有 parser 是唯一格式校验器，空模板和空 package 不是有效替代。
 
@@ -27,7 +27,7 @@
 
 ## Acceptance Criteria
 
-- 三种合法 locator 结果一致、所有不唯一/漂移/泄漏/写入反例拒绝；受管 planning package 可复读且失败无发布。
+- 三种合法 locator 结果一致；显式 selector 不受无关历史 task drift 影响；所有不唯一/漂移/泄漏/写入反例拒绝；受管 planning package 可复读且失败无发布。
 - installed `gkd-main`/library、manifest/lock、Python 3.9.6/3.14.6 verifier、CI 与 independent acceptance 成功。
 
 ## Compatibility
@@ -60,6 +60,6 @@
 
 ## Implementation Notes
 
-- `TrustedTaskContext` 必须在 locator 层而非 bridge；先复用现有 `_validated_candidate`、state policy/origin revalidation 和 `TaskService.status`，但为 runtime 增加不创建目录的打开与严格 attachment 枚举。
+- `TrustedTaskContext` 必须在 locator 层而非 bridge；先复用现有 `_validated_candidate`、state policy/origin revalidation 和 `TaskService.status`，但为 runtime 增加不创建目录的打开与严格 attachment 枚举。`task_id` selector 必须走确定性索引或直接候选路径读取，不能调用会扫描全部 `tasks/**/task.json` 的宽泛历史校验；只有选中的 task 才执行 `read_state`。
 - high-level bundle identity 仅从 self payload `verify_bundle_root` 和 current project inventory 推导；P1 只分类 canonical source 与 installed layout，不实现 P5 的 build/stage transition。
 - package create 使用临时受管目录、现有 `inspect_package` 与原子 publish；implementation commit 后 delivery.md 是唯一直接子提交，delivery 后不再加入实现提交。
