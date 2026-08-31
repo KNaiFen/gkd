@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；candidate/branch 已清理，runtime、package 与执行 bundle 可恢复移入 Trash。用户已授权新的编排输入面收敛计划；P1 TrustedTaskContext 与祖先 symlink corrective 已合并。P2 首次 attempt 因 claim 后读取已消费 envelope 受信 block；插入的 activation handoff attempt 又因 executor 在提交前无绑定终态卸载而 block，未提交修改已保存为只读恢复 patch 且不得复用。下一步从 fresh lifecycle 以首次 spawn 内置 sealed context 和 canonical claim-receipt barrier 重试。生产、AIO、tag、Release 未变。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；candidate/branch 已清理，runtime、package 与执行 bundle 可恢复移入 Trash。用户已授权新的编排输入面收敛计划；P1 TrustedTaskContext 与祖先 symlink corrective 已合并。P2 首次 attempt 因 claim 后读取已消费 envelope 受信 block；activation handoff attempt 0 因 executor 无绑定终态卸载而 block，R1 又在 spawn 前因宿主 direct spawn surface 不可用而 block。下一步以一次性 manual bootstrap execution exception 实现该 facade，完成后恢复正式 automatic route。生产、AIO、tag、Release 未变。
 
 ## Historical facts
 

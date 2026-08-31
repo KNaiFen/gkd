@@ -691,3 +691,7 @@
 - [2026-08-31] activation handoff attempt 0 因 executor 无绑定终态卸载而受信 block。
   - Why: trusted bridge 已成功 claim 至 `f1c8ec3f0e6652bd675e43f9b8669be974cd9839`，executor 随后留下单文件未提交修改但没有 terminal、commit、delivery 或 PR；宿主会话已不再活跃，不能把工作区内容或队列返回当作机器绑定终态。
   - Impact: 未提交 diff 已保存为 `/private/tmp/gkd-p2-activation-uncommitted.patch`，SHA-256 为 `11f67cee3fc7b2961daa56980e09ecd76a2fbab813976aba2a93738cb1596616`，仅作可恢复失败证据且不得用于下一 attempt。候选恢复到 claim head 后，trusted `gkd-task block` 以 reason `executor_unloaded_without_terminal_activation_handoff` 固定于 head `d8cfc963f04d675748871a06a68abef38c5a8dfe`、revision 5。R1 必须使用 fresh task/offer/claim/runtime/candidate，并在首次 spawn 中携带 sealed context 与 canonical claim-receipt barrier，不再依赖第二条消息。
+
+- [2026-08-31] activation handoff R1 在 spawn 前 block，并启用一次性 manual bootstrap execution exception。
+  - Why: R1 已从 fresh main 完成 bootstrap、审批、project verify、automatic offer 和 claim 前 sealed handoff，但当前主会话没有可调用的 direct `spawn_agent` surface；缺少真实 host acknowledgement 时不得执行 bridge claim，也不能用 nested Codex 或手写 JSON 伪造。
+  - Impact: trusted `gkd-task block` 以 reason `host_direct_spawn_surface_unavailable` 固定 R1 head `1f943c08d9837bc84bfc599744617a8a66c39757`、revision 5；没有 executor、claim、实现、PR 或 CI。下一任务以独立 worktree、固定 requirements/plan、人工顶层 execution session 和 fixed-head 独立验收实现最小 handoff facade，不创建或补造 automatic claim/delivery/activation receipt；该例外在 facade 合并后立即终止，后续 P2 必须重新使用正式 automatic route。
