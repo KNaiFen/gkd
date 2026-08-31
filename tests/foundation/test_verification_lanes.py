@@ -24,6 +24,9 @@ from gkd_task.results import (
     OPTIONAL_PACK_LANE,
     OPTIONAL_PACK_PROFILE,
     OPTIONAL_PACK_SCOPE_NAMES,
+    RELEASE_UPGRADE_LANE,
+    RELEASE_UPGRADE_PROFILE,
+    RELEASE_UPGRADE_SCOPE_NAMES,
     REVIEW_REMEDIATION_LANE,
     REVIEW_REMEDIATION_PROFILE,
     REVIEW_REMEDIATION_SCOPE_NAMES,
@@ -93,6 +96,7 @@ class VerificationLaneContracts(unittest.TestCase):
             (CI_ADVICE_LANE, CI_ADVICE_PROFILE, CI_ADVICE_SCOPE_NAMES),
             (REVIEW_REMEDIATION_LANE, REVIEW_REMEDIATION_PROFILE, REVIEW_REMEDIATION_SCOPE_NAMES),
             (OPTIONAL_PACK_LANE, OPTIONAL_PACK_PROFILE, OPTIONAL_PACK_SCOPE_NAMES),
+            (RELEASE_UPGRADE_LANE, RELEASE_UPGRADE_PROFILE, RELEASE_UPGRADE_SCOPE_NAMES),
         )
         with tempfile.TemporaryDirectory() as temporary:
             for index, (lane, profile, scopes) in enumerate(cases):
@@ -169,6 +173,26 @@ class VerificationLaneContracts(unittest.TestCase):
             (root / "manifest.json").write_bytes(canonical_bytes(manifest))
             self._scope(root, "foundation")
             self.assertEqual("foundation", load_canonical_results(root, "foundation", self.repository)["scope"])
+
+    def test_legacy_manifest_rejects_scope_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "baseSha": self.head,
+                "environment": {
+                    "dependenciesInstalled": False,
+                    "platform": platform.system().lower(),
+                    "pythonVersion": sys.version.split()[0],
+                },
+                "headSha": self.head,
+                "schemaVersion": 1,
+                "scopes": list(LEGACY_SCOPE_NAMES[:-1]),
+                "verifierDigest": self.digest,
+            }
+            manifest["manifestDigest"] = digest_object(manifest)
+            (root / "manifest.json").write_bytes(canonical_bytes(manifest))
+            with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_SCOPE_MISMATCH"):
+                load_canonical_results(root, "foundation", self.repository)
 
     def test_result_selection_reuses_a_validated_complete_scope(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

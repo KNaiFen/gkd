@@ -42,7 +42,7 @@ class ManifestContracts(unittest.TestCase):
         self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in manifest["packs"]])
         self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in lock["packs"]])
         self.assertRegex(lock["coreDigest"], "^[0-9a-f]{64}$")
-        self.assertEqual(4, len(lock["inputFiles"]))
+        self.assertEqual(5, len(lock["inputFiles"]))
         self.assertEqual(
             [item["source"] for item in lock["inputFiles"]],
             sorted(item["source"] for item in lock["inputFiles"]),

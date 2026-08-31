@@ -640,6 +640,10 @@
   - Why: delivery canonical-result 路径此前会再次运行九项已由 task-core scope 执行的测试，watchdog/foundation 也以 suffix 映射合同，无法稳定表达一个完整 test ID 属于多个 contract。O7 将行为执行固定为 scope runner，消费者只在完整 manifest/head/base/environment/digest/all-pass 验证后选择测试结果，并从同一 catalog 派生双向索引。
   - Impact: PR #52 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0` 以 squash merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 进入 main；candidate output bundle digest 为 `904e1d02d5519b00bf9e3b9bda8e97a4ab1883d3114730d3e0caae03c25582af`。Python 3.9.6/3.14.6 各通过 core 8 scopes/404 tests，historical watchdog 47 tests 通过，fixed-head CI 和 independent acceptance 无 findings。生产、AIO、settings、Secrets、runner、tag/Release 未变。
 
+- [2026-08-31] O8 将扩展兼容矩阵迁入显式 release-upgrade lane，并保持 release/finalization engine 分离。
+  - Why: 每个 core PR 重跑稳定版本、组合与扩展恢复矩阵会增加验证成本，但公开旧格式仍须在默认路径有可定位的 read 与 reject/restore 合同。
+  - Impact: 版本化 catalog 将十种公开格式的 core 和 matrix test ID 严格绑定；release-upgrade/matrix 独立绑定 scope、head、base、environment 和 result digest。ADR-001 明确本任务不提取或合并 `gkd-finalize` 与 `gkd-release`，未来迁移须以独立授权和双解释器兼容合同开始。
+
 - [2026-08-31] O7 收尾清理完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`，candidate tree 与 squash merge tree 均为 `89dd66570d5bfaf48f98f5781bdcaea426b4ff53`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、route 与 review 一次性输入已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 main merge 保留。

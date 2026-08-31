@@ -30,36 +30,6 @@ class FinalizationContracts(unittest.TestCase):
                 with self.assertRaisesRegex(TaskError, "CLOSEOUT_SCOPE_VIOLATION"):
                     build_finalization(source)
 
-    def test_release_requires_bound_adapter_authorization_and_assets(self) -> None:
-        source = finalization_input("release")
-        for field, value in (("adapterDigest", None), ("authorizationDigest", None), ("assets", [])):
-            with self.subTest(field=field):
-                candidate = dict(source)
-                candidate[field] = value
-                with self.assertRaisesRegex(TaskError, "RELEASE_AUTHORIZATION_REQUIRED"):
-                    build_finalization(candidate)
-        record = build_finalization(source)
-        self.assertEqual("promotion-ready", record["finalization"]["phase"])
-
-    def test_version_evidence_assets_and_main_cannot_split_from_exact_source_sha(self) -> None:
-        source = finalization_input("release")
-        mutations = (
-            ("metadata", "mainSha", "d" * 40),
-            ("metadata", "sourceSha", "d" * 40),
-            ("evidence", "sourceSha", "d" * 40),
-            ("assets", 0, "sourceSha", "d" * 40),
-            ("taskPr", "headSha", "d" * 40),
-        )
-        for mutation in mutations:
-            with self.subTest(mutation=mutation):
-                candidate = finalization_input("release")
-                if mutation[0] == "assets":
-                    candidate[mutation[0]][mutation[1]][mutation[2]] = mutation[3]
-                else:
-                    candidate[mutation[0]][mutation[1]] = mutation[2]
-                with self.assertRaisesRegex(TaskError, "FINALIZATION_(SHA|EVIDENCE|ASSET)_SPLIT"):
-                    build_finalization(candidate)
-
     def test_same_sha_promotion_plan_and_matching_retry_are_idempotent(self) -> None:
         record = build_finalization(finalization_input("release"))
         first = promotion_plan(record)

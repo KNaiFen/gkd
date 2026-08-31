@@ -57,23 +57,15 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         self.assertEqual("verified", verified["status"])
         self.assertEqual([], verified["availablePacks"])
 
-    def test_source_schema_and_pack_declaration_contracts_fail_closed(self) -> None:
-        cases = (
-            ("v1-packs", "schema_version = 2", "schema_version = 1", "INVALID_SOURCE_DECLARATION"),
-            ("v2-missing-packs", '[[packs]]\nname = "ci-advice"\n\n[[packs]]\nname = "review-remediation"\n\n', "", "INVALID_SOURCE_DECLARATION"),
-            ("unknown-schema", "schema_version = 2", "schema_version = 3", "INVALID_SOURCE_DECLARATION"),
-            ("pack-owner-drift", 'pack = "ci-advice"', "", "INVALID_PACK"),
+    def test_v1_source_rejects_pack_declarations(self) -> None:
+        source = self._future_source("v1-packs")
+        declaration_path = source / "source.toml"
+        declaration_path.write_text(
+            declaration_path.read_text(encoding="utf-8").replace("schema_version = 2", "schema_version = 1", 1),
+            encoding="utf-8",
         )
-        for name, before, after, error in cases:
-            with self.subTest(name=name):
-                source = self._future_source(name)
-                declaration_path = source / "source.toml"
-                declaration_path.write_text(
-                    declaration_path.read_text(encoding="utf-8").replace(before, after),
-                    encoding="utf-8",
-                )
-                with self.assertRaisesRegex(gkd_bundle.BundleError, error):
-                    gkd_bundle.generate(source)
+        with self.assertRaisesRegex(gkd_bundle.BundleError, "INVALID_SOURCE_DECLARATION"):
+            gkd_bundle.generate(source)
 
     def test_v2_producer_and_consumer_bind_declared_packs(self) -> None:
         current_root = self.root / "current"
