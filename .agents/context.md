@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；candidate/branch 已清理，runtime、package 与执行 bundle 可恢复移入 Trash。用户已授权新的编排输入面收敛计划；I1 首次 automatic attempt 因 executor 在 claim 前观测 offer head 而受信 block，candidate/branch/runtime/package 已清理，下一次必须 fresh lifecycle 且使用 post-claim activation barrier。生产、AIO、tag、Release 未变。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；candidate/branch 已清理，runtime、package 与执行 bundle 可恢复移入 Trash。用户已授权新的编排输入面收敛计划；P1 TrustedTaskContext 已由 PR #54 合并，随后独立后验审查发现祖先 symlink 未 fail-closed，PR #55 已修复并合并为 `350aa82`。下一步从该 trusted main 建立 P2，继续收敛受信启动、spawn 与等待外观。生产、AIO、tag、Release 未变。
 
 ## Historical facts
 

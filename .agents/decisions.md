@@ -667,3 +667,15 @@
 - [2026-08-31] I1 blocked attempt 收尾清理完成。
   - Why: blocked candidate 在清理前保持 clean、固定于 `42d62b3b197710453872b4d921070351b64b5c14`；没有 delivery、PR 或远端 branch。
   - Impact: candidate worktree 与本地 branch 已删除；runtime、package、route 和未提交 patch 已移入可恢复 Trash。下一次必须以 current trusted main 建立 fresh lifecycle。
+
+- [2026-08-31] I1 R2 已通过独立验收并合并，但后验审查发现祖先 symlink 边界缺陷。
+  - Why: PR #54 fixed head `459d7ca95c2c1bb615b1ffd166e7d0c12d44786a` 的上下文解析只检查当前路径 symlink；`git_root().resolve()` 会绕过祖先 symlink，导致 cwd、candidateRoot 或 runtime attachment 含 symlink 祖先时仍可通过。该 finding 在 acceptor 完成后才到达，旧 PR 已关闭且不能对同一 lifecycle rework。
+  - Impact: PR #54 已由 canonical `gkd-task accept --merge` 合并为 `5605c5fb16d0571185aeab256cf4c4c40a52061c`，缺陷不回写旧历史；随后从该 trusted main 建立独立 corrective task。该事实说明“验收完成前主线程不得消费迟到审查消息”仍需在 P2 facade 中固化。
+
+- [2026-08-31] `GKD-I1-TRUSTED-CONTEXT-SYMLINK-BOUNDARY` 已独立验收并合并。
+  - Why: fresh lifecycle 从 `5605c5fb16d0571185aeab256cf4c4c40a52061c` 建立，executor 在 post-claim activation barrier 后交付；实现增加 cwd、candidateRoot、explicit candidate 与 trusted-anchor 的 lexical ancestor symlink fail-closed contract。Python 3.9.6/3.14.6 各通过 core 419/419、task-core 158/158，独立 acceptor 无 findings，固定头 CI 成功。
+  - Impact: PR #55 fixed head `b72b6966a5039785c4e6098ecb1fad6dfd6217c5` 由 canonical `gkd-task accept --merge` 合并为 `350aa82`。P1 现已完成；candidate、branch、runtime、package 与一次性输入均可恢复清理，生产、AIO、settings、Secrets、runner、tag/Release 未变。
+
+- [2026-08-31] P1 corrective lifecycle 的编排输入事实已记录。
+  - Why: 直接调用 public `gkd-role automatic-prepare` 被正确拒绝为 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`；bridge `prepare` 推进 task revision 后，旧 planning CAS 复用被拒绝为 `CAS_HEAD_MISMATCH`，随后按 bridge 生成的实际 head/revision claim 成功。首次 route 临时输入因 JSON 非 canonical 被 `INVALID_ROUTE_REQUEST` 拒绝，改为 canonical JSON 后通过；planning `decision-ref` 使用文件路径被拒绝为 `INVALID_DECISION_REF`，改用授权引用后通过。
+  - Impact: 这些错误没有改变候选或 trusted main 的有效状态，但证明 P2 必须让 facade 自动串联 planning head、route canonicalization、bridge transition 和 wait state，Agent 不应复制这些事实或调用非受信低层入口。
