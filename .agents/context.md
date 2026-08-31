@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；候选收尾后总计划完成。生产、AIO、tag、Release 未变。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；candidate/branch 已清理，runtime、package 与执行 bundle 可恢复移入 Trash，总计划完成。生产、AIO、tag、Release 未变。
 
 ## Historical facts
 
