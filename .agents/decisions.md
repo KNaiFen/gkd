@@ -635,3 +635,7 @@
 - [2026-08-31] O6-R2 收尾清理完成。
   - Why: accepted candidate 清理前保持 clean、固定于 `35ee34a4a456879b1efd747388f5d3c93504cc0d`，candidate tree 与 squash merge tree 均为 `55d102daade2381b81bda05c23a427ac43a7c508`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、三轮 review、route 与双解释器/verify/result 临时根已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 merge 保留。
+
+- [2026-08-31] O7 contract 索引与 canonical result reuse 已独立验收并合并。
+  - Why: delivery canonical-result 路径此前会再次运行九项已由 task-core scope 执行的测试，watchdog/foundation 也以 suffix 映射合同，无法稳定表达一个完整 test ID 属于多个 contract。O7 将行为执行固定为 scope runner，消费者只在完整 manifest/head/base/environment/digest/all-pass 验证后选择测试结果，并从同一 catalog 派生双向索引。
+  - Impact: PR #52 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0` 以 squash merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 进入 main；candidate output bundle digest 为 `904e1d02d5519b00bf9e3b9bda8e97a4ab1883d3114730d3e0caae03c25582af`。Python 3.9.6/3.14.6 各通过 core 8 scopes/404 tests，historical watchdog 47 tests 通过，fixed-head CI 和 independent acceptance 无 findings。生产、AIO、settings、Secrets、runner、tag/Release 未变。

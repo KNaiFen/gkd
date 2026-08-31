@@ -3,7 +3,7 @@
 **制定日期：** 2026-08-28
 **依据：** [GKD 工作流精简审查报告](gkd-workflow-simplification-review-2026-08-28.md)
 **执行方式：** 每个任务独立固定基线，由 `gkd_executor` 交付，由独立 `gkd_acceptor` 验收；失败尝试保留终态，不沿旧 head 洗绿。
-**当前基线：** `71c90ffdd3e3250be33746acd465b2b3e58de053`
+**当前基线：** `5534269e490eb6eb783d451e18f82e670a0db4f4`
 
 ## 目标与不变项
 
@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O6 与 P0 已完成。O6-R2 在 PR #50 compatibility 前置后以 `71c90ffdd3e3250be33746acd465b2b3e58de053` 合入：default core 为 8 scopes/396 tests、84/88 runtime/install，CI/review 只作为显式 optional packs（19/11/30 tests）进入角色/项目上下文。当前启动项为 O7 contract 索引与重复断言收敛。
+O1-O7 与 P0 已完成。O7 以 PR #52 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0` merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 合入：default core 为 8 scopes/404 tests，delivery canonical-result 路径消费 task-core 结果而不重跑九项合同，watchdog/foundation 由完整 test ID 的双向索引保留多合同引用与可查询性。当前启动项为 O8 compatibility matrix 降频与发布边界评估。

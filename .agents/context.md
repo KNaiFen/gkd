@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O6 与 Python 3.9 compatibility 已完成。O6-R2 epoch 2 以 fixed head `35ee34a4a456879b1efd747388f5d3c93504cc0d`、merge `71c90ffdd3e3250be33746acd465b2b3e58de053` 完成 core/optional pack 拆分：core runtime/install 为 84/88 文件、default/core 为 8 scopes/396 tests，optional packs 为 19/11/30 tests。epoch 0 的 source-v1 loader 与 epoch 1 的 pack TOML 缺口都保留为 rejected 历史。下一步从新 development bundle 建立 O7 contract 索引与重复断言收敛。
+- O1-O7 与 Python 3.9 compatibility 已完成。O7 以 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`、merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 完成 contract 索引和 result reuse：default/core 为 8 scopes/404 tests，delivery 在 canonical-result 路径不再重跑九项 task-core 测试，watchdog/foundation 证据可从完整 test ID 反查多个 contract。下一步从 O7 merge 建立 O8 compatibility matrix 降频与 release 边界评估。
 
 ## Historical facts
 
