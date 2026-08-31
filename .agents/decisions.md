@@ -655,3 +655,7 @@
 - [2026-08-31] O8 收尾清理与最终 development stage 刷新完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `a0a776f1e1cadbed90b553406ca49d615a10b97d`，candidate tree 与 squash merge tree 均为 `ab4342e7546618b4e00e3e8b78bedf010dc01251`。主线重建的 O8 development bundle 验证为 `e22f2a44ce0e4e8ac62fe449a8d6c64446d5f20fac9ee03f234e0406724249ce`。
   - Impact: current non-production project stage 已绑定该 bundle，inventory 为 `e32e966206fa7ea3a9cfda64e5e8b9f32d9ae26bfbc5667be7fcf0766b41b78e`；candidate worktree、本地/远端 task branch 已删除，O6-O8 runtime、package、route/review 与 execution bundle roots 已移入可恢复 Trash。PR、task records、acceptance、retrospective、ADR 和 main merge 保留。
+
+- [2026-08-31] 编排输入面收敛调研确认应优先删除 Agent 的重复机器输入。
+  - Why: session 历史中的 planning package、bundle source/target、project stage、policy path、candidate identity、claim 时序和 CLI 参数失误，均发生在 Agent 手拼已可由 task state、runtime、bundle、project inventory、policy 或 host API 唯一推导的事实时。
+  - Impact: 新报告与计划提出 trusted-main orchestration facade、机器事实 renderer 与版本化文档迁移；保留用户意图、授权、route/pack 选择、独立 review 和 explicit merge。该计划尚未实施或获得实施授权。
