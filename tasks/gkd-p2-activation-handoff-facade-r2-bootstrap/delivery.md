@@ -5,8 +5,8 @@
 - 任务：`GKD-P2-ACTIVATION-HANDOFF-FACADE-R2-BOOTSTRAP`
 - 固定基线：`2f02f199aafe0540349f518779124aa1debbbb2c`
 - 规划头：`f10c23492143fd0bc3746ddfa4df02a957e65327`
-- 实现固定头：`acb4fbe955a2a04b4ab2500e86cfc02bfe6cc8e5`
-- bundle digest：`b7e7d9b34977774e16c690d0ebc85d8e450fc836a5aa6303d13e7294f0abda1f`
+- 实现提交：`b5838e575bf10fa63e36a27b428e81c4e2598d99`
+- bundle digest：`f387dff79dd58acca465c1715e6676e38f618c71a47ae4fa07de56123efc686a`
 
 ## 实现边界
 
@@ -17,11 +17,11 @@
 ## 验证证据
 
 - `scripts/gkd-verify --base-sha 2f02f199aafe0540349f518779124aa1debbbb2c`
-- Python 3.9.6：424 项通过；runtime-bridge focused 50 项通过。
-- Python 3.14.6：424 项通过；runtime-bridge focused 50 项通过。
+- Python 3.9.6：425 项通过；runtime-bridge focused 51 项通过。
+- Python 3.14.6：425 项通过；runtime-bridge focused 51 项通过。
 - handoff focused contracts：sealed context、single consume、exact direct spawn、policy/CAS drift、bundle drift 均通过。
 - 证据文件：`tasks/gkd-p2-activation-handoff-facade-r2-bootstrap/evidence.json`
-- 证据摘要 digest：`91f8b7dee9fe1857087a3f9160c5e29f673ca26718c278891d7ccf2c7bb79db6`
+- 证据摘要 digest：`6083b154340f73b298e9914e23ca0c10512d769f1fd62e5a186b24140c449092`
 
 ## 交接终点
 
