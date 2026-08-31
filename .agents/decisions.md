@@ -679,3 +679,7 @@
 - [2026-08-31] P1 corrective lifecycle 的编排输入事实已记录。
   - Why: 直接调用 public `gkd-role automatic-prepare` 被正确拒绝为 `TRUSTED_ACTIVATION_BOUNDARY_UNAVAILABLE`；bridge `prepare` 推进 task revision 后，旧 planning CAS 复用被拒绝为 `CAS_HEAD_MISMATCH`，随后按 bridge 生成的实际 head/revision claim 成功。首次 route 临时输入因 JSON 非 canonical 被 `INVALID_ROUTE_REQUEST` 拒绝，改为 canonical JSON 后通过；planning `decision-ref` 使用文件路径被拒绝为 `INVALID_DECISION_REF`，改用授权引用后通过。
   - Impact: 这些错误没有改变候选或 trusted main 的有效状态，但证明 P2 必须让 facade 自动串联 planning head、route canonicalization、bridge transition 和 wait state，Agent 不应复制这些事实或调用非受信低层入口。
+
+- [2026-08-31] P2 首次 automatic attempt 因 activation context 请求顺序错误受信 block。
+  - Why: trusted main 先调用 `TrustedMainRuntimeBridge.claim` 消费了 launch envelope，随后才请求 `execution_context(envelope_id)`；bridge 正确返回 `INVALID_LAUNCH_ENVELOPE`。executor 未读取 task 状态、未修改候选、未实现或交付。
+  - Impact: `gkd-task block` 在 head `9dddd2d872302541b3df2de312dc699d9aab506b`、revision 5 写入 `executor_activation_context_after_claim`。该 lifecycle、offer、claim、runtime、candidate 和一次性输入不得复用；P2 facade 必须在 claim 前原子地产生并封存 execution context，随后才能执行 spawn/claim transition。
