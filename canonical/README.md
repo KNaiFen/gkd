@@ -60,6 +60,18 @@ task state, planning and authorization gates, portable worktree resolution,
 offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
 The foundation `gkd-bundle` command surface remains unchanged.
 
+The installed `gkd-main` command is the read-only trusted-main locator for one
+task context. From a candidate checkout it needs no path arguments; from a
+trusted main checkout it accepts only `--task-id`. Its inspect and preflight
+records are path-redacted and bind the current task snapshot to the verified
+bundle, project inventory and repository policy. `gkd-main planning create`
+accepts the three reviewed Markdown contents directly, validates them with the
+same strict planning parser, and atomically publishes a private selector.
+`planning inspect --package-selector <digest>` reports only package status and
+required human inputs, never document content or a package path. These commands
+do not replace the lower-level lifecycle CLI or create offers, claims, runtime
+attachments or task state.
+
 The repository verifier keeps its default invocation and core scope list.
 `scripts/gkd-verify --lane historical` is the explicit watcher/probe historical
 lane; it never runs from the default command. With an explicit `--results-dir`,

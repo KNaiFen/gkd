@@ -324,6 +324,32 @@ def _result(status: str, inventory: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def inspect_project_inventory(project_root: Path) -> dict[str, Any]:
+    """Read and verify the managed project inventory without staging or removal."""
+
+    project = _git_project(project_root)
+    _reject_symlink_chains(project, (PROJECT_INVENTORY,))
+    inventory = read_canonical_json(
+        project / PROJECT_INVENTORY,
+        "INVALID_PROJECT_INVENTORY",
+        _validate_inventory,
+    )
+    _reject_symlink_chains(project, (record["path"] for record in inventory["files"]))
+    expected_paths = {record["path"] for record in inventory["files"]} | {PROJECT_INVENTORY.as_posix()}
+    if _managed_files(project) != expected_paths:
+        raise TaskError("PROJECT_STAGE_DRIFT")
+    for record in inventory["files"]:
+        path = project / record["path"]
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or sha256_bytes(path.read_bytes()) != record["sha256"]
+            or stat.S_IMODE(path.stat().st_mode) != int(record["mode"], 8)
+        ):
+            raise TaskError("PROJECT_STAGE_DRIFT")
+    return _result("verified", inventory)
+
+
 def verify_project(bundle_root: Path, bundle_digest: str, project_root: Path, production_root: Path, packs: tuple[str, ...] = ()) -> dict[str, Any]:
     source, project = _validate_boundaries(bundle_root, project_root, production_root)
     files, facts = _desired_files(source, bundle_digest, _project_policy(project), packs)

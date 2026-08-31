@@ -74,7 +74,7 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         current_manifest = json.loads((current / "manifest.json").read_text(encoding="utf-8"))
         current_lock = json.loads((current / "manifest.lock.json").read_text(encoding="utf-8"))
         self.assertEqual(2, current_manifest["schemaVersion"])
-        self.assertEqual(107, len(current_lock["installFiles"]))
+        self.assertEqual(111, len(current_lock["installFiles"]))
         self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in current_manifest["packs"]])
 
         source = self._future_source("all-packs")
