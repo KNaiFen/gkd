@@ -117,5 +117,5 @@
 - [x] O6 默认角色与 optional pack 拆分已完成：PR #51 fixed head `35ee34a4a456879b1efd747388f5d3c93504cc0d` merge 为 `71c90ffdd3e3250be33746acd465b2b3e58de053`；core runtime/install 为 84/88、default 8 scopes/396 tests，CI/review optional packs 为 19/11/30，selected pack 绑定实际 executor TOML。epoch 0/1 rejected history 已保留。
 - [x] O6 attempt 0 已受信 block：实现和双解释器 core 8 scopes/387 tests、optional 19/11/30 tests 均完成，但 current delivery consumer 对八 scope sidecar 返回 `INVALID_RESULT_MANIFEST`；block head `b654587400e2a74bcaff7d46033225965995c554`、revision 6，未 delivery、push、PR、CI 或 acceptance，不得复用该 lifecycle。candidate/branch/runtime/package/一次性输入已完成可恢复清理。
 - [x] O6 delivery compatibility 前置任务已完成：PR #50 fixed head `e01a9cd856df2186787c17452c2d2e3ac95d23b0` merge 为 `d3703bf57c5047f41db57e97d9117550acf7ffc9`；旧 schema-v1/full-install/十 scope producer 保持，新 consumer 严格理解 schema-v2 packs、八 scope core 与 optional lanes。candidate/branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
-- [x] O6 R2 已在 epoch 2 completed：独立 acceptance/CI 通过；candidate worktree、本地/远端 branch、runtime/package/一次性输入清理待完成。
+- [x] O6 R2 已在 epoch 2 completed：独立 acceptance/CI 通过；candidate worktree、本地/远端 branch 已删除，runtime/package/一次性输入已移入可恢复 Trash。
 - [ ] O7 contract 索引与重复断言收敛：从 O6 merge 的新 execution bundle 建立 task，保留 contract coverage、用 test ID 到 contracts 反向索引与 task-core result reuse 收窄重复验证。

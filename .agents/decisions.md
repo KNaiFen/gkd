@@ -631,3 +631,7 @@
 - [2026-08-31] O6 default role and optional pack split 已经两轮 canonical rework 后独立验收并合并。
   - Why: epoch 0 首先暴露旧 delivery consumer 不理解八 scope core；PR #50 先行合入 future consumer compatibility。O6-R2 epoch 0 随后发现 schema-v1 source loader 无条件读 v2 `packs`，epoch 1 又发现 selected pack 仅复制文件却未生成有效 executor TOML；两次均由 independent rejection 退役。epoch 2 以版本分派修复 source 兼容，并使 project stage 的 selected packs 参与 role/config/inventory 与 TOML 渲染。
   - Impact: PR #51 fixed head `35ee34a4a456879b1efd747388f5d3c93504cc0d` 以 squash merge `71c90ffdd3e3250be33746acd465b2b3e58de053` 进入 main；candidate bundle/core digest 为 `8c34b7474d4fb55c1d688f515dbd2f4f7cac32c8706865a4bc8eea2060bd10b3` / `ee344ae248afbc21d07987634db13efcb7273769f64960f44588008b8babeebc`。默认 core 8 scopes/396 tests，CI/review optional packs 为 19/11/30；生产、AIO、settings、Secrets、runner、tag/Release 未变。
+
+- [2026-08-31] O6-R2 收尾清理完成。
+  - Why: accepted candidate 清理前保持 clean、固定于 `35ee34a4a456879b1efd747388f5d3c93504cc0d`，candidate tree 与 squash merge tree 均为 `55d102daade2381b81bda05c23a427ac43a7c508`。
+  - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、三轮 review、route 与双解释器/verify/result 临时根已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 merge 保留。
