@@ -695,3 +695,7 @@
 - [2026-08-31] activation handoff R1 在 spawn 前 block，并启用一次性 manual bootstrap execution exception。
   - Why: R1 已从 fresh main 完成 bootstrap、审批、project verify、automatic offer 和 claim 前 sealed handoff，但当前主会话没有可调用的 direct `spawn_agent` surface；缺少真实 host acknowledgement 时不得执行 bridge claim，也不能用 nested Codex 或手写 JSON 伪造。
   - Impact: trusted `gkd-task block` 以 reason `host_direct_spawn_surface_unavailable` 固定 R1 head `1f943c08d9837bc84bfc599744617a8a66c39757`、revision 5；没有 executor、claim、实现、PR 或 CI。下一任务以独立 worktree、固定 requirements/plan、人工顶层 execution session 和 fixed-head 独立验收实现最小 handoff facade，不创建或补造 automatic claim/delivery/activation receipt；该例外在 facade 合并后立即终止，后续 P2 必须重新使用正式 automatic route。
+
+- [2026-09-01] P2 activation handoff facade 已在 manual bootstrap 分支实现。
+  - Why: trusted main 需要在 spawn 前封存 execution context、spawn request、offer/envelope/route/bundle/role/config 绑定与 claim CAS，才能让一次 host acknowledgement 完成 claim；旧 `prepare/claim/execution_context` 继续作为兼容面。
+  - Impact: 新增 `TrustedMainRuntimeBridge.prepare_handoff` 与 single-consume `TrustedMainHandoff.acknowledge`；成功或 fail-closed 后均不可重放，claim 不再请求第二条 execution-context 消息。默认 CLI、candidate claim、production、AIO、tag、Release 均未改变；本任务不创建 claim、activation、delivery 或 receipt。

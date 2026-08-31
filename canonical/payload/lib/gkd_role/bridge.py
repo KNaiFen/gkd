@@ -179,6 +179,74 @@ def validate_spawn_result(facts: dict[str, Any], expected: dict[str, Any]) -> di
     return {"taskName": facts["taskName"]}
 
 
+class TrustedMainHandoff:
+    """A sealed, single-consume spawn handoff owned by trusted main."""
+
+    def __init__(
+        self,
+        bridge: "TrustedMainRuntimeBridge",
+        prepared: dict[str, Any],
+        execution_context: dict[str, Any],
+        binding_context: dict[str, Any],
+        expected_head: str,
+        expected_revision: int,
+        activation_nonce: str,
+        project_root: Path,
+        production_root: Path,
+    ) -> None:
+        self._bridge = bridge
+        self._prepared = deepcopy(prepared)
+        self._execution_context = deepcopy(execution_context)
+        self._binding_context = deepcopy(binding_context)
+        self._expected_head = expected_head
+        self._expected_revision = expected_revision
+        self._activation_nonce = activation_nonce
+        self._project_root = project_root
+        self._production_root = production_root
+        self._consumed = False
+
+    @property
+    def spawn_request(self) -> dict[str, Any]:
+        return deepcopy(self._prepared["spawnRequest"])
+
+    @property
+    def execution_context(self) -> dict[str, Any]:
+        return deepcopy(self._execution_context)
+
+    @property
+    def request(self) -> dict[str, Any]:
+        return self.spawn_request
+
+    @property
+    def context(self) -> dict[str, Any]:
+        return self.execution_context
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return host-readable facts without CAS, nonce, or capability material."""
+
+        value = deepcopy(self._prepared)
+        value["executionContext"] = self.execution_context
+        return value
+
+    def acknowledge(self, spawn_result: dict[str, Any]) -> dict[str, Any]:
+        """Consume this handoff and complete the bound trusted-main claim."""
+
+        if self._consumed:
+            raise TaskError("HANDOFF_CONSUMED")
+        self._consumed = True
+        return self._bridge._claim_with_context(
+            self._expected_head,
+            self._expected_revision,
+            self._binding_context["envelopeId"],
+            spawn_result,
+            self._activation_nonce,
+            self._prepared,
+            self._binding_context,
+            self._project_root,
+            self._production_root,
+        )
+
+
 class TrustedMainRuntimeBridge:
     """Supported trusted-main bridge; candidate task CLI remains fail-closed."""
 
@@ -228,6 +296,9 @@ class TrustedMainRuntimeBridge:
         """Return trusted-main-only argv for one prepared executor handoff."""
 
         context = self._service().automatic_claim_context(envelope_id)
+        return self._render_execution_context(context)
+
+    def _render_execution_context(self, context: dict[str, Any]) -> dict[str, Any]:
         task_cli = str((self.bundle_root / "bin" / "gkd-task").resolve())
         value = {
             "candidateRoot": str(Path(self.candidate_root).resolve()),
@@ -237,6 +308,7 @@ class TrustedMainRuntimeBridge:
             "taskBranch": context["taskBranch"],
             "taskPath": self.task_path,
             "repository": context["repository"],
+            "envelopeId": context["envelopeId"],
         }
         value["statusArgv"] = [
             task_cli, "status", "--repository", context["repository"],
@@ -248,7 +320,7 @@ class TrustedMainRuntimeBridge:
         value["doctorArgv"][1] = "doctor"
         return value
 
-    def prepare(
+    def _prepare_internal(
         self,
         expected_head: str,
         expected_revision: int,
@@ -256,7 +328,7 @@ class TrustedMainRuntimeBridge:
         expires_at: str,
         project_root: Path,
         production_root: Path,
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         catalog = self._verified_catalog()
         validate_route_decision(route_decision, require_automatic=True)
         if route_decision["bundleDigest"] != self.execution_bundle_digest:
@@ -289,7 +361,7 @@ class TrustedMainRuntimeBridge:
         )
         handoff = service.handoff()
         context = service.automatic_claim_context(handoff["envelopeId"])
-        return {
+        prepared = {
             "status": "automatic_spawn_ready",
             "taskId": context["taskId"],
             "offerId": context["offerId"],
@@ -312,14 +384,70 @@ class TrustedMainRuntimeBridge:
                 "forkTurns": "none",
             },
         }
+        return prepared, context, self._render_execution_context(context)
 
-    def claim(
+    def prepare(
+        self,
+        expected_head: str,
+        expected_revision: int,
+        route_decision: dict[str, Any],
+        expires_at: str,
+        project_root: Path,
+        production_root: Path,
+    ) -> dict[str, Any]:
+        prepared, _, _ = self._prepare_internal(
+            expected_head,
+            expected_revision,
+            route_decision,
+            expires_at,
+            project_root,
+            production_root,
+        )
+        return prepared
+
+    def prepare_handoff(
+        self,
+        expected_head: str,
+        expected_revision: int,
+        route_decision: dict[str, Any],
+        expires_at: str,
+        project_root: Path,
+        production_root: Path,
+    ) -> TrustedMainHandoff:
+        prepared, context, rendered_context = self._prepare_internal(
+            expected_head,
+            expected_revision,
+            route_decision,
+            expires_at,
+            project_root,
+            production_root,
+        )
+        status = self._service().status()
+        if status["phase"] != "awaiting_claim":
+            raise TaskError("INVALID_TRANSITION")
+        return TrustedMainHandoff(
+            self,
+            prepared,
+            rendered_context,
+            context,
+            status["head"],
+            status["revision"],
+            self.nonce.token(),
+            Path(project_root),
+            Path(production_root),
+        )
+
+    def _claim_with_context(
         self,
         expected_head: str,
         expected_revision: int,
         envelope_id: str,
         spawn_result: dict[str, Any],
         activation_nonce: str,
+        prepared: dict[str, Any],
+        context: dict[str, Any],
+        project_root: Path | None = None,
+        production_root: Path | None = None,
     ) -> dict[str, Any]:
         service = self._service()
         status = service.status()
@@ -327,11 +455,58 @@ class TrustedMainRuntimeBridge:
             raise TaskError("CAS_HEAD_MISMATCH")
         if status["revision"] != expected_revision:
             raise TaskError("CAS_REVISION_MISMATCH")
-        context = service.automatic_claim_context(envelope_id)
-        if context["bundleDigest"] != self.execution_bundle_digest:
-            raise TaskError("EXECUTION_BUNDLE_MISMATCH")
+        if (
+            envelope_id != context["envelopeId"]
+            or prepared["envelopeId"] != envelope_id
+            or prepared.get("executionBundleDigest") != context["bundleDigest"]
+            or prepared.get("routeDecisionDigest") != context["routeDecisionDigest"]
+            or prepared.get("roleName") != context["roleName"]
+        ):
+            raise TaskError("INVALID_LAUNCH_ENVELOPE")
+        state = service._state()
+        offer = service._offer()
+        if (
+            state["lifecycle"]["phase"] != "awaiting_claim"
+            or state["taskId"] != context["taskId"]
+            or state["repository"]["identity"] != context["repository"]
+            or state["repository"]["taskBranch"] != context["taskBranch"]
+            or state["repository"].get("policy") != context["projectPolicy"]
+            or offer["status"] != "active"
+            or offer["offerId"] != context["offerId"]
+            or offer["epoch"] != context["epoch"]
+            or offer["route"] != context["route"]
+            or offer["roleName"] != context["roleName"]
+            or offer["roleDigest"] != context["roleDigest"]
+            or offer["configDigest"] != context["configDigest"]
+            or offer["bundleDigest"] != context["bundleDigest"]
+            or offer["routeDecisionDigest"] != context["routeDecisionDigest"]
+            or offer["routeGates"] != context["routeGates"]
+            or offer["projectPolicy"] != context["projectPolicy"]
+            or offer.get("hostContract") != context.get("hostContract")
+        ):
+            raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
+        envelope = self.runtime.read_envelope(envelope_id)
+        if (
+            envelope.get("offerId") != context["offerId"]
+            or envelope.get("epoch") != context["epoch"]
+            or envelope.get("roleName") != context["roleName"]
+            or envelope.get("bundleDigest") != context["bundleDigest"]
+            or envelope.get("routeDecisionDigest") != context["routeDecisionDigest"]
+            or envelope.get("routeGates") != context["routeGates"]
+            or envelope.get("projectPolicy") != context["projectPolicy"]
+            or envelope.get("hostContract") != context.get("hostContract")
+        ):
+            raise TaskError("AUTOMATIC_ROUTE_DECISION_MISMATCH")
         catalog = self._verified_catalog()
         role = role_record(catalog, "gkd_executor")
+        if project_root is not None and production_root is not None:
+            project = verify_project(self.bundle_root, self.execution_bundle_digest, project_root, production_root)
+            if (
+                project.get("policy") != context["projectPolicy"]
+                or project["roleDigest"] != role["roleDigest"]
+                or project["configDigest"] != role["configDigest"]
+            ):
+                raise TaskError("AUTOMATIC_ROUTE_POLICY_MISMATCH")
         expected_spawn = {
             "executionBundleDigest": context["bundleDigest"],
             "routeDecisionDigest": context["routeDecisionDigest"],
@@ -395,6 +570,39 @@ class TrustedMainRuntimeBridge:
             "roleDigest": context["roleDigest"],
             "configDigest": context["configDigest"],
         }
+
+    def claim(
+        self,
+        expected_head: str,
+        expected_revision: int,
+        envelope_id: str,
+        spawn_result: dict[str, Any],
+        activation_nonce: str,
+    ) -> dict[str, Any]:
+        service = self._service()
+        status = service.status()
+        if status["head"] != expected_head:
+            raise TaskError("CAS_HEAD_MISMATCH")
+        if status["revision"] != expected_revision:
+            raise TaskError("CAS_REVISION_MISMATCH")
+        context = service.automatic_claim_context(envelope_id)
+        if context["bundleDigest"] != self.execution_bundle_digest:
+            raise TaskError("EXECUTION_BUNDLE_MISMATCH")
+        prepared = {
+            "envelopeId": envelope_id,
+            "executionBundleDigest": context["bundleDigest"],
+            "routeDecisionDigest": context["routeDecisionDigest"],
+            "roleName": context["roleName"],
+        }
+        return self._claim_with_context(
+            expected_head,
+            expected_revision,
+            envelope_id,
+            spawn_result,
+            activation_nonce,
+            prepared,
+            context,
+        )
 
     def reclaim_terminal(
         self,

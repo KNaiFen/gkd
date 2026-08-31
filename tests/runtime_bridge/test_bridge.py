@@ -10,7 +10,12 @@ import subprocess
 import sys
 import unittest
 
-from gkd_role.bridge import HOST_TASK_NAME_MAX, TrustedMainRuntimeBridge, _task_name, validate_spawn_result
+from gkd_role.bridge import (
+    HOST_TASK_NAME_MAX,
+    TrustedMainRuntimeBridge,
+    _task_name,
+    validate_spawn_result,
+)
 from gkd_role.project import stage_project
 from gkd_role.roles import role_catalog
 from gkd_role.routing import validate_route_decision
@@ -125,6 +130,119 @@ class AutomaticBridgeContracts(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_handoff_seals_context_before_ack_and_claims_without_context_reload(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        context = handoff.execution_context
+        self.assertEqual(context, handoff.execution_context)
+        self.assertEqual(context["envelopeId"], handoff.snapshot()["envelopeId"])
+        self.assertIn("statusArgv", context)
+        self.assertIn("doctorArgv", context)
+        self.assertEqual("gkd_executor", handoff.spawn_request["agentType"])
+        self.assertNotIn("expectedHead", handoff.snapshot())
+        self.assertNotIn("activationNonce", handoff.snapshot())
+
+        def context_must_not_be_reloaded(_envelope_id: str) -> dict[str, object]:
+            raise AssertionError("execution context was reloaded after claim started")
+
+        bridge.execution_context = context_must_not_be_reloaded
+        claimed = handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual("implementing", claimed["status"])
+        self.assertEqual("implementing", self.repo.state()["lifecycle"]["phase"])
+
+    def test_handoff_is_single_consume_even_after_success_or_rejection(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        task_before = (self.repo.task_root / "task.json").read_bytes()
+        runtime_before = self._runtime_snapshot()
+        with self.assertRaises(TaskError):
+            handoff.acknowledge({"schemaVersion": 2})
+        with self.assertRaisesRegex(TaskError, "HANDOFF_CONSUMED"):
+            handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual(task_before, (self.repo.task_root / "task.json").read_bytes())
+        self.assertEqual(runtime_before, self._runtime_snapshot())
+
+        self.repo.close()
+        self.repo = TaskRepo()
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        claimed = handoff.acknowledge(spawn_result(handoff.snapshot()))
+        task_after_claim = (self.repo.task_root / "task.json").read_bytes()
+        with self.assertRaisesRegex(TaskError, "HANDOFF_CONSUMED"):
+            handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual(claimed["claimId"], self.repo.state()["lifecycle"]["claim"]["claimId"])
+        self.assertEqual(task_after_claim, (self.repo.task_root / "task.json").read_bytes())
+
+    def test_handoff_rejects_policy_and_cas_drift_before_claim(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        policy = json.loads((self.repo.main / ".gkd" / "policy.json").read_bytes())
+        policy["requiredChecks"] = ["drifted"]
+        (self.repo.main / ".gkd" / "policy.json").write_bytes(canonical_bytes(policy))
+        with self.assertRaisesRegex(TaskError, "PROJECT_STAGE_DRIFT"):
+            handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
+
+        self.repo.close()
+        self.repo = TaskRepo()
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        (self.repo.candidate / "README.md").write_text("cas drift\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=self.repo.candidate, check=True)
+        subprocess.run(["git", "commit", "-m", "cas drift"], cwd=self.repo.candidate, check=True, stdout=subprocess.PIPE)
+        with self.assertRaisesRegex(TaskError, "CAS_HEAD_MISMATCH"):
+            handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
+
+    def test_handoff_acknowledgement_requires_one_exact_direct_spawn(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        for mutation in (
+            {"schemaVersion": 2},
+            spawn_result(handoff.snapshot(), spawnCount=2),
+            spawn_result(handoff.snapshot(), taskName="/root/other-task"),
+            spawn_result(handoff.snapshot(), agentType="worker"),
+            spawn_result(handoff.snapshot(), forkTurns="all"),
+            spawn_result(handoff.snapshot(), fallbackAttempted=True),
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(TaskError):
+                handoff.acknowledge(mutation)
+            with self.assertRaisesRegex(TaskError, "HANDOFF_CONSUMED"):
+                handoff.acknowledge(spawn_result(handoff.snapshot()))
+            self.repo.close()
+            self.repo = TaskRepo()
+            bridge, decision = self._unprepared_bridge()
+            handoff = bridge.prepare_handoff(
+                *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+            )
+
+    def test_handoff_revalidates_bundle_before_activation_write(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        skill = BUNDLE_ROOT / "skills" / "gkd-execute" / "SKILL.md"
+        original = skill.read_bytes()
+        skill.write_bytes(original + b"drift\n")
+        try:
+            with self.assertRaisesRegex(TaskError, "BUNDLE_CONTENT_MISMATCH"):
+                handoff.acknowledge(spawn_result(handoff.snapshot()))
+        finally:
+            skill.write_bytes(original)
+        self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
 
     def test_task_names_are_ascii_bounded_and_attempt_aware(self) -> None:
         first = _task_name("TASK-ALPHA", "a" * 64, 0)

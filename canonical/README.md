@@ -127,6 +127,10 @@ to offer, envelope, one exact direct `gkd_executor` spawn acknowledgement,
 activation and claim. The acknowledgement contains only the returned exact task
 name and the direct-call contract; configured model/effort/sandbox/runtime come
 from the verified bundle and are not represented as host-effective observations.
+A trusted main may use `TrustedMainRuntimeBridge.prepare_handoff` to seal the
+execution context and spawn request before the host call. The returned
+`TrustedMainHandoff` accepts one acknowledgement and performs the bound claim;
+successful and rejected attempts are both consumed and cannot be replayed.
 A deterministic executor-attempt handle replaces raw agent/thread identity for
 new attempts. The claim retains the immutable execution bundle digest, while
 delivery requires a separately generated candidate output bundle digest.
