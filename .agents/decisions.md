@@ -696,6 +696,10 @@
   - Why: R1 已从 fresh main 完成 bootstrap、审批、project verify、automatic offer 和 claim 前 sealed handoff，但当前主会话没有可调用的 direct `spawn_agent` surface；缺少真实 host acknowledgement 时不得执行 bridge claim，也不能用 nested Codex 或手写 JSON 伪造。
   - Impact: trusted `gkd-task block` 以 reason `host_direct_spawn_surface_unavailable` 固定 R1 head `1f943c08d9837bc84bfc599744617a8a66c39757`、revision 5；没有 executor、claim、实现、PR 或 CI。下一任务以独立 worktree、固定 requirements/plan、人工顶层 execution session 和 fixed-head 独立验收实现最小 handoff facade，不创建或补造 automatic claim/delivery/activation receipt；该例外在 facade 合并后立即终止，后续 P2 必须重新使用正式 automatic route。
 
+- [2026-09-01] P2 activation handoff facade 已通过验证并合并，manual bootstrap 例外终止。
+  - Why: 候选 fixed head `831eb95abb38c702578bb75a5803e346fe68fc7c` 的 Python 3.9.6/3.14.6 完整 verifier 各 425 项、runtime-bridge 各 51 项通过；合并前 fixed-head monitor 返回 `ALL_REQUIRED_CHECKS_SUCCESSFUL`，独立窄审查确认 sealed context、single-consume、canonical evidence 与 planning/no-claim 边界。
+  - Impact: PR #56 以 squash merge `f17384821a4218eaddf4c621dc9d356478e08140` 进入 main，bundle digest 为 `f387dff79dd58acca465c1715e6676e38f618c71a47ae4fa07de56123efc686a`，证据 digest 为 `6083b154340f73b298e9914e23ca0c10512d769f1fd62e5a186b24140c449092`。独立审查先发现 evidence JSON 未按 canonical key 顺序，修复后新 head CI 成功；合并后 PR 已关闭，不能再生成新的 monitor success，作为验收时序偏差保留，P3 必须把 acceptance-before-merge 固化为受信门禁。无 claim、activation、delivery receipt、production、AIO、tag、Release 变更。
+
 - [2026-09-01] P2 activation handoff facade 已在 manual bootstrap 分支实现。
   - Why: trusted main 需要在 spawn 前封存 execution context、spawn request、offer/envelope/route/bundle/role/config 绑定与 claim CAS，才能让一次 host acknowledgement 完成 claim；旧 `prepare/claim/execution_context` 继续作为兼容面。
   - Impact: 新增 `TrustedMainRuntimeBridge.prepare_handoff` 与 single-consume `TrustedMainHandoff.acknowledge`；成功或 fail-closed 后均不可重放，claim 不再请求第二条 execution-context 消息。默认 CLI、candidate claim、production、AIO、tag、Release 均未改变；本任务不创建 claim、activation、delivery 或 receipt。
