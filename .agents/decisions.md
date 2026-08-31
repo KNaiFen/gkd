@@ -683,3 +683,7 @@
 - [2026-08-31] P2 首次 automatic attempt 因 activation context 请求顺序错误受信 block。
   - Why: trusted main 先调用 `TrustedMainRuntimeBridge.claim` 消费了 launch envelope，随后才请求 `execution_context(envelope_id)`；bridge 正确返回 `INVALID_LAUNCH_ENVELOPE`。executor 未读取 task 状态、未修改候选、未实现或交付。
   - Impact: `gkd-task block` 在 head `9dddd2d872302541b3df2de312dc699d9aab506b`、revision 5 写入 `executor_activation_context_after_claim`。该 lifecycle、offer、claim、runtime、candidate 和一次性输入不得复用；P2 facade 必须在 claim 前原子地产生并封存 execution context，随后才能执行 spawn/claim transition。
+
+- [2026-08-31] 插入 P2 activation handoff 修复任务，等待子代理派发恢复。
+  - Why: P2-R1 已验证 claim 前生成 sealed context 可避免 envelope 消费顺序错误，但当前运行时无法把 post-claim 激活消息发送给 executor；继续手填交接或伪造 host 事实会扩大流程风险。
+  - Impact: `GKD-P2-ACTIVATION-HANDOFF-FACADE` 已从 trusted main `7f959bfd51eee0e2681200e106464b94b6fe272d` fresh bootstrap，requirements-ready 与 plan-approve 均通过，尚未 offer/claim。该任务将把 sealed context 与一次 host acknowledgement 绑定在同一 trusted transition，完成后再退役 P2-R1 并继续 P2。
