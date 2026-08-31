@@ -3,7 +3,7 @@
 **制定日期：** 2026-08-28
 **依据：** [GKD 工作流精简审查报告](gkd-workflow-simplification-review-2026-08-28.md)
 **执行方式：** 每个任务独立固定基线，由 `gkd_executor` 交付，由独立 `gkd_acceptor` 验收；失败尝试保留终态，不沿旧 head 洗绿。
-**当前基线：** `5534269e490eb6eb783d451e18f82e670a0db4f4`
+**当前基线：** `2dd8a433ac83721cd7b980a024e1e17950f1f52c`
 
 ## 目标与不变项
 
@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O7 与 P0 已完成。O7 以 PR #52 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0` merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 合入：default core 为 8 scopes/404 tests，delivery canonical-result 路径消费 task-core 结果而不重跑九项合同，watchdog/foundation 由完整 test ID 的双向索引保留多合同引用与可查询性。当前启动项为 O8 compatibility matrix 降频与发布边界评估。
+O1-O8 与 P0 已完成。O8 以 PR #53 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d` merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 合入：十种 public legacy format 的 core read/reject-or-restore 合同由 catalog 明确绑定，完整兼容矩阵移入 `release-upgrade/matrix`（11 tests、双运行 evidence 一致），historical watcher 继续独立。ADR-001 决定不在本计划合并 `gkd-finalize` 与 `gkd-release`；任何未来迁移须另立 ADR/任务并重新取得授权。总计划已完成。

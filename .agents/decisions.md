@@ -647,3 +647,7 @@
 - [2026-08-31] O7 收尾清理完成。
   - Why: accepted candidate 在清理前保持 clean、固定于 `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`，candidate tree 与 squash merge tree 均为 `89dd66570d5bfaf48f98f5781bdcaea426b4ff53`。
   - Impact: candidate worktree、本地/远端 task branch 已删除；runtime、package、route 与 review 一次性输入已移入可恢复 Trash。PR、task records、acceptance、retrospective 与 main merge 保留。
+
+- [2026-08-31] O8 compatibility matrix 降频与发布边界评估已独立验收并合并。
+  - Why: core verifier 需要保留每种公开 legacy format 的可定位 read 与 reject/restore 承诺，但不应在每个普通 PR 重跑稳定版本、组合与扩展恢复矩阵。O8 用 versioned catalog 绑定十种格式的核心与 matrix test IDs，并将完整矩阵放入受 canonical result 约束的显式 lane。
+  - Impact: PR #53 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d` 以 squash merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 进入 main；candidate output bundle digest 为 `e22f2a44ce0e4e8ac62fe449a8d6c64446d5f20fac9ee03f234e0406724249ce`。Python 3.9.6/3.14.6 各通过 core 8 scopes/408 tests、historical 47 tests 和 release-upgrade 11 tests 的双运行一致证据。ADR-001 明确 O8 不合并 `gkd-finalize`/`gkd-release`；后续迁移必须独立授权。生产、AIO、settings、Secrets、runner、tag/Release 未变。

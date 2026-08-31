@@ -12,8 +12,7 @@
 
 ## Next task
 
-- O1-O7 与 Python 3.9 compatibility 已完成。O7 以 fixed head `017d2c1eb9c87486b6437ed1a7500e2f58c7abb0`、merge `5534269e490eb6eb783d451e18f82e670a0db4f4` 完成 contract 索引和 result reuse：default/core 为 8 scopes/404 tests，delivery 在 canonical-result 路径不再重跑九项 task-core 测试，watchdog/foundation 证据可从完整 test ID 反查多个 contract；候选 worktree 与 task branch 已清理，运行时和一次性输入可恢复移入 Trash。下一步从 O7 merge 建立 O8 compatibility matrix 降频与 release 边界评估。
-- O8 implementation candidate keeps catalog representatives in default/core and moves the extended public upgrade matrix to the explicit `release-upgrade/matrix` lane. The release and finalization engines remain separate by ADR; no production, AIO, tag, or Release surface changed.
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`：default/core 为 8 scopes/408 tests，historical 保持 47 tests，upgrade matrix 为 11 tests 并有双运行一致 evidence。ADR-001 保持 release 与 finalization engines、CLI、record schema 和 authority 分离；候选收尾后总计划完成。生产、AIO、tag、Release 未变。
 
 ## Historical facts
 
