@@ -432,7 +432,7 @@ class TrustedMainRuntimeBridge:
             context,
             status["head"],
             status["revision"],
-            self.nonce.token(),
+            digest_object({"activationNonce": self.nonce.token()}),
             Path(project_root),
             Path(production_root),
         )

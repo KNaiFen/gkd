@@ -244,6 +244,15 @@ class AutomaticBridgeContracts(unittest.TestCase):
             skill.write_bytes(original)
         self.assertEqual("awaiting_claim", self.repo.state()["lifecycle"]["phase"])
 
+    def test_handoff_hashes_credential_shaped_system_nonce(self) -> None:
+        bridge, decision = self._unprepared_bridge()
+        bridge.nonce = FixedNonce(["sk-" + "a" * 32] * 12)
+        handoff = bridge.prepare_handoff(
+            *self.repo.cas(), decision, FUTURE_TIME, self.repo.main, self.repo.production
+        )
+        claimed = handoff.acknowledge(spawn_result(handoff.snapshot()))
+        self.assertEqual("implementing", claimed["status"])
+
     def test_task_names_are_ascii_bounded_and_attempt_aware(self) -> None:
         first = _task_name("TASK-ALPHA", "a" * 64, 0)
         same_attempt = _task_name("TASK-ALPHA", "a" * 64, 0)
