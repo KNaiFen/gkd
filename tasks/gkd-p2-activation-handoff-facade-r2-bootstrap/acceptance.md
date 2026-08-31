@@ -23,4 +23,4 @@
 
 ## 边界
 
-未修改 production、AIO、settings、Secrets、runner、tag 或 Release。候选分支已由 GitHub merge 操作删除，候选 worktree 仍待状态记录提交后清理。
+未修改 production、AIO、settings、Secrets、runner、tag 或 Release。候选分支和 worktree 已清理；验证临时 bundle root 已可恢复移动到 machine-local Trash。
