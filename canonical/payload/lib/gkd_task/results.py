@@ -213,6 +213,13 @@ def _validate_scope(value: dict[str, Any], scope: str, manifest: dict[str, Any],
     _require(isinstance(digest, str) and SHA256_RE.fullmatch(digest) and digest_object(unsigned) == digest, "CANONICAL_RESULT_DIGEST_MISMATCH")
 
 
+def _strict_test_ids(test_ids: list[str]) -> list[str]:
+    _require(isinstance(test_ids, list) and all(isinstance(test_id, str) and test_id for test_id in test_ids), "CANONICAL_RESULT_TEST_IDS_INVALID")
+    ordered = sorted(test_ids)
+    _require(len(ordered) == len(set(ordered)), "CANONICAL_RESULT_TEST_IDS_INVALID")
+    return ordered
+
+
 def load_canonical_results(results_dir: Path, scope: str, repository: Path, expected_ids: list[str] | None = None) -> dict[str, Any]:
     """Load and validate one scope result against this checkout's fixed head."""
     _require(results_dir.is_dir() and not results_dir.is_symlink(), "CANONICAL_RESULT_MISSING")
@@ -225,11 +232,36 @@ def load_canonical_results(results_dir: Path, scope: str, repository: Path, expe
     _validate_scope(result, scope, manifest, manifest["verifierDigest"])
     ids = [item["id"] for item in result["tests"]]
     if expected_ids is not None:
-        expected = sorted(expected_ids)
-        _require(len(expected) == len(set(expected)), "CANONICAL_RESULT_TEST_IDS_INVALID")
+        expected = _strict_test_ids(expected_ids)
         _require(ids == expected, "CANONICAL_RESULT_TEST_IDS_MISMATCH")
     _require(result["status"] == "pass" and all(item["status"] == "pass" for item in result["tests"]), "CANONICAL_RESULT_TEST_FAILURE")
     return result
+
+
+def select_canonical_results(
+    results_dir: Path,
+    scope: str,
+    repository: Path,
+    expected_ids: list[str],
+    selected_ids: list[str],
+) -> dict[str, Any]:
+    """Return selected passing tests after validating the complete scope result."""
+
+    expected = _strict_test_ids(expected_ids)
+    selected = _strict_test_ids(selected_ids)
+    _require(selected, "CANONICAL_RESULT_TEST_IDS_INVALID")
+    result = load_canonical_results(results_dir, scope, repository, expected)
+    available = {item["id"]: item for item in result["tests"]}
+    _require(all(test_id in available for test_id in selected), "CANONICAL_RESULT_TEST_IDS_MISMATCH")
+    return {
+        "baseSha": result["baseSha"],
+        "environment": result["environment"],
+        "headSha": result["headSha"],
+        "resultDigest": result["resultDigest"],
+        "scope": result["scope"],
+        "tests": [available[test_id] for test_id in selected],
+        "verifierDigest": result["verifierDigest"],
+    }
 
 
 def write_scope_result(path: Path, *, base_sha: str, head_sha: str, scope: str, tests: list[dict[str, str]], verifier_digest: str) -> dict[str, Any]:

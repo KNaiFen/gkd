@@ -30,6 +30,7 @@ from gkd_task.results import (
     canonical_bytes,
     digest_object,
     load_canonical_results,
+    select_canonical_results,
     write_manifest,
     write_scope_result,
 )
@@ -168,3 +169,69 @@ class VerificationLaneContracts(unittest.TestCase):
             (root / "manifest.json").write_bytes(canonical_bytes(manifest))
             self._scope(root, "foundation")
             self.assertEqual("foundation", load_canonical_results(root, "foundation", self.repository)["scope"])
+
+    def test_result_selection_reuses_a_validated_complete_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            expected = [
+                "tests.example.Contracts.test_first",
+                "tests.example.Contracts.test_second",
+            ]
+            write_manifest(root / "manifest.json", base_sha=self.head, head_sha=self.head, verifier_digest=self.digest)
+            result = write_scope_result(
+                root / "task-core.json",
+                base_sha=self.head,
+                head_sha=self.head,
+                scope="task-core",
+                tests=[{"id": test_id, "status": "pass"} for test_id in expected],
+                verifier_digest=self.digest,
+            )
+
+            selection = select_canonical_results(root, "task-core", self.repository, expected, [expected[1]])
+
+            self.assertEqual(result["resultDigest"], selection["resultDigest"])
+            self.assertEqual(self.head, selection["headSha"])
+            self.assertEqual([{"id": expected[1], "status": "pass"}], selection["tests"])
+
+    def test_result_selection_rejects_missing_duplicate_or_drifted_scope_tests(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            expected = [
+                "tests.example.Contracts.test_first",
+                "tests.example.Contracts.test_second",
+            ]
+            write_manifest(root / "manifest.json", base_sha=self.head, head_sha=self.head, verifier_digest=self.digest)
+            write_scope_result(
+                root / "task-core.json",
+                base_sha=self.head,
+                head_sha=self.head,
+                scope="task-core",
+                tests=[{"id": expected[0], "status": "pass"}],
+                verifier_digest=self.digest,
+            )
+            with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_TEST_IDS_MISMATCH"):
+                select_canonical_results(root, "task-core", self.repository, expected, [expected[0]])
+
+            write_scope_result(
+                root / "task-core.json",
+                base_sha=self.head,
+                head_sha=self.head,
+                scope="task-core",
+                tests=[{"id": test_id, "status": "pass"} for test_id in expected],
+                verifier_digest=self.digest,
+            )
+            with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_TEST_IDS_INVALID"):
+                select_canonical_results(root, "task-core", self.repository, expected, [expected[0], expected[0]])
+
+            drifted_head = "0" * 40
+            write_manifest(root / "manifest.json", base_sha=self.head, head_sha=drifted_head, verifier_digest=self.digest)
+            write_scope_result(
+                root / "task-core.json",
+                base_sha=self.head,
+                head_sha=drifted_head,
+                scope="task-core",
+                tests=[{"id": test_id, "status": "pass"} for test_id in expected],
+                verifier_digest=self.digest,
+            )
+            with self.assertRaisesRegex(CanonicalResultError, "CANONICAL_RESULT_HEAD_MISMATCH"):
+                select_canonical_results(root, "task-core", self.repository, expected, [expected[0]])

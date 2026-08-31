@@ -18,92 +18,8 @@ from gkd_watchdog.constants import (
 )
 from gkd_watchdog.model import canonical_json
 from probes.multiagentv2.native_probe import capture
-from gkd_task.results import CanonicalResultError, load_canonical_results
-
-
-CONTRACT_TEST_SUFFIXES = {
-    "runtime_evidence_binding": (
-        "WatchRequestTests.test_rejects_well_formed_but_unapproved_runtime_digest",
-        "McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
-        "WatchRequestTests.test_direct_request_construction_cannot_bypass_identity_invariants",
-    ),
-    "thread_ownership_binding": (
-        "WatchServiceTests.test_thread_ownership_mismatch_fails_before_control",
-        "WatchServiceTests.test_thread_ownership_drift_blocks_interrupt_and_steer",
-        "WatchServiceTests.test_parent_read_remote_failure_is_protocol_not_child_abnormal",
-    ),
-    "interrupt_confirmation": (
-        "WatchServiceTests.test_system_error_interrupts_child_then_steers_bound_parent",
-        "WatchServiceTests.test_interrupt_without_bound_terminal_confirmation_never_steers",
-    ),
-    "steer_error_classification": (
-        "WatchServiceTests.test_wrong_expected_turn_is_rejected_once_without_fallback",
-        "WatchServiceTests.test_non_expected_steer_errors_remain_protocol_errors",
-    ),
-    "cancellation_and_eof_shutdown": (
-        "WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
-        "WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
-        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
-    ),
-    "credential_identity_rejection": (
-        "WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id",
-    ),
-    "deadline_single_terminal": (
-        "WatchServiceTests.test_twelve_hour_deadline_is_single_and_hourly_ticks_are_silent",
-    ),
-    "normal_terminal_no_steer": (
-        "WatchServiceTests.test_normal_terminal_returns_immediately_without_steer",
-    ),
-    "active_stale_is_healthy": (
-        "WatchServiceTests.test_stale_active_child_remains_healthy_across_ticks",
-    ),
-    "abnormal_classification_and_order": (
-        "WatchServiceTests.test_system_error_interrupts_child_then_steers_bound_parent",
-        "WatchServiceTests.test_failed_terminal_steers_without_interrupting_terminal_child",
-        "WatchServiceTests.test_explicit_remote_errored_is_abnormal",
-        "WatchServiceTests.test_not_found_is_abnormal_and_does_not_interrupt_parent",
-    ),
-    "expected_turn_cas": (
-        "WatchServiceTests.test_wrong_expected_turn_is_rejected_once_without_fallback",
-        "AppServerClientTests.test_actual_expected_turn_rejection_is_single_and_redacted",
-    ),
-    "bounded_protocol_failures": (
-        "AppServerClientTests.test_eof_malformed_unknown_and_duplicate_responses_terminate",
-        "AppServerClientTests.test_response_timeout_is_bounded",
-        "AppServerClientTests.test_start_failure_maps_to_terminal_orchestrator_error",
-        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
-    ),
-    "pre_side_effect_validation": (
-        "WatchRequestTests.test_rejects_unknown_fields_before_side_effects",
-        "WatchRequestTests.test_rejects_wrong_types_limits_and_digest",
-        "McpAdapterTests.test_unapproved_runtime_digest_never_constructs_watch_service",
-        "AppServerClientTests.test_schema_drift_stops_before_app_server_spawn",
-    ),
-    "cancellation_scope": (
-        "WatchServiceTests.test_cancellation_interrupts_only_bound_child_and_never_parent",
-        "WatchServiceTests.test_cancellation_interrupt_failure_is_terminal_protocol_error",
-        "WatchServiceTests.test_cancellation_explicit_absent_or_terminal_remote_state_can_succeed",
-        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
-    ),
-    "concurrency_and_single_writer": (
-        "WatchServiceTests.test_two_concurrent_instances_keep_identity_and_calls_separate",
-        "AppServerClientTests.test_two_subprocess_clients_keep_rpc_ids_and_identity_isolated",
-        "AppServerClientTests.test_single_client_serializes_concurrent_writers_and_ids",
-        "McpAdapterTests.test_active_watch_capacity_is_bounded_before_service_construction",
-    ),
-    "mcp_framing_and_silence": (
-        "McpAdapterTests.test_subprocess_initialize_list_call_and_success_framing",
-        "McpAdapterTests.test_subprocess_invalid_request_uses_jsonrpc_error_without_side_effect",
-        "McpAdapterTests.test_health_ticks_emit_no_progress_result_or_log_before_cancel",
-        "McpAdapterTests.test_malformed_mcp_json_uses_parse_error_frame",
-        "McpAdapterTests.test_stdin_eof_force_closes_hanging_app_server_and_worker",
-    ),
-    "sensitive_data_containment": (
-        "AppServerClientTests.test_actual_subprocess_normal_terminal_drops_body_from_transcript",
-        "AppServerClientTests.test_untrusted_notification_method_and_keys_are_redacted_in_transcript",
-        "WatchRequestTests.test_rejects_credential_shaped_values_in_every_echoed_id",
-    ),
-}
+from gkd_task.results import CanonicalResultError, select_canonical_results
+from tests.contract_catalog import WATCHDOG_CONTRACT_TEST_IDS, validate_contract_coverage
 
 
 def _flatten(suite: unittest.TestSuite):
@@ -122,13 +38,6 @@ class RecordingResult(unittest.TextTestResult):
     def addSuccess(self, test) -> None:
         super().addSuccess(test)
         self.success_ids.add(test.id())
-
-
-def _matching(success_ids: set[str], suffix: str) -> str:
-    matches = sorted(test_id for test_id in success_ids if test_id.endswith(suffix))
-    if len(matches) != 1:
-        raise RuntimeError(f"contract test mapping mismatch: {suffix}")
-    return matches[0]
 
 
 def _tool_timeout_surface(codex: str) -> int:
@@ -173,6 +82,7 @@ def main() -> int:
         warnings="error",
     )
     test_ids = sorted(test.id() for test in _flatten(suite))
+    canonical_selection = None
     if args.canonical_results is None:
         result = runner.run(suite)
         if not result.wasSuccessful():
@@ -180,17 +90,30 @@ def main() -> int:
         success_ids = result.success_ids
     else:
         try:
-            load_canonical_results(args.canonical_results, "watcher-core-and-live-negative", Path(__file__).resolve().parents[2], test_ids)
+            canonical_selection = select_canonical_results(
+                args.canonical_results,
+                "watcher-core-and-live-negative",
+                Path(__file__).resolve().parents[2],
+                test_ids,
+                test_ids,
+            )
         except CanonicalResultError as error:
             print(canonical_json({"error": error.code, "status": "error"}), file=sys.stderr, end="")
             return 2
-        success_ids = set(test_ids)
-    contracts = {}
-    for contract, suffixes in CONTRACT_TEST_SUFFIXES.items():
-        contracts[contract] = {
+        success_ids = {item["id"] for item in canonical_selection["tests"]}
+    validate_contract_coverage(WATCHDOG_CONTRACT_TEST_IDS, success_ids)
+    contracts = {
+        contract: {
             "status": "pass",
-            "tests": [_matching(success_ids, suffix) for suffix in suffixes],
+            "tests": list(contract_test_ids),
+            "result": {
+                "headSha": canonical_selection["headSha"] if canonical_selection is not None else None,
+                "resultDigest": canonical_selection["resultDigest"] if canonical_selection is not None else None,
+                "scope": "watcher-core-and-live-negative",
+            },
         }
+        for contract, contract_test_ids in WATCHDOG_CONTRACT_TEST_IDS.items()
+    }
 
     runtime = capture("codex")
     codex_version = runtime["codexVersion"]
