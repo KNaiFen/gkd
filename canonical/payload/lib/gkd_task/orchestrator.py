@@ -234,18 +234,34 @@ def resolve_trusted_task_context(
         raise TaskError("TASK_CONTEXT_SYMLINK")
     current = git_root(current_path)
     store = _runtime_for_current(current, runtime)
-    candidate_state = _state_for_candidate(current, task_id)
-    if candidate_state is not None:
-        task_path, state = candidate_state
-        attachment = store.read_attachment_readonly(
-            state["repository"]["identity"],
-            state["taskId"],
-            state["repository"]["taskBranch"],
-        )
-        candidate, attachment_path, attached_state = _attachment_candidate(attachment)
-        if candidate != current or attachment_path != task_path or attached_state != state:
-            raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
-        return _build_context(candidate, task_path, state, store, bundle_root)
+    if task_id is None:
+        candidate_state = _state_for_candidate(current, None)
+        if candidate_state is not None:
+            task_path, state = candidate_state
+            attachment = store.read_attachment_readonly(
+                state["repository"]["identity"],
+                state["taskId"],
+                state["repository"]["taskBranch"],
+            )
+            candidate, attachment_path, attached_state = _attachment_candidate(attachment)
+            if candidate != current or attachment_path != task_path or attached_state != state:
+                raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
+            return _build_context(candidate, task_path, state, store, bundle_root)
+    else:
+        try:
+            attachment = store.read_attachment_readonly(
+                repository_identity(current),
+                task_id,
+                branch(current),
+            )
+        except TaskError as error:
+            if error.code != "worktree_missing":
+                raise
+        else:
+            candidate, task_path, state = _attachment_candidate(attachment)
+            if candidate != current:
+                raise TaskError("CANDIDATE_IDENTITY_MISMATCH")
+            return _build_context(candidate, task_path, state, store, bundle_root)
     if task_id is None:
         raise TaskError("TASK_SELECTOR_REQUIRED")
     contexts = _attachment_contexts(store, bundle_root, task_id, current)

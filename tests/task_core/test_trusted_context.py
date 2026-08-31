@@ -94,6 +94,18 @@ class TrustedTaskContextContracts(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "INVALID_PROJECT_INVENTORY|PROJECT_STAGE_DRIFT"):
             resolve_trusted_task_context(self.repo.candidate, BUNDLE_ROOT, runtime=self.runtime)
 
+    def test_explicit_selector_skips_unrelated_history_records(self) -> None:
+        unrelated = self.repo.main / "tasks" / "historical" / "task.json"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_text("{}", encoding="utf-8")
+        context = resolve_trusted_task_context(
+            self.repo.main,
+            BUNDLE_ROOT,
+            self.repo.task_id,
+            runtime=self.runtime,
+        )
+        self.assertEqual(self.repo.task_id, context.inspect()["taskSelector"])
+
     def test_planning_store_publishes_only_valid_documents_and_hides_human_content(self) -> None:
         store = PlanningPackageStore(self.runtime)
         created = store.create(planning_documents())
