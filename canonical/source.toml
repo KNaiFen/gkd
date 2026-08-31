@@ -193,7 +193,16 @@ name = "task-cli"
 kind = "executable"
 files = [
   { source = "payload/bin/gkd-github-acceptance", target = "gkd/bin/gkd-github-acceptance", mode = "0755" },
+  { source = "payload/bin/gkd-main", target = "gkd/bin/gkd-main", mode = "0755" },
   { source = "payload/bin/gkd-task", target = "gkd/bin/gkd-task", mode = "0755" },
+]
+
+[[components]]
+name = "main-library"
+kind = "library"
+files = [
+  { source = "payload/lib/gkd_main/__init__.py", target = "gkd/lib/gkd_main/__init__.py", mode = "0644" },
+  { source = "payload/lib/gkd_main/cli.py", target = "gkd/lib/gkd_main/cli.py", mode = "0644" },
 ]
 
 [[components]]
@@ -212,6 +221,7 @@ files = [
   { source = "payload/lib/gkd_task/locator.py", target = "gkd/lib/gkd_task/locator.py", mode = "0644" },
   { source = "payload/lib/gkd_task/migration.py", target = "gkd/lib/gkd_task/migration.py", mode = "0644" },
   { source = "payload/lib/gkd_task/model.py", target = "gkd/lib/gkd_task/model.py", mode = "0644" },
+  { source = "payload/lib/gkd_task/orchestrator.py", target = "gkd/lib/gkd_task/orchestrator.py", mode = "0644" },
   { source = "payload/lib/gkd_task/runtime.py", target = "gkd/lib/gkd_task/runtime.py", mode = "0644" },
   { source = "payload/lib/gkd_task/results.py", target = "gkd/lib/gkd_task/results.py", mode = "0644" },
   { source = "payload/lib/gkd_task/service.py", target = "gkd/lib/gkd_task/service.py", mode = "0644" },

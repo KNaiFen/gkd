@@ -211,6 +211,13 @@ class InstallationContracts(unittest.TestCase):
         self.assertEqual(0, removed.returncode, removed.stderr)
         self.assertEqual("removed", json.loads(removed.stdout)["status"])
 
+    def test_installed_gkd_main_imports_its_installed_library(self) -> None:
+        target = self._installed()
+        command = [str(target / "gkd/bin/gkd-main"), "--help"]
+        result = __import__("subprocess").run(command, text=True, stdout=__import__("subprocess").PIPE, stderr=__import__("subprocess").PIPE, check=False)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("planning", result.stdout)
+
     def test_legacy_schema_v1_full_install_remains_readable(self) -> None:
         target = self._target("legacy-v1")
         manifest = json.loads((self.source / "manifest.json").read_text(encoding="utf-8"))

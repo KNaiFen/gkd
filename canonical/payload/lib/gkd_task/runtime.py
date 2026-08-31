@@ -225,10 +225,30 @@ class RuntimeStore:
         os.chmod(root, 0o700)
         self.root = root.resolve()
 
+    @classmethod
+    def open_existing(cls, root: Path) -> "RuntimeStore":
+        """Open an existing runtime without creating or modifying any path."""
+
+        if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+            raise TaskError("INVALID_RUNTIME_ROOT")
+        parent = root.parent
+        if parent.is_symlink() or not parent.is_dir():
+            raise TaskError("INVALID_RUNTIME_ROOT")
+        instance = cls.__new__(cls)
+        instance.root = root.resolve()
+        return instance
+
     def _path(self, category: str, key: str, suffix: str = ".json") -> Path:
         require_sha256(key, "INVALID_RUNTIME_KEY")
         directory = self.root / category
         directory.mkdir(mode=0o700, exist_ok=True)
+        if directory.is_symlink() or not directory.is_dir():
+            raise TaskError("INVALID_RUNTIME_ROOT")
+        return directory / f"{key}{suffix}"
+
+    def _existing_path(self, category: str, key: str, suffix: str = ".json") -> Path:
+        require_sha256(key, "INVALID_RUNTIME_KEY")
+        directory = self.root / category
         if directory.is_symlink() or not directory.is_dir():
             raise TaskError("INVALID_RUNTIME_ROOT")
         return directory / f"{key}{suffix}"
@@ -247,6 +267,30 @@ class RuntimeStore:
     def read_attachment(self, repository: str, task_id: str, task_branch: str) -> dict[str, Any]:
         key = runtime_key(repository, task_id, task_branch)
         return read_canonical_json(self._path("attachments", key), "worktree_missing", validate_attachment)
+
+    def read_attachment_readonly(self, repository: str, task_id: str, task_branch: str) -> dict[str, Any]:
+        key = runtime_key(repository, task_id, task_branch)
+        return read_canonical_json(
+            self._existing_path("attachments", key),
+            "worktree_missing",
+            validate_attachment,
+        )
+
+    def attachments(self) -> list[dict[str, Any]]:
+        """Return every validated attachment without creating the attachments directory."""
+
+        directory = self.root / "attachments"
+        if not directory.exists():
+            return []
+        if directory.is_symlink() or not directory.is_dir():
+            raise TaskError("INVALID_RUNTIME_ROOT")
+        result: list[dict[str, Any]] = []
+        for path in sorted(directory.iterdir()):
+            if path.is_symlink() or not path.is_file() or path.suffix != ".json":
+                raise TaskError("INVALID_RUNTIME_ROOT")
+            require_sha256(path.stem, "INVALID_RUNTIME_ROOT")
+            result.append(read_canonical_json(path, "INVALID_RUNTIME_ATTACHMENT", validate_attachment))
+        return result
 
     def delete_attachment(self, repository: str, task_id: str, task_branch: str) -> None:
         unlink_file(self._path("attachments", runtime_key(repository, task_id, task_branch)))
