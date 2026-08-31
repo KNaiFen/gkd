@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import TaskError
-from .gitops import branch, common_dir, git_root, repository_identity, unique_branch_worktree, verified_relative_path, verify_identity
+from .gitops import branch, common_dir, git_root, reject_symlink_ancestors, repository_identity, unique_branch_worktree, verified_relative_path, verify_identity
 from .model import read_state
 from .runtime import RuntimeStore
 
@@ -19,6 +19,7 @@ def _validated_candidate(
     task_path: str,
     expected_common: Path | None = None,
 ) -> Path:
+    reject_symlink_ancestors(candidate, "CANDIDATE_SYMLINK")
     if candidate.is_symlink():
         raise TaskError("CANDIDATE_SYMLINK")
     if not candidate.is_dir():
@@ -52,6 +53,7 @@ def resolve_candidate(
     anchor: Path | None = None
     anchor_common: Path | None = None
     if current_path is not None:
+        reject_symlink_ancestors(current_path, "CANDIDATE_SYMLINK")
         try:
             anchor = git_root(current_path)
             anchor_common = common_dir(anchor)

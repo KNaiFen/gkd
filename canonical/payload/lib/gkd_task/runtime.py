@@ -22,6 +22,7 @@ from .canonical import (
     unlink_file,
 )
 from .errors import TaskError
+from .gitops import reject_symlink_ancestors
 
 
 AUTOMATIC_ROUTE_GATES = {
@@ -43,6 +44,7 @@ def _absolute_directory(value: Any, code: str, must_exist: bool = True) -> Path:
     if not isinstance(value, str) or not value.startswith("/") or "\x00" in value:
         raise TaskError(code)
     path = Path(value)
+    reject_symlink_ancestors(path, code)
     if path.is_symlink() or (must_exist and not path.is_dir()):
         raise TaskError(code)
     try:

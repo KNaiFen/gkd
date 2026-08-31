@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 import subprocess
 from typing import Any
 from urllib.parse import urlsplit
@@ -31,6 +32,28 @@ def git(root: Path, *args: str, code: str = "GIT_OPERATION_FAILED", input_data: 
     if result.returncode != 0:
         raise TaskError(code)
     return result.stdout
+
+
+def reject_symlink_ancestors(path: Path, code: str) -> Path:
+    """Reject symlinks in the lexical path before any physical resolution."""
+
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    parts = absolute.parts
+    temporary_aliases = {Path(os.sep, "var"), Path(os.sep, "tmp")}
+    if len(parts) > 1 and Path(parts[0], parts[1]) in temporary_aliases:
+        absolute = Path(parts[0], parts[1]).resolve().joinpath(*parts[2:])
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current /= part
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            break
+        except OSError:
+            raise TaskError(code) from None
+        if stat.S_ISLNK(metadata.st_mode):
+            raise TaskError(code)
+    return absolute
 
 
 def git_root(path: Path) -> Path:
@@ -149,6 +172,7 @@ def verify_identity(
     expected_branch: str,
     expected_common_dir: Path | None = None,
 ) -> Path:
+    reject_symlink_ancestors(root, "CANDIDATE_SYMLINK")
     if root.is_symlink():
         raise TaskError("CANDIDATE_SYMLINK")
     if not root.is_dir():
