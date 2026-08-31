@@ -659,3 +659,7 @@
 - [2026-08-31] 编排输入面收敛调研确认应优先删除 Agent 的重复机器输入。
   - Why: session 历史中的 planning package、bundle source/target、project stage、policy path、candidate identity、claim 时序和 CLI 参数失误，均发生在 Agent 手拼已可由 task state、runtime、bundle、project inventory、policy 或 host API 唯一推导的事实时。
   - Impact: 新报告与计划提出 trusted-main orchestration facade、机器事实 renderer 与版本化文档迁移；保留用户意图、授权、route/pack 选择、独立 review 和 explicit merge。该计划尚未实施或获得实施授权。
+
+- [2026-08-31] I1 首次 automatic attempt 因 preclaim handoff race 受信 block。
+  - Why: bridge claim 已把 task 从 offer head `0abc16b...` 推进到 implementing head `37ea879...`，但 executor 在 claim 完成前读取到前者并把后者判为 drift。它没有提交、push、PR 或 delivery；未提交实现已导出到可恢复 patch。
+  - Impact: block 固定于 head `42d62b3b197710453872b4d921070351b64b5c14`、revision 5、reason `executor_reported_preclaim_head_drift`。不得复用 task、offer、claim、runtime、candidate 或 patch；下一次 fresh I1 attempt 的 executor 必须在收到 trusted main post-claim activation message前不读取 task 状态。
