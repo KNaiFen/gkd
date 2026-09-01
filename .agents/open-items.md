@@ -129,5 +129,6 @@
 - [x] Manual-first Stage 1（协议切片）：建立三文件人工协议、执行代理启动提示词和模板；不再要求协议使用者手填机器 JSON、CAS、digest 或专用生命周期参数。canonical payload/Skill 接入仍待后续切片。
 - [x] Manual-first Stage 1（入口接入）：canonical development bundle 的 `gkd-main` Skill 已改为读取 plan/progress/review，并确认旧 `v0.1.5` Skill 仅保留为 legacy。
 - [ ] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
+- [x] Manual-first Stage 2 试运行 #1：在独立 worktree 完成 README 入口清理，主代理发现版本措辞错误后写 review，新 session 按 review 修正，最终 diff 与 progress 通过人工审查。
 - [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。

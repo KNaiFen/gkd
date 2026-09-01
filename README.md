@@ -2,23 +2,20 @@
 
 GKD 工作流的规范源码、版本管理与专属验证仓库。
 
-当前迁移目标是 manual-first：主代理写入目标、工作目录和行为约束，创建 Git worktree；执行代理按 `plan.md` 工作并更新 `progress.md`；主代理通过查看 diff、计划和报告决定通过或返工。完整协议见 [Manual-first 工作流](docs/manual-workflow.md)。迁移完成前，旧 automatic workflow 仍只作为 legacy 保留。
+## 默认：manual-first
 
-长期使命、用户承诺和冲突取舍以唯一的 [VISION](VISION.md) 为准。
+普通任务只需要三项人工输入：工作目标、执行代理使用的 Git worktree，以及允许修改/必须遵守的行为约束。主代理把它们写入 `plan.md`，执行代理在同一 worktree 中工作并持续更新 `progress.md`，主代理查看代码 diff、计划和报告后，在 `review.md` 中通过或提出返工要求。
 
-原有 development bundle、确定性任务核心、自动 runtime bridge、fixed-head 验收、release engine 和专属 verifier 作为 `v0.1.5` legacy 保留。它们不再是普通人工任务的默认上下文；迁移计划完成前不修改既有发布资产、生产目录或 AIO。
+每个任务使用三份 Markdown 记录：
 
-Canonical CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。
+- `plan.md`：目标、范围、非目标、行为约束和完成条件，由主代理维护；
+- `progress.md`：已完成事项、判断、阻塞、风险和下一步，由执行代理维护；
+- `review.md`：主代理的审查结论，记录通过或可执行的返工意见。
 
-仓库 CI policy 位于 `.gkd/policy.json`。本地与 pull request 验证共用
-`scripts/gkd-verify --base-sha <full-sha>`，只需要 Python、Git 和标准库。默认
-lane 只运行核心合同；watcher/probe 历史合同必须显式使用
-`scripts/gkd-verify --lane historical --base-sha <full-sha>`。
-CI advice 与 review/remediation 合同分别使用 `optional-ci-advice` 和
-`optional-review-remediation` lane；组合验证使用 `optional-packs`。
-需要供 evidence runner 复用时，可显式传入 `--results-dir <directory>`；各 scope
-runner 使用 `--canonical-results <directory>` 消费同一份固定结果。automatic
-delivery 可额外使用 `--summary-output <path>` 生成待固定树校验的 canonical
-verifier summary。historical lane 可使用 `--historical-evidence-output <path>`
-生成 watcher evidence，并仅在显式传入 `--host-capability-probe-output <path>`
-时执行 host-capability probe；不可观察的 host 会记录 `unsupported`。
+标准顺序是：主代理创建计划和 worktree，执行代理按计划工作并更新进度，完成后通知主代理；主代理检查 diff、`plan.md`、`progress.md` 和必要的局部验证，随后通过，或修改计划/审查意见后继续执行。中断恢复时，新 session 先读取同一 worktree 的计划和进度，再以 Git diff 与历史为准。详见 [Manual-first 工作流](docs/manual-workflow.md) 及 [VISION](VISION.md)。
+
+## Legacy：旧自动工作流
+
+迁移完成前，已发布的 `v0.1.5` legacy bundle 及其 `gkd-task`/`gkd-role`、automatic runtime bridge、watcher、fixed-head acceptance、release engine 和专属 verifier 仅作为 legacy/兼容能力保留；当前开发线为未发布的 `0.0.0-dev.1`，也不是普通任务入口。旧命令不应由新的执行代理 prompt 主动调用；既有发布资产、生产目录和 AIO 保持不变。
+
+Legacy CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。仓库 CI policy 位于 `.gkd/policy.json`；旧验证入口包括 `scripts/gkd-verify --base-sha <full-sha>`，以及必须显式指定的 `--lane historical`、`optional-ci-advice`、`optional-review-remediation` 和 `optional-packs` lane。结果复用可使用 `--results-dir <directory>` 与 `--canonical-results <directory>`；automatic delivery、historical evidence 和 host-capability probe 仍遵循各自旧参数和固定树约束。
