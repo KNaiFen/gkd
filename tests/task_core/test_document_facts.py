@@ -11,6 +11,7 @@ from gkd_main.facts import (
     validate_machine_facts,
 )
 from gkd_task.canonical import canonical_bytes
+from gkd_task.canonical import digest_object
 from gkd_task.documents import parse_sections
 from gkd_task.errors import TaskError
 from tests.task_core.helpers import TaskRepo
@@ -59,6 +60,29 @@ class DocumentFactsContracts(unittest.TestCase):
         facts["task"]["phase"] = "delivered"
         with self.assertRaisesRegex(TaskError, "DOCUMENT_FACTS_TAMPERED"):
             validate_machine_facts(facts)
+
+    def test_unknown_task_field_and_invalid_timestamp_fail_closed(self) -> None:
+        facts = render_machine_facts("requirements", self.repo.state())
+        facts["task"]["unexpected"] = True
+        facts["factsDigest"] = digest_object({key: value for key, value in facts.items() if key != "factsDigest"})
+        with self.assertRaisesRegex(TaskError, "INVALID_DOCUMENT_FACTS"):
+            validate_machine_facts(facts)
+
+        facts = render_machine_facts("requirements", self.repo.state())
+        facts["task"].update({"implementationHead": "a" * 40, "deliveredAt": "not-a-timestamp"})
+        facts["factsDigest"] = digest_object({key: value for key, value in facts.items() if key != "factsDigest"})
+        with self.assertRaisesRegex(TaskError, "INVALID_DOCUMENT_FACTS"):
+            validate_machine_facts(facts)
+
+    def test_facts_block_document_kind_is_bound_to_sections(self) -> None:
+        facts = render_machine_facts("plan", self.repo.state())
+        block = render_facts_block(facts)
+        with self.assertRaisesRegex(TaskError, "INVALID_DOCUMENT_FACTS"):
+            parse_sections(
+                ("# Fixture\n\n## Goal\n\nKeep the intent.\n\n" + block).encode("utf-8"),
+                ("Goal",),
+                "requirements",
+            )
 
 
 if __name__ == "__main__":

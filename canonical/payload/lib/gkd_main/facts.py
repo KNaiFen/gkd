@@ -8,6 +8,7 @@ Paths, capabilities and host/runtime details are never copied into the output.
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime
 import json
 from typing import Any
 
@@ -19,6 +20,7 @@ from gkd_task.canonical import (
     require_sha1,
     require_sha256,
     require_string,
+    require_utc,
     sha256_bytes,
 )
 from gkd_task.errors import TaskError
@@ -30,6 +32,16 @@ FACTS_KIND = "gkd-document-machine-facts"
 FACTS_BEGIN = "<!-- gkd-machine-facts:v1 -->"
 FACTS_END = "<!-- /gkd-machine-facts -->"
 DOCUMENT_KINDS = {"requirements", "plan", "implementation", "delivery", "acceptance"}
+TASK_REQUIRED_KEYS = {"taskId", "repository", "taskBranch", "baseSha", "revision", "epoch", "phase"}
+TASK_OPTIONAL_KEYS = {
+    "claimId",
+    "claimBaseHead",
+    "implementationHead",
+    "deliveredAt",
+    "candidateHead",
+    "acceptedAt",
+    "merged",
+}
 
 
 def _invalid(code: str = "INVALID_DOCUMENT_FACTS") -> None:
@@ -58,6 +70,20 @@ def _safe_string(value: Any) -> str:
     except TaskError:
         _invalid()
     raise AssertionError
+
+
+def _utc_timestamp(value: Any) -> str:
+    try:
+        value = require_utc(value, "INVALID_DOCUMENT_FACTS")
+    except TaskError:
+        _invalid()
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+    except ValueError:
+        _invalid()
+    if parsed.tzname() != "UTC":
+        _invalid()
+    return value
 
 
 def _task_facts(task: dict[str, Any]) -> dict[str, Any]:
@@ -300,31 +326,25 @@ def validate_machine_facts(value: dict[str, Any]) -> None:
     if not isinstance(value, dict) or value.get("schemaVersion") != FACTS_SCHEMA_VERSION:
         _invalid()
     expected = {"schemaVersion", "kind", "document", "task", "factsDigest"}
-    allowed_keys = (
-        expected,
-        expected | {"planning"},
-        expected | {"artifacts"},
-        expected | {"review"},
-        expected | {"ci"},
-        expected | {"planning", "artifacts", "review", "ci"},
-        expected | {"artifacts", "review", "ci"},
-    )
-    if not any(set(value) == candidate for candidate in allowed_keys):
+    if not expected.issubset(value) or set(value) - expected - {"planning", "artifacts", "review", "ci"}:
         _invalid()
     if value.get("kind") != FACTS_KIND or value.get("document") not in DOCUMENT_KINDS:
         _invalid()
     task = value.get("task")
     if not isinstance(task, dict):
         _invalid()
-    required_task = {"taskId", "repository", "taskBranch", "baseSha", "revision", "epoch", "phase"}
-    if not required_task.issubset(task) or any(key in task for key in ("candidateRoot", "runtimeRoot", "capabilities", "argv")):
+    if set(task) - TASK_REQUIRED_KEYS - TASK_OPTIONAL_KEYS or not TASK_REQUIRED_KEYS.issubset(task):
         _invalid()
     for field in ("taskId", "repository", "taskBranch", "phase"):
         _safe_string(task[field])
+    if task["phase"] not in {"planning", "awaiting_claim", "implementing", "delivered", "accepted", "completed"}:
+        _invalid()
     _sha1(task["baseSha"])
     if not isinstance(task["revision"], int) or isinstance(task["revision"], bool) or task["revision"] < 0:
         _invalid()
     if not isinstance(task["epoch"], int) or isinstance(task["epoch"], bool) or task["epoch"] < 0:
+        _invalid()
+    if ("claimId" in task) != ("claimBaseHead" in task):
         _invalid()
     if "claimId" in task:
         _sha256(task["claimId"])
@@ -334,8 +354,13 @@ def validate_machine_facts(value: dict[str, Any]) -> None:
         _sha1(task["implementationHead"])
     if "candidateHead" in task:
         _sha1(task["candidateHead"])
-    for field in ("deliveredAt", "acceptedAt"):
-        if field in task and not isinstance(task[field], str):
+    if "deliveredAt" in task:
+        _utc_timestamp(task["deliveredAt"])
+        if "implementationHead" not in task:
+            _invalid()
+    if "acceptedAt" in task:
+        _utc_timestamp(task["acceptedAt"])
+        if "candidateHead" not in task or "merged" not in task:
             _invalid()
     if "merged" in task and not isinstance(task["merged"], bool):
         _invalid()
@@ -389,7 +414,7 @@ def render_facts_block(facts: dict[str, Any]) -> str:
     return f"{FACTS_BEGIN}\n```json\n{payload}```\n{FACTS_END}\n"
 
 
-def parse_facts_block(raw: bytes | str) -> dict[str, Any] | None:
+def parse_facts_block(raw: bytes | str, document: str | None = None) -> dict[str, Any] | None:
     text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
     if FACTS_BEGIN not in text and FACTS_END not in text:
         return None
@@ -412,12 +437,14 @@ def parse_facts_block(raw: bytes | str) -> dict[str, Any] | None:
     if not isinstance(value, dict) or canonical_bytes(value).decode("utf-8") != encoded:
         _invalid("INVALID_DOCUMENT_FACTS")
     validate_machine_facts(value)
+    if document is not None and value.get("document") != document:
+        _invalid("INVALID_DOCUMENT_FACTS")
     return value
 
 
-def strip_facts_block(raw: bytes | str) -> bytes:
+def strip_facts_block(raw: bytes | str, document: str | None = None) -> bytes:
     text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
-    facts = parse_facts_block(text)
+    facts = parse_facts_block(text, document)
     if facts is None:
         return text.encode("utf-8") if isinstance(raw, bytes) else text.encode("utf-8")
     start = text.index(FACTS_BEGIN)

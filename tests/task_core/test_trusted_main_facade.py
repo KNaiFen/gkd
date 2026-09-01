@@ -108,6 +108,35 @@ class TrustedMainFacadeContracts(unittest.TestCase):
         ).monitor(7, expected_head, timeout_seconds=1, poll_interval_seconds=1)
         self.assertEqual("success", result["outcome"])
 
+    def test_render_facts_binds_review_and_ci_to_current_task_head(self) -> None:
+        candidate_head = self.repo.head()
+        review = make_review(self.repo.task_id, candidate_head, "acceptor", REVIEWER_DIGEST, "accepted", [])
+        ci = {
+            "baseBranch": self.repo.base_branch,
+            "checks": [{"name": "contract", "state": "success"}],
+            "elapsedSeconds": 0,
+            "expectedHead": candidate_head,
+            "headBranch": self.repo.task_branch,
+            "observations": 1,
+            "observedHead": candidate_head,
+            "outcome": "success",
+            "policyDigest": self.context.policy["digest"],
+            "provider": "github",
+            "pullRequest": 7,
+            "pullRequestState": "open",
+            "reason": "ALL_REQUIRED_CHECKS_SUCCESSFUL",
+            "repository": self.repo.identity,
+            "requiredChecks": ["contract"],
+            "schemaVersion": 1,
+        }
+        facts = TrustedMainOrchestrator(self.context).render_facts("acceptance", review=review, ci=ci)
+        self.assertEqual(self.repo.task_id, facts["task"]["taskId"])
+        self.assertEqual(candidate_head, facts["ci"]["ciExpectedHead"])
+
+        wrong_ci = dict(ci, repository="github.com/other/repository")
+        with self.assertRaisesRegex(TaskError, "TERMINAL_RESULT_INVALID"):
+            TrustedMainOrchestrator(self.context).render_facts("acceptance", review=review, ci=wrong_ci)
+
 
 if __name__ == "__main__":
     unittest.main()
