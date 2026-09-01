@@ -130,6 +130,7 @@
 - [x] Manual-first Stage 1（入口接入）：canonical development bundle 的 `gkd-main` Skill 已改为读取 plan/progress/review，并确认旧 `v0.1.5` Skill 仅保留为 legacy。
 - [ ] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
 - [x] Manual-first Stage 2 试运行 #1：在独立 worktree 完成 README 入口清理，主代理发现版本措辞错误后写 review，新 session 按 review 修正，最终 diff 与 progress 通过人工审查。
+- [x] Manual-first Stage 2 试运行 #2：执行代理在独立 worktree 搜索确认目标 helper 已由 O1 删除，记录 no-op 和语法验证，不制造重复代码变更。
 - [x] Manual-first Stage 3（默认安装面）：development bundle 默认仅含 foundation 与 manual Skill，旧 task/role/bridge/acceptance/release/verifier 归入显式 `legacy-automatic` pack；默认安装和 legacy pack 均已完成安装/验证冒烟。
 - [x] Manual-first Stage 3（默认 CI）：旧 `GKD Verify` PR workflow 已移入 `legacy/workflows/`，GitHub 不再为普通 manual-first 变更自动运行完整 verifier。
 - [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
