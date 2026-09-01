@@ -1,0 +1,16 @@
+{
+  "$id": "gkd://schema/documents/planning-document-v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GKD planning document machine-facts envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "document", "factsDigest"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "document": { "enum": ["requirements", "plan", "implementation"] },
+    "requirementsDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "planDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "implementationDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "factsDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

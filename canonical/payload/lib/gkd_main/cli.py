@@ -11,6 +11,7 @@ from gkd_task.canonical import read_canonical_json
 from gkd_task.errors import TaskError
 from gkd_task.orchestrator import PlanningPackageStore, resolve_trusted_task_context
 from .orchestrator import TrustedMainCIFacade, TrustedMainOrchestrator
+from .facts import render_facts_block
 
 
 class MachineParser(argparse.ArgumentParser):
@@ -43,6 +44,18 @@ def _parser() -> MachineParser:
     delivery = commands.add_parser("delivery")
     _task_selector(delivery)
 
+    facts = commands.add_parser("facts")
+    facts_commands = facts.add_subparsers(dest="facts_command", required=True, parser_class=MachineParser)
+    render = facts_commands.add_parser("render")
+    _task_selector(render)
+    render.add_argument("--document", choices=("requirements", "plan", "implementation", "delivery", "acceptance"), required=True)
+    render.add_argument("--review-file", type=Path)
+    render.add_argument("--ci-file", type=Path)
+    render.add_argument("--output", type=Path)
+    render.add_argument("--format", choices=("json", "markdown"), default="json")
+    verify = facts_commands.add_parser("verify")
+    verify.add_argument("--input", type=Path, required=True)
+
     ci = commands.add_parser("ci")
     ci_commands = ci.add_subparsers(dest="ci_command", required=True, parser_class=MachineParser)
     monitor = ci_commands.add_parser("monitor")
@@ -69,6 +82,12 @@ def _context(args: argparse.Namespace):
 
 
 def _dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "facts" and args.facts_command == "verify":
+        facts = read_canonical_json(args.input, "INVALID_DOCUMENT_FACTS")
+        from .facts import validate_machine_facts
+
+        validate_machine_facts(facts)
+        return {"status": "valid", "document": facts["document"], "factsDigest": facts["factsDigest"]}
     if args.command == "ci":
         return TrustedMainCIFacade(Path.cwd()).monitor(
             args.pull_request,
@@ -87,6 +106,16 @@ def _dispatch(args: argparse.Namespace) -> dict:
         current_path=Path.cwd(),
         runtime=context.runtime,
     )
+    if args.command == "facts" and args.facts_command == "render":
+        review = read_canonical_json(args.review_file, "INVALID_REVIEW") if args.review_file else None
+        ci = read_canonical_json(args.ci_file, "TERMINAL_RESULT_INVALID") if args.ci_file else None
+        facts = orchestrator.render_facts(args.document, review=review, ci=ci)
+        if args.output is not None:
+            from gkd_task.canonical import atomic_write
+
+            encoded = canonical_bytes(facts) if args.format == "json" else render_facts_block(facts).encode("utf-8")
+            atomic_write(args.output, encoded)
+        return facts
     if args.command == "delivery":
         return orchestrator.deliver()
     if args.command in {"accept", "rework"}:

@@ -51,6 +51,17 @@ def _read_document(path: Path) -> bytes:
 
 
 def parse_sections(raw: bytes, expected: tuple[str, ...]) -> dict[str, str]:
+    # P4 documents may carry a trusted, canonical machine-facts block after
+    # their human sections.  Legacy documents without the block keep the exact
+    # historical parser behavior.
+    try:
+        from gkd_main.facts import strip_facts_block
+
+        raw = strip_facts_block(raw)
+    except TaskError:
+        raise
+    except (ImportError, UnicodeDecodeError):
+        raise TaskError("INVALID_PLANNING_DOCUMENT") from None
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -69,6 +80,28 @@ def parse_sections(raw: bytes, expected: tuple[str, ...]) -> dict[str, str]:
             raise TaskError("INVALID_PLANNING_DOCUMENT")
         sections[heading] = body
     return sections
+
+
+def parse_document_facts(raw: bytes, document: str) -> dict[str, Any] | None:
+    """Read the optional P4 machine-facts block without changing legacy reads."""
+
+    if document not in {"requirements", "plan", "implementation", "delivery", "acceptance"}:
+        raise TaskError("INVALID_DOCUMENT_KIND")
+    try:
+        from gkd_main.facts import parse_facts_block
+
+        value = parse_facts_block(raw)
+    except (UnicodeDecodeError, TaskError):
+        raise TaskError("INVALID_DOCUMENT_FACTS") from None
+    if value is not None and value.get("document") != document:
+        raise TaskError("INVALID_DOCUMENT_FACTS")
+    return value
+
+
+def render_document_facts(raw: bytes, document: str) -> dict[str, Any] | None:
+    """Alias used by high-level consumers while retaining a small API surface."""
+
+    return parse_document_facts(raw, document)
 
 
 def inspect_package(root: Path) -> tuple[dict[str, Any], dict[str, bytes]]:

@@ -1,0 +1,19 @@
+{
+  "$id": "gkd://schema/documents/document-facts-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GKD document machine facts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "document", "task", "factsDigest"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "gkd-document-machine-facts" },
+    "document": { "enum": ["requirements", "plan", "implementation", "delivery", "acceptance"] },
+    "task": { "type": "object", "additionalProperties": true },
+    "planning": { "type": "object", "additionalProperties": false },
+    "artifacts": { "type": "object", "additionalProperties": false },
+    "review": { "type": "object", "additionalProperties": false },
+    "ci": { "type": "object", "additionalProperties": false },
+    "factsDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
