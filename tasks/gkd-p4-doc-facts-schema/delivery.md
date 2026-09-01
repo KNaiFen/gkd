@@ -2,16 +2,16 @@
 
 ## Implementation
 
-- Implementation head: `64147ac5359f3504e2111c4c1a1666b4d66581d6`
-- Candidate output bundle digest: `6756ec25479ea14500f99239291431baa2d940db95585c35172c3a0fc6ab90c4`
-- Result manifest digest: `590d43c863b69a6015866d91b8c4718d312030993632aeacc2524632a1167a92`
-- Verifier result digest: `8329735f5289bd5b498bd329dd5cac7653c3a1b4530f8ee402273771f5057fca`
-- Delivery evidence digest: `99467333e2f872e9f78fb51f2ce903f5063c3ea6ade9fc505d2c5b20623d2504`
+- Implementation head: `f49c76350116b40bd6b15ec71cd9597361fef6c8`
+- Candidate output bundle digest: `0beb23c6f203f199adf6bc3efa82b618c3af8d5709581ae7203f015ab26fc12f`
+- Result manifest digest: `53304ca593562e79b266af6ce6058cf4ba249b82d235b976874f985bf7e71366`
+- Verifier result digest: `b07792fea2716ddc9863fca9b909a1c640be7d096f603a48ef42b1b5faa78d60`
+- Delivery evidence digest: `1baef329de83f19b3d64572c99dc4a6d45cfded5ad881709aaba56b8998f928e`
 
 ## Verification
 
-- `scripts/gkd-verify --base-sha b2dc172b496d1abe309af93f92e7babcd89e6244`: exit 0, 434 tests passed.
-- P4 document-facts focused tests: 5 tests passed.
+- `scripts/gkd-verify --base-sha b2dc172b496d1abe309af93f92e7babcd89e6244`: exit 0, 437 tests passed.
+- P4 document-facts focused tests: 7 tests passed.
 - Fixed-tree automatic-delivery artifact validation: performed by `gkd-task deliver`.
 - `git diff --check`: exit 0.
 
