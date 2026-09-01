@@ -137,3 +137,4 @@
 - [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
 - [x] Manual-first Stage 3 compatibility baseline：登记 `0.152.0` CLI/schema capture，保留 `0.147.0` 历史读取；未知版本和 schema drift 明确 fail-closed，未恢复 automatic watcher。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
+- [x] 2026-09-02 子代理事件适配返工：current `0.152.0` fixture/parser 收敛到官方 direct JSONL 外壳；协作 item 具体字段无脱敏 capture 时明确 unsupported，旧 `0.147.0` wrapper 保持可读。

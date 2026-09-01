@@ -23,6 +23,8 @@ from tests.role_routing.handshake_preflight import (
     live_command,
     normalize_host_events,
     normalize_rollout_facts,
+    parse_host_events,
+    parse_rollout_records,
     pending_handshake,
     prepare_probe_repo,
     static_parser_command,
@@ -33,6 +35,10 @@ from tests.role_routing.run_contracts import _validate_handshake
 
 
 class HandshakePreflightContracts(unittest.TestCase):
+    @staticmethod
+    def _load_jsonl_fixture(name: str) -> list[dict[str, object]]:
+        return [json.loads(line) for line in (Path(__file__).parent / "fixtures" / name).read_text(encoding="utf-8").splitlines() if line]
+
     def test_prepare_repo_uses_exact_role_skills_and_explicit_registration(self) -> None:
         with tempfile.TemporaryDirectory(prefix="gkd-handshake-preflight-test-") as root_name:
             repo = Path(root_name) / "repo"
@@ -284,48 +290,139 @@ class HandshakePreflightContracts(unittest.TestCase):
         self.assertEqual("INVALID_HOST_FACTS", raised.exception.code)
 
     def test_normalize_host_events_requires_structured_role_and_terminals(self) -> None:
-        child = "child-thread"
         events = [
             {"type": "thread.started", "thread_id": "parent-thread"},
             {"type": "turn.started"},
             {
-                "type": "item.completed",
+                "type": "item.started",
                 "item": {
-                    "type": "collab_tool_call",
-                    "tool": "spawn_agent",
-                    "agent_type": "gkd_executor",
-                    "task_name": "gkd_executor_handshake",
-                    "fork_turns": "none",
-                    "receiver_thread_ids": [child],
-                    "status": "completed",
+                    "type": "reasoning",
+                    "status": "in_progress",
                 },
             },
-            {
-                "type": "item.completed",
-                "item": {
-                    "type": "collab_tool_call",
-                    "tool": "wait",
-                    "agents_states": {child: {"status": "completed"}},
-                    "status": "completed",
-                },
-            },
+            {"type": "item.completed", "item": {"type": "agent_message", "status": "completed"}},
             {"type": "turn.completed"},
         ]
         facts = normalize_host_events(events, 0, "", Path("/temporary/probe"))
-        self.assertEqual(1, facts["spawnCount"])
-        self.assertEqual([{"agentType": "gkd_executor", "taskName": "gkd_executor_handshake", "forkTurns": "none"}], facts["spawnFacts"])
-        self.assertEqual(["gkd_executor"], facts["activatedRoles"])
+        self.assertEqual(0, facts["spawnCount"])
+        self.assertEqual([], facts["spawnFacts"])
+        self.assertEqual([], facts["activatedRoles"])
         self.assertEqual([], facts["unexpectedRoles"])
-        self.assertIs(facts["childTerminalObserved"], True)
-        self.assertIs(facts["childBindingValid"], True)
+        self.assertIs(facts["childTerminalObserved"], False)
+        self.assertIs(facts["childBindingValid"], False)
         self.assertIs(facts["parentTerminalObserved"], True)
         self.assertIsNone(facts["hostError"])
-        self.assertEqual(2, len(facts["threadIdentityHashes"]))
+        self.assertEqual(1, len(facts["threadIdentityHashes"]))
 
-        without_role = [{**events[2], "item": {key: value for key, value in events[2]["item"].items() if key != "agent_type"}}, *events[3:]]
-        missing = normalize_host_events([events[0], events[1], *without_role], 0, "", Path("/temporary/probe"))
-        self.assertEqual(1, missing["spawnCount"])
-        self.assertEqual([], missing["activatedRoles"])
+        collaboration = [
+            events[0],
+            events[1],
+            {"type": "item.completed", "item": {"type": "collab_tool_call", "tool": "spawn_agent"}},
+            events[-1],
+        ]
+        with self.assertRaises(PreflightError) as raised:
+            normalize_host_events(collaboration, 0, "", Path("/temporary/probe"))
+        self.assertEqual("UNSUPPORTED_HOST_EVENT_FORMAT", raised.exception.code)
+
+    def test_event_parser_records_version_and_source_without_mixing_raw_facts(self) -> None:
+        parent = self._load_jsonl_fixture("legacy-parent.jsonl")
+        children = {"legacy-child": self._load_jsonl_fixture("legacy-child.jsonl")}
+        parsed = parse_rollout_records(parent, children, "0.147.0", "fixture/legacy-rollout.jsonl")
+        self.assertEqual(
+            {"schemaVersion", "cliVersion", "source", "format", "parentRecords", "childRollouts"},
+            set(parsed),
+        )
+        self.assertEqual("legacy-payload-v1", parsed["format"])
+        facts = normalize_rollout_facts(parsed, parent_thread_id="legacy-parent")
+        self.assertNotIn("source", facts)
+        self.assertNotIn("cliVersion", facts)
+        self.assertEqual(1, facts["spawnCount"])
+
+    def test_current_direct_rollout_fixture_is_normalized(self) -> None:
+        parent = self._load_jsonl_fixture("current-parent.jsonl")
+        children = {"current-child": self._load_jsonl_fixture("current-child.jsonl")}
+        parsed = parse_rollout_records(parent, children, "0.152.0", "fixture/current-rollout.jsonl")
+        self.assertEqual("current-direct-v1", parsed["format"])
+        self.assertEqual("0.152.0", parsed["cliVersion"])
+        self.assertEqual("fixture/current-rollout.jsonl", parsed["source"])
+        facts = normalize_rollout_facts(parsed, parent_thread_id="current-parent")
+        self.assertEqual(0, facts["spawnCount"])
+        self.assertEqual([], facts["activatedRoles"])
+        self.assertIs(facts["childBindingValid"], False)
+        self.assertIs(facts["childTerminalObserved"], False)
+        self.assertIs(facts["parentTerminalObserved"], True)
+        self.assertEqual(
+            ["thread.started", "turn.started", "item.started:reasoning", "item.completed:agent_message", "turn.completed"],
+            facts["eventTypes"],
+        )
+        handshake = completed_handshake(self._handshake_preflight(), facts)
+        self.assertEqual("blocked", handshake["outcome"])
+        self.assertEqual("CUSTOM_ROLE_ACTIVATION_MISSING", handshake["error"])
+
+    def test_unknown_rollout_wrapper_and_event_drift_are_unsupported(self) -> None:
+        parent, children = self._rollout_fixture()
+        with self.assertRaises(PreflightError) as wrapper:
+            parse_rollout_records([{"event": parent[0]["payload"]}], children, "0.147.0", "fixture/unknown.jsonl")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", wrapper.exception.code)
+        drifted = [*parent]
+        drifted[1] = {"payload": {"type": "function_call", "namespace": "agents", "name": "spawn_agent", "arguments": "not-json"}}
+        with self.assertRaises(PreflightError) as field:
+            normalize_rollout_facts(drifted, children, "parent-thread")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", field.exception.code)
+        with self.assertRaises(PreflightError) as current_event:
+            parse_rollout_records(
+                [{"type": "function_call", "name": "spawn_agent", "arguments": {}}],
+                {},
+                "0.152.0",
+                "fixture/current-unknown-event.jsonl",
+            )
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", current_event.exception.code)
+
+    def test_unknown_host_wrapper_is_unsupported(self) -> None:
+        with self.assertRaises(PreflightError) as raised:
+            parse_host_events([{"type": "item.completed", "payload": {"type": "collab_tool_call"}}], "0.152.0", "fixture/current.jsonl")
+        self.assertEqual("UNSUPPORTED_HOST_EVENT_FORMAT", raised.exception.code)
+
+    def test_current_collaboration_item_without_capture_is_unsupported(self) -> None:
+        events = [
+            {"type": "thread.started", "thread_id": "parent-thread"},
+            {"type": "turn.started"},
+            {"type": "item.completed", "item": {"type": "collab_tool_call", "tool": "spawn_agent"}},
+            {"type": "turn.completed"},
+        ]
+        parsed = parse_rollout_records(events, {}, "0.152.0", "fixture/current-collaboration.jsonl")
+        with self.assertRaises(PreflightError) as raised:
+            normalize_rollout_facts(parsed, parent_thread_id="parent-thread")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", raised.exception.code)
+
+    def test_current_missing_terminal_is_unsupported(self) -> None:
+        parsed = parse_rollout_records(
+            [{"type": "thread.started", "thread_id": "parent-thread"}, {"type": "turn.started"}],
+            {},
+            "0.152.0",
+            "fixture/current-incomplete.jsonl",
+        )
+        with self.assertRaises(PreflightError) as raised:
+            normalize_rollout_facts(parsed, parent_thread_id="parent-thread")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", raised.exception.code)
+
+    def test_current_thread_identity_drift_is_unsupported(self) -> None:
+        parent = self._load_jsonl_fixture("current-parent.jsonl")
+        parent[0] = {**parent[0], "thread_id": "other-parent"}
+        parsed = parse_rollout_records(parent, {}, "0.152.0", "fixture/current-identity-drift.jsonl")
+        with self.assertRaises(PreflightError) as raised:
+            normalize_rollout_facts(parsed, parent_thread_id="current-parent")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", raised.exception.code)
+
+    def test_current_host_stream_missing_terminal_is_unsupported(self) -> None:
+        with self.assertRaises(PreflightError) as raised:
+            normalize_host_events(
+                [{"type": "thread.started", "thread_id": "parent-thread"}, {"type": "turn.started"}],
+                0,
+                "",
+                Path("/temporary/probe"),
+            )
+        self.assertEqual("UNSUPPORTED_HOST_EVENT_FORMAT", raised.exception.code)
 
     @staticmethod
     def _rollout_fixture(

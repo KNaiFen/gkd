@@ -27,6 +27,19 @@ SPAWN_FORK_TURNS = "none"
 CHILD_TERMINAL_MARKER = "GKD_EXECUTOR_CHILD_TERMINAL"
 PARENT_TERMINAL_MARKER = "GKD_PARENT_TERMINAL"
 FALLBACK_ROLES = {"default", "worker", "explorer"}
+LEGACY_ROLLOUT_VERSION = "0.147.0"
+CURRENT_ROLLOUT_VERSION = "0.152.0"
+ROLLOUT_ADAPTER_SCHEMA_VERSION = 1
+CURRENT_EVENT_TYPES = {
+    "error",
+    "item.completed",
+    "item.started",
+    "thread.started",
+    "turn.completed",
+    "turn.failed",
+    "turn.started",
+}
+CURRENT_ITEM_TYPES = {"agent_message", "collab_tool_call", "mcp_tool_call", "reasoning"}
 PARSER_SENTINEL = "no transport configured; use --listen or enable remote control"
 LIVE_PROMPT = (
     "Delegation itself is the only task and cannot be completed by the parent. Do not solve the "
@@ -54,6 +67,10 @@ class PreflightError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def _unsupported(code: str, message: str) -> None:
+    raise PreflightError(code, message)
 
 
 def _path_hash(path: Path) -> str:
@@ -351,53 +368,126 @@ def live_argument_parser_command(codex: str | Path, repo: Path) -> list[str]:
     return [*live_command(codex, repo)[:-1], "--help"]
 
 
+def _decode_event_records(records: list[dict[str, object]] | list[str], code: str) -> list[dict[str, object]]:
+    decoded: list[dict[str, object]] = []
+    for record in records:
+        if isinstance(record, str):
+            if not record.strip():
+                continue
+            try:
+                value = json.loads(record)
+            except json.JSONDecodeError as error:
+                _unsupported(code, f"JSONL record is not valid JSON: {error.msg}")
+            if not isinstance(value, dict):
+                _unsupported(code, "JSONL record must be an object")
+            record = value
+        if not isinstance(record, dict):
+            _unsupported(code, "event record must be an object")
+        decoded.append(record)
+    return decoded
+
+
+def _rollout_format(parent_records: list[dict[str, object]], code: str) -> str:
+    if not parent_records:
+        _unsupported(code, "rollout contains no parent records")
+    legacy = all(isinstance(record.get("payload"), dict) for record in parent_records)
+    current = all("payload" not in record and isinstance(record.get("type"), str) for record in parent_records)
+    if legacy and not current:
+        return "legacy-payload-v1"
+    if current and not legacy:
+        return "current-direct-v1"
+    _unsupported(code, "rollout records use mixed or unknown wrappers")
+    raise AssertionError("unreachable")
+
+
+def _validate_current_event(record: dict[str, object], code: str) -> None:
+    """Accept only the direct JSONL shell observed in the current capture."""
+    event_type = record.get("type")
+    if "payload" in record or not isinstance(event_type, str) or event_type not in CURRENT_EVENT_TYPES:
+        _unsupported(code, "current rollout event uses an unknown wrapper or event type")
+    if event_type in {"item.started", "item.completed"}:
+        item = record.get("item")
+        item_type = item.get("type") if isinstance(item, dict) else None
+        if not isinstance(item, dict) or not isinstance(item_type, str) or item_type not in CURRENT_ITEM_TYPES:
+            _unsupported(code, "current item event has an unsupported structured item")
+
+
+def parse_rollout_records(
+    parent_records: list[dict[str, object]] | list[str],
+    child_rollouts: dict[str, list[dict[str, object]] | list[str]],
+    cli_version: str = LEGACY_ROLLOUT_VERSION,
+    source: str = "historical-rollout",
+) -> dict[str, object]:
+    """Parse a versioned rollout envelope without deriving handshake facts."""
+
+    if not isinstance(cli_version, str) or not cli_version:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "CLI version is required")
+    if not isinstance(source, str) or not source:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "rollout source is required")
+    parent = _decode_event_records(parent_records, "UNSUPPORTED_ROLLOUT_FORMAT")
+    if not isinstance(child_rollouts, dict):
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollouts must be keyed by thread identity")
+    children: dict[str, list[dict[str, object]]] = {}
+    for thread_id, records in child_rollouts.items():
+        if not isinstance(thread_id, str) or not thread_id:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollout identity is invalid")
+        if not isinstance(records, list):
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollout records must be a list")
+        children[thread_id] = _decode_event_records(records, "UNSUPPORTED_ROLLOUT_FORMAT")
+    format_name = _rollout_format(parent, "UNSUPPORTED_ROLLOUT_FORMAT")
+    if format_name == "current-direct-v1":
+        for record in parent:
+            _validate_current_event(record, "UNSUPPORTED_ROLLOUT_FORMAT")
+    for records in children.values():
+        for record in records:
+            if format_name == "legacy-payload-v1" and not isinstance(record.get("payload"), dict):
+                _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "legacy child record is not payload-wrapped")
+            if format_name == "current-direct-v1":
+                _validate_current_event(record, "UNSUPPORTED_ROLLOUT_FORMAT")
+    if cli_version == LEGACY_ROLLOUT_VERSION and format_name != "legacy-payload-v1":
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "legacy CLI requires payload-wrapped rollout records")
+    if cli_version == CURRENT_ROLLOUT_VERSION and format_name != "current-direct-v1":
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current CLI requires direct rollout records")
+    if cli_version not in {LEGACY_ROLLOUT_VERSION, CURRENT_ROLLOUT_VERSION}:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", f"unsupported CLI version: {cli_version}")
+    return {
+        "schemaVersion": ROLLOUT_ADAPTER_SCHEMA_VERSION,
+        "cliVersion": cli_version,
+        "source": source,
+        "format": format_name,
+        "parentRecords": parent,
+        "childRollouts": children,
+    }
+
+
+def parse_host_events(
+    events: list[dict[str, object]] | list[str],
+    cli_version: str = CURRENT_ROLLOUT_VERSION,
+    source: str = "codex-exec-jsonl",
+) -> dict[str, object]:
+    """Parse direct host JSONL events before reducing them to handshake facts."""
+
+    if not isinstance(cli_version, str) or not cli_version or not isinstance(source, str) or not source:
+        _unsupported("UNSUPPORTED_HOST_EVENT_FORMAT", "CLI version and event source are required")
+    if cli_version not in {LEGACY_ROLLOUT_VERSION, CURRENT_ROLLOUT_VERSION}:
+        _unsupported("UNSUPPORTED_HOST_EVENT_FORMAT", f"unsupported CLI version: {cli_version}")
+    if cli_version != CURRENT_ROLLOUT_VERSION:
+        _unsupported("UNSUPPORTED_HOST_EVENT_FORMAT", "direct host JSONL requires the current CLI version")
+    decoded = _decode_event_records(events, "UNSUPPORTED_HOST_EVENT_FORMAT")
+    for event in decoded:
+        _validate_current_event(event, "UNSUPPORTED_HOST_EVENT_FORMAT")
+    return {
+        "schemaVersion": ROLLOUT_ADAPTER_SCHEMA_VERSION,
+        "cliVersion": cli_version,
+        "source": source,
+        "format": "direct-host-jsonl-v1",
+        "events": decoded,
+    }
+
+
 def _event_item(event: dict[str, object]) -> dict[str, object]:
     item = event.get("item")
     return item if isinstance(item, dict) else {}
-
-
-def _collab_tool(item: dict[str, object]) -> str | None:
-    if item.get("type") != "collab_tool_call":
-        return None
-    tool = item.get("tool")
-    if not isinstance(tool, str) or not tool:
-        return None
-    return tool.removeprefix("agents.")
-
-
-def _structured_arguments(item: dict[str, object]) -> list[dict[str, object]]:
-    values = [item]
-    for key in ("arguments", "params", "input"):
-        candidate = item.get(key)
-        if isinstance(candidate, dict):
-            values.append(candidate)
-        elif isinstance(candidate, str):
-            try:
-                parsed = json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(parsed, dict):
-                values.append(parsed)
-    return values
-
-
-def _spawn_role(item: dict[str, object]) -> str | None:
-    for value in _structured_arguments(item):
-        for key in ("agent_type", "agentType"):
-            role = value.get(key)
-            if isinstance(role, str) and role:
-                return role
-    return None
-
-
-def _spawn_fact(item: dict[str, object]) -> dict[str, object]:
-    arguments = _structured_arguments(item)
-    value = arguments[-1] if arguments else {}
-    return {
-        "agentType": value.get("agent_type"),
-        "taskName": value.get("task_name"),
-        "forkTurns": value.get("fork_turns"),
-    }
 
 
 def _thread_ids(event: dict[str, object]) -> set[str]:
@@ -405,32 +495,7 @@ def _thread_ids(event: dict[str, object]) -> set[str]:
     thread_id = event.get("thread_id")
     if isinstance(thread_id, str) and thread_id:
         identities.add(thread_id)
-    item = _event_item(event)
-    for key in ("sender_thread_id", "receiver_thread_id"):
-        identity = item.get(key)
-        if isinstance(identity, str) and identity:
-            identities.add(identity)
-    receivers = item.get("receiver_thread_ids")
-    if isinstance(receivers, list):
-        identities.update(value for value in receivers if isinstance(value, str) and value)
-    states = item.get("agents_states")
-    if isinstance(states, dict):
-        identities.update(value for value in states if isinstance(value, str) and value)
     return identities
-
-
-def _agent_completed(item: dict[str, object], child_ids: set[str]) -> bool:
-    states = item.get("agents_states")
-    if not isinstance(states, dict):
-        return False
-    for identity, state in states.items():
-        if identity not in child_ids:
-            continue
-        if isinstance(state, str) and state == "completed":
-            return True
-        if isinstance(state, dict) and state.get("status") == "completed":
-            return True
-    return False
 
 
 def _event_type(event: dict[str, object]) -> str:
@@ -438,9 +503,6 @@ def _event_type(event: dict[str, object]) -> str:
     if not isinstance(event_type, str) or not event_type:
         return "unknown"
     item = _event_item(event)
-    tool = _collab_tool(item)
-    if tool is not None:
-        return f"{event_type}:collab_tool_call:{tool}"
     item_type = item.get("type")
     if isinstance(item_type, str) and item_type:
         return f"{event_type}:{item_type}"
@@ -473,41 +535,44 @@ def normalize_host_events(
     codex_exit_code: int,
     stderr: str,
     repo: Path,
+    cli_version: str = CURRENT_ROLLOUT_VERSION,
+    source: str = "codex-exec-jsonl",
 ) -> dict[str, object]:
     """Reduce one live JSONL stream to path-free host-owned facts."""
-    spawn_items = [
-        _event_item(event)
+    parsed = parse_host_events(events, cli_version, source)
+    events = parsed["events"]
+    if any(
+        event.get("type") in {"item.started", "item.completed"}
+        and _event_item(event).get("type") == "collab_tool_call"
         for event in events
-        if event.get("type") == "item.completed" and _collab_tool(_event_item(event)) == "spawn_agent"
-    ]
-    spawn_facts = [_spawn_fact(item) for item in spawn_items]
-    roles = [role for role in (_spawn_role(item) for item in spawn_items) if role is not None]
-    child_ids: set[str] = set()
-    for item in spawn_items:
-        receivers = item.get("receiver_thread_ids")
-        if isinstance(receivers, list):
-            child_ids.update(value for value in receivers if isinstance(value, str) and value)
+    ):
+        _unsupported(
+            "UNSUPPORTED_HOST_EVENT_FORMAT",
+            "current collaboration item fields are unsupported without a redacted capture",
+        )
+    if any(event.get("type") == "turn.started" for event in events) and not any(
+        event.get("type") in {"turn.completed", "turn.failed"} for event in events
+    ):
+        _unsupported("UNSUPPORTED_HOST_EVENT_FORMAT", "current host stream has no terminal turn event")
     event_types = []
     for event in events:
         value = _event_type(event)
         if value not in event_types:
             event_types.append(value)
-    unexpected = sorted({role for role in roles if role != ROLE_NAME})
-    fallback = any(role in FALLBACK_ROLES for role in unexpected)
-    child_identity_hash = sha256_bytes(next(iter(child_ids)).encode("utf-8")) if len(child_ids) == 1 else None
     host_error = _host_error(events, stderr, repo)
+    parent_terminal_observed = any(event.get("type") == "turn.completed" for event in events)
     return {
         "parentTurnEntered": any(event.get("type") == "turn.started" for event in events),
-        "spawnCount": len(spawn_items),
-        "spawnFacts": spawn_facts,
-        "activatedRoles": sorted(set(roles)),
-        "unexpectedRoles": unexpected,
-        "downgradeObserved": any(role != ROLE_NAME for role in roles),
-        "fallbackObserved": fallback,
-        "childBindingValid": len(child_ids) == 1,
-        "childThreadIdentityHash": child_identity_hash,
-        "childTerminalObserved": any(_agent_completed(_event_item(event), child_ids) for event in events),
-        "parentTerminalObserved": any(event.get("type") == "turn.completed" for event in events),
+        "spawnCount": 0,
+        "spawnFacts": [],
+        "activatedRoles": [],
+        "unexpectedRoles": [],
+        "downgradeObserved": False,
+        "fallbackObserved": False,
+        "childBindingValid": False,
+        "childThreadIdentityHash": None,
+        "childTerminalObserved": False,
+        "parentTerminalObserved": parent_terminal_observed,
         "codexExitCode": codex_exit_code,
         "eventTypes": event_types,
         "threadIdentityHashes": sorted({sha256_bytes(value.encode("utf-8")) for event in events for value in _thread_ids(event)}),
@@ -515,7 +580,7 @@ def normalize_host_events(
     }
 
 
-def normalize_rollout_facts(
+def _normalize_legacy_rollout_facts(
     parent_records: list[dict[str, object]],
     child_rollouts: dict[str, list[dict[str, object]]],
     parent_thread_id: str,
@@ -549,10 +614,13 @@ def normalize_rollout_facts(
         if isinstance(arguments, str):
             try:
                 arguments = json.loads(arguments)
-            except json.JSONDecodeError:
-                arguments = {}
-        if isinstance(arguments, dict):
-            spawn_calls.append(arguments)
+            except json.JSONDecodeError as error:
+                _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", f"spawn arguments are not valid JSON: {error.msg}")
+        if not isinstance(arguments, dict):
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "spawn arguments are not an object")
+        if any(not isinstance(arguments.get(key), str) or not arguments[key] for key in ("agent_type", "task_name", "fork_turns")):
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "spawn arguments are missing required fields")
+        spawn_calls.append(arguments)
     spawn_facts = [
         {
             "agentType": call.get("agent_type"),
@@ -606,6 +674,11 @@ def normalize_rollout_facts(
         and record["payload"].get("last_agent_message") == PARENT_TERMINAL_MARKER
         for record in parent_records
     )
+    if len(spawn_calls) == 1:
+        if child_binding_valid and not child_terminal:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "bound child rollout has no terminal marker")
+        if child_binding_valid and not parent_terminal:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parent rollout has no terminal marker")
     child_thread_ids = {
         payload["agent_thread_id"]
         for payload in activities
@@ -645,6 +718,103 @@ def normalize_rollout_facts(
         "threadIdentityHashes": thread_identity_hashes,
         "hostError": None,
     }
+
+
+def _normalize_current_rollout_facts(
+    parsed: dict[str, object],
+    parent_thread_id: str,
+    codex_exit_code: int,
+) -> dict[str, object]:
+    parent_records = parsed["parentRecords"]
+    children = parsed["childRollouts"]
+    all_records = [*parent_records, *(record for records in children.values() for record in records)]
+    event_types: list[str] = []
+    thread_ids: set[str] = {parent_thread_id}
+    parent_thread_ids = {
+        record.get("thread_id")
+        for record in parent_records
+        if record.get("type") == "thread.started" and isinstance(record.get("thread_id"), str)
+    }
+    if parent_thread_ids and parent_thread_ids != {parent_thread_id}:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current parent thread identity drifted")
+    for thread_id, records in children.items():
+        child_thread_ids = {
+            record.get("thread_id")
+            for record in records
+            if record.get("type") == "thread.started" and isinstance(record.get("thread_id"), str)
+        }
+        if child_thread_ids and child_thread_ids != {thread_id}:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current child thread identity drifted")
+    if any(record.get("type") == "turn.started" for record in parent_records) and not any(
+        record.get("type") in {"turn.completed", "turn.failed"} for record in parent_records
+    ):
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current parent stream has no terminal turn event")
+    for records in children.values():
+        if any(record.get("type") == "turn.started" for record in records) and not any(
+            record.get("type") in {"turn.completed", "turn.failed"} for record in records
+        ):
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current child stream has no terminal turn event")
+    for record in all_records:
+        _validate_current_event(record, "UNSUPPORTED_ROLLOUT_FORMAT")
+        event_type = record["type"]
+        item = record.get("item") if isinstance(record.get("item"), dict) else None
+        item_type = item.get("type") if isinstance(item, dict) else None
+        if item_type == "collab_tool_call":
+            _unsupported(
+                "UNSUPPORTED_ROLLOUT_FORMAT",
+                "current collaboration item fields are unsupported without a redacted capture",
+            )
+        rendered_type = f"{event_type}:{item_type}" if isinstance(item_type, str) else event_type
+        if rendered_type not in event_types:
+            event_types.append(rendered_type)
+        identity = record.get("thread_id")
+        if isinstance(identity, str) and identity:
+            thread_ids.add(identity)
+    return {
+        "parentTurnEntered": any(record.get("type") == "turn.started" for record in parent_records),
+        "spawnCount": 0,
+        "spawnFacts": [],
+        "activatedRoles": [],
+        "unexpectedRoles": [],
+        "downgradeObserved": False,
+        "fallbackObserved": False,
+        "childBindingValid": False,
+        "childThreadIdentityHash": None,
+        "childTerminalObserved": False,
+        "parentTerminalObserved": any(record.get("type") == "turn.completed" for record in parent_records),
+        "codexExitCode": codex_exit_code,
+        "eventTypes": event_types,
+        "threadIdentityHashes": sorted(sha256_bytes(identity.encode("utf-8")) for identity in thread_ids),
+        "hostError": None,
+    }
+
+
+def normalize_rollout_facts(
+    parent_records: list[dict[str, object]] | list[str] | dict[str, object],
+    child_rollouts: dict[str, list[dict[str, object]] | list[str]] | None = None,
+    parent_thread_id: str | None = None,
+    codex_exit_code: int = 0,
+    cli_version: str = LEGACY_ROLLOUT_VERSION,
+    source: str = "historical-rollout",
+) -> dict[str, object]:
+    """Normalize parsed rollout facts while keeping raw format metadata separate."""
+
+    if isinstance(parent_records, dict) and "parentRecords" in parent_records:
+        parsed = parent_records
+    else:
+        if child_rollouts is None or parent_thread_id is None:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollouts and parent thread identity are required")
+        parsed = parse_rollout_records(parent_records, child_rollouts, cli_version, source)
+    if parsed.get("schemaVersion") != ROLLOUT_ADAPTER_SCHEMA_VERSION or not isinstance(parsed.get("parentRecords"), list):
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed rollout adapter metadata is invalid")
+    if not isinstance(parent_thread_id, str) or not parent_thread_id:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parent thread identity is required")
+    if parsed.get("format") == "legacy-payload-v1":
+        return _normalize_legacy_rollout_facts(parsed["parentRecords"], parsed["childRollouts"], parent_thread_id, codex_exit_code)
+    if parsed.get("format") == "current-direct-v1":
+        return _normalize_current_rollout_facts(parsed, parent_thread_id, codex_exit_code)
+    _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "unknown parsed rollout format")
+    raise AssertionError("unreachable")
 
 
 def run_live_argument_parser(codex: Path, repo: Path) -> dict[str, object]:

@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"current-child"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"type":"agent_message","status":"completed"}}
+{"type":"turn.completed"}

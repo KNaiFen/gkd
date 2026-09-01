@@ -727,3 +727,7 @@
 - [2026-09-02] legacy runtime baseline 改为显式版本 registry。
   - Why: watcher runtime 原先把 `0.147.0` 和单一 schema digest 写死；本机当前 CLI `0.152.0` 的相关 schema 已发生漂移，继续把它归类为普通版本 mismatch 会丢失可复核的兼容边界。
   - Impact: `RUNTIME_BASELINES` 登记历史 `0.147.0` 与当前捕获 `0.152.0`；未知版本明确返回 `codex_version_unsupported`，登记版本 schema 漂移返回 `schema_digest_mismatch`，请求绑定错误 baseline 返回 `runtime_baseline_mismatch`。旧 aliases/evidence 保留，当前 baseline 只进入 legacy compatibility record，不恢复 automatic watcher。
+
+- [2026-09-02] 子代理事件适配返工收紧 current direct JSONL 合同。
+  - Why: 首轮 fixture 将未被官方 capture 证明的顶层 `function_call`、`subagent.started`、`task.completed` 和协作 item 字段写成 `0.152.0` 当前协议，容易把猜测当作事实。
+  - Impact: current adapter 仅接受已证实的 `thread.started`、`turn.started`、`turn.completed`、`turn.failed`、`error`、`item.started`/`item.completed` 外壳；协作 item 具体字段无真实脱敏证据时 fail-closed 为 `UNSUPPORTED_*`。旧 `0.147.0` payload wrapper、spawn/task/fork 与 child terminal 负向语义保持不变。
