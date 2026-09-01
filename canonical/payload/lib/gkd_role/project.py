@@ -420,6 +420,75 @@ def stage_project(
     return _result("staged", inventory)
 
 
+def _project_preimage(project: Path, inventory: dict[str, Any]) -> dict[str, tuple[bytes, int]]:
+    """Capture the owned files before a refresh so a failed replacement is recoverable."""
+
+    result: dict[str, tuple[bytes, int]] = {}
+    for record in inventory["files"]:
+        path = project / record["path"]
+        if not path.is_file() or path.is_symlink():
+            raise TaskError("PROJECT_STAGE_DRIFT")
+        result[record["path"]] = (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+    inventory_path = project / PROJECT_INVENTORY
+    if not inventory_path.is_file() or inventory_path.is_symlink():
+        raise TaskError("PROJECT_STAGE_DRIFT")
+    result[PROJECT_INVENTORY.as_posix()] = (
+        inventory_path.read_bytes(),
+        stat.S_IMODE(inventory_path.stat().st_mode),
+    )
+    return result
+
+
+def _restore_project_preimage(project: Path, preimage: dict[str, tuple[bytes, int]]) -> None:
+    try:
+        for relative, (data, mode) in sorted(preimage.items()):
+            atomic_write(project / relative, data, mode=mode)
+    except (OSError, TaskError):
+        raise TaskError("PROJECT_STAGE_ROLLBACK_FAILED") from None
+
+
+def refresh_project(
+    bundle_root: Path,
+    project_root: Path,
+    production_root: Path,
+    packs: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Replace one owned development stage from the bundle's current digest."""
+
+    source_root = Path(bundle_root)
+    if source_root.name != "payload" and (source_root / "payload").is_dir() and (source_root / "source.toml").is_file():
+        source_root = source_root / "payload"
+    source, project = _validate_boundaries(source_root, project_root, production_root)
+    try:
+        verified = verify_bundle_root(source)
+    except BundleError:
+        raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
+    bundle_digest = verified["contentDigest"]
+    inventory_path = project / PROJECT_INVENTORY
+    if not inventory_path.exists() and not inventory_path.is_symlink():
+        stage_project(source, bundle_digest, project, production_root, packs=packs)
+        result = verify_project(source, bundle_digest, project, production_root, packs)
+        result["status"] = "refreshed"
+        return result
+
+    # Ownership and file bytes must be intact before anything is removed.
+    inspect_project_inventory(project)
+    inventory = read_canonical_json(project / PROJECT_INVENTORY, "INVALID_PROJECT_INVENTORY", _validate_inventory)
+    preimage = _project_preimage(project, inventory)
+    try:
+        remove_project(project, production_root)
+        stage_project(source, bundle_digest, project, production_root, packs=packs)
+        result = verify_project(source, bundle_digest, project, production_root, packs)
+    except (OSError, TaskError):
+        try:
+            _restore_project_preimage(project, preimage)
+        except TaskError:
+            raise
+        raise
+    result["status"] = "refreshed"
+    return result
+
+
 def remove_project(project_root: Path, production_root: Path) -> dict[str, Any]:
     project = _git_project(project_root)
     production = production_root.resolve(strict=False)

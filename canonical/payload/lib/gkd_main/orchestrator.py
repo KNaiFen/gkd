@@ -32,6 +32,7 @@ from gkd_task.model import validate_result_manifest
 from gkd_task.orchestrator import TrustedTaskContext, resolve_trusted_task_context
 from gkd_task.runtime import RuntimeStore
 from .facts import render_machine_facts
+from gkd_role.project import refresh_project
 
 
 class PullRequestLocator(Protocol):
@@ -107,6 +108,39 @@ class TrustedMainCIFacade:
         return monitor_fixed_head(request, github=self.github)
 
 
+class TrustedMainStageFacade:
+    """Derive the development bundle digest and refresh one owned project stage."""
+
+    def __init__(self, bundle_root: Path) -> None:
+        self.bundle_root = Path(bundle_root)
+
+    def transition(
+        self,
+        project_root: Path,
+        production_root: Path,
+        *,
+        refresh: bool = False,
+        packs: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        if not isinstance(refresh, bool):
+            raise TaskError("INVALID_STAGE_ACTION")
+        if refresh:
+            return refresh_project(self.bundle_root, project_root, production_root, packs)
+        from gkd_role.project import verify_project
+        from gkd_bundle import BundleError, verify_bundle_root
+
+        source = self.bundle_root
+        if source.name != "payload" and (source / "payload").is_dir() and (source / "source.toml").is_file():
+            source = source / "payload"
+        try:
+            digest = verify_bundle_root(source)["contentDigest"]
+        except BundleError:
+            raise TaskError("BUNDLE_CONTENT_MISMATCH") from None
+        return verify_project(source, digest, project_root, production_root, packs)
+
+    stage = transition
+
+
 class TrustedMainOrchestrator:
     """Trusted-main-only high-level operations over canonical task services."""
 
@@ -115,10 +149,12 @@ class TrustedMainOrchestrator:
         context: TrustedTaskContext,
         acceptance_adapter: GitHubAdapter | PullRequestLocator | None = None,
         ci_github: GitHubClient | Any | None = None,
+        bundle_root: Path | None = None,
     ) -> None:
         self.context = context
         self.acceptance_adapter = acceptance_adapter
         self.ci_github = ci_github
+        self.bundle_root = Path(bundle_root) if bundle_root is not None else None
 
     @classmethod
     def from_current(
@@ -132,7 +168,29 @@ class TrustedMainOrchestrator:
     ) -> "TrustedMainOrchestrator":
         current = current_path or Path.cwd()
         context = resolve_trusted_task_context(current, bundle_root, task_id, runtime=runtime)
-        return cls(context, acceptance_adapter, ci_github)
+        return cls(context, acceptance_adapter, ci_github, bundle_root)
+
+    def stage_project(
+        self,
+        project_root: Path | None,
+        production_root: Path,
+        *,
+        refresh: bool = False,
+        packs: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        """Validate or refresh a development stage using the bound bundle source."""
+
+        if self.bundle_root is None:
+            raise TaskError("BUNDLE_SOURCE_UNAVAILABLE")
+        project = project_root or self.context.trusted_main_root
+        return TrustedMainStageFacade(self.bundle_root).transition(
+            project,
+            production_root,
+            refresh=refresh,
+            packs=packs,
+        )
+
+    stage = stage_project
 
     def _service(self):
         from gkd_task.service import TaskService

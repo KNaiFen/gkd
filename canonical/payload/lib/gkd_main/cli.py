@@ -70,6 +70,11 @@ def _parser() -> MachineParser:
         command.add_argument("--review-file", type=Path, required=True)
         if name == "accept":
             command.add_argument("--merge", action="store_true")
+    stage = commands.add_parser("stage")
+    stage.add_argument("--project-root", type=Path)
+    stage.add_argument("--production-root", type=Path, required=True)
+    stage.add_argument("--refresh", action="store_true")
+    stage.add_argument("--pack", action="append", default=[])
     return parser
 
 
@@ -94,6 +99,15 @@ def _dispatch(args: argparse.Namespace) -> dict:
             args.expected_head,
             args.timeout_seconds,
             args.poll_interval_seconds,
+        )
+    if args.command == "stage":
+        from .orchestrator import TrustedMainStageFacade
+
+        return TrustedMainStageFacade(_bundle_root()).transition(
+            args.project_root or Path.cwd(),
+            args.production_root,
+            refresh=args.refresh,
+            packs=tuple(args.pack),
         )
     context = _context(args)
     if args.command == "inspect":

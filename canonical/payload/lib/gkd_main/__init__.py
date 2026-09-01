@@ -1,6 +1,6 @@
 """Trusted-main orchestration entry points."""
 
-from .orchestrator import TrustedMainCIFacade, TrustedMainOrchestrator
+from .orchestrator import TrustedMainCIFacade, TrustedMainOrchestrator, TrustedMainStageFacade
 from .facts import (
     parse_facts_block,
     render_acceptance_facts,
@@ -14,6 +14,7 @@ from .facts import (
 __all__ = (
     "TrustedMainCIFacade",
     "TrustedMainOrchestrator",
+    "TrustedMainStageFacade",
     "parse_facts_block",
     "render_acceptance_facts",
     "render_delivery_facts",
