@@ -395,27 +395,54 @@ def capture(codex: str) -> dict[str, Any]:
     matrix = {contract: "unknown" for contract in CONTRACT_IDS}
     matrix["single_long_wait"] = hard_status
     matrix["twelve_hour_deadline"] = hard_status
+    configuration = _configuration_declaration()
+    model_catalog = {
+        "source": "bundled_model_catalog",
+        "slug": sol["slug"],
+        "supportedReasoningEfforts": supported_efforts,
+        "xhighSupported": "xhigh" in supported_efforts,
+    }
+    protocol = _protocol_surface(codex)
+    wait_limit = {
+        "source": "config_parser_behavior",
+        "oneHourTrial": valid_trial,
+        "twelveHourTrial": invalid_trial,
+        "parserHardMaxMs": ONE_HOUR_MS if hard_status == "fail" else None,
+        "twelveHourConfigurable": invalid_trial["exitCode"] == 0,
+    }
     return {
         "schemaVersion": 1,
         "probe": "GKD-M-1A",
         "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "codexVersion": version_match.group(1),
         "nativeOutcome": classify_native(matrix),
-        "configuration": _configuration_declaration(),
-        "modelCatalog": {
-            "source": "bundled_model_catalog",
-            "slug": sol["slug"],
-            "supportedReasoningEfforts": supported_efforts,
-            "xhighSupported": "xhigh" in supported_efforts,
+        "configuration": configuration,
+        "modelCatalog": model_catalog,
+        "runtimeBaseline": {
+            "status": "captured",
+            "codexVersion": version_match.group(1),
+            "schemaDigestSha256": protocol["schemaDigestSha256"],
+            "featureSummary": {
+                "modelCatalog": model_catalog,
+                "multiAgentV2": configuration.get("multiAgentV2", {}),
+                "protocol": {
+                    key: protocol[key]
+                    for key in (
+                        "methods",
+                        "threadStatuses",
+                        "turnStatuses",
+                        "collabAgentStatuses",
+                        "itemTypeCount",
+                        "itemTypeDigestSha256",
+                        "longToolItemTypes",
+                        "turnSteerExpectedTurnPreconditionDeclared",
+                    )
+                },
+                "waitLimit": wait_limit,
+            },
         },
-        "waitLimit": {
-            "source": "config_parser_behavior",
-            "oneHourTrial": valid_trial,
-            "twelveHourTrial": invalid_trial,
-            "parserHardMaxMs": ONE_HOUR_MS if hard_status == "fail" else None,
-            "twelveHourConfigurable": invalid_trial["exitCode"] == 0,
-        },
-        "protocol": _protocol_surface(codex),
+        "waitLimit": wait_limit,
+        "protocol": protocol,
         "security": {
             "conversationBodyStored": False,
             "rawConfigurationStored": False,

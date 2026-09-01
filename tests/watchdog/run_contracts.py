@@ -12,8 +12,8 @@ import sys
 import unittest
 
 from gkd_watchdog.constants import (
-    EXPECTED_CODEX_VERSION,
-    EXPECTED_SCHEMA_DIGEST,
+    LEGACY_RUNTIME_BASELINE,
+    RUNTIME_BASELINES,
     SCHEMA_VERSION,
 )
 from gkd_watchdog.model import canonical_json
@@ -76,6 +76,14 @@ def main() -> int:
     suite = unittest.defaultTestLoader.discover(
         "tests/watchdog", pattern="test_*.py", top_level_dir="."
     )
+    # Compatibility tests validate baseline selection; they are not part of
+    # the historical 47-test M-1B evidence scope.
+    compatibility_test_prefix = "tests.watchdog.test_runtime_compat."
+    suite = unittest.TestSuite(
+        test
+        for test in _flatten(suite)
+        if not test.id().startswith(compatibility_test_prefix)
+    )
     runner = unittest.TextTestRunner(
         verbosity=2,
         resultclass=RecordingResult,
@@ -118,22 +126,55 @@ def main() -> int:
     runtime = capture("codex")
     codex_version = runtime["codexVersion"]
     schema_digest = runtime["protocol"]["schemaDigestSha256"]
-    if codex_version != EXPECTED_CODEX_VERSION:
-        raise RuntimeError("Codex version changed")
-    if schema_digest != EXPECTED_SCHEMA_DIGEST:
-        raise RuntimeError("app-server schema digest changed")
+    baseline = RUNTIME_BASELINES.get(codex_version)
+    if baseline is None:
+        print(
+            canonical_json(
+                {
+                    "action": "capture_required",
+                    "error": "CODEX_VERSION_UNSUPPORTED",
+                    "status": "error",
+                }
+            ),
+            file=sys.stderr,
+            end="",
+        )
+        return 2
+    if schema_digest != baseline.schema_digest:
+        print(
+            canonical_json(
+                {
+                    "action": "capture_required",
+                    "error": "SCHEMA_DIGEST_MISMATCH",
+                    "status": "error",
+                }
+            ),
+            file=sys.stderr,
+            end="",
+        )
+        return 2
     if runtime["configuration"]["model"] != "gpt-5.6-sol":
         raise RuntimeError("declared model changed")
     if runtime["configuration"]["reasoningEffort"] != "xhigh":
         raise RuntimeError("declared reasoning effort changed")
 
     test_ids = sorted(success_ids)
+    legacy_watcher_compatible = baseline == LEGACY_RUNTIME_BASELINE
     evidence = {
         "schemaVersion": SCHEMA_VERSION,
         "task": "GKD-M-1B",
-        "outcome": "core_ready_for_live_gate",
+        "outcome": (
+            "core_ready_for_live_gate"
+            if legacy_watcher_compatible
+            else "compatibility_baseline_recorded"
+        ),
         "runtime": {
             "codexVersion": codex_version,
+            "compatibilityStatus": (
+                "legacy_watcher_compatible"
+                if legacy_watcher_compatible
+                else "captured_requires_historical_lane_review"
+            ),
             "declaredModel": runtime["configuration"]["model"],
             "declaredReasoningEffort": runtime["configuration"][
                 "reasoningEffort"
@@ -142,6 +183,7 @@ def main() -> int:
             "mcpToolTimeoutSec": _tool_timeout_surface("codex"),
             "evidenceClass": "declaration_not_live_connection",
         },
+        "runtimeBaseline": runtime["runtimeBaseline"],
         "tests": {
             "count": len(test_ids),
             "idDigestSha256": hashlib.sha256(

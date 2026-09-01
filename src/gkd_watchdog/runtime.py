@@ -10,13 +10,13 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Mapping, Protocol, Sequence
 
 from .constants import (
-    EXPECTED_CODEX_VERSION,
-    EXPECTED_SCHEMA_DIGEST,
     RELEVANT_SCHEMA_FILES,
+    RUNTIME_BASELINES,
     RPC_TIMEOUT_MS,
+    RuntimeBaseline,
 )
 from .jsonrpc import AppServerStartError, JsonRpcClient, SubprocessTransport
 
@@ -32,7 +32,12 @@ class CommandResolver(Protocol):
 
 
 class RuntimeVerifier(Protocol):
-    def verify(self, command: Sequence[str]) -> None: ...
+    def verify(
+        self,
+        command: Sequence[str],
+        *,
+        expected_schema_digest: str | None = None,
+    ) -> None: ...
 
 
 class CloseRegistrar(Protocol):
@@ -71,8 +76,10 @@ class SubprocessRuntimeVerifier:
         self,
         *,
         runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+        baselines: Mapping[str, RuntimeBaseline] = RUNTIME_BASELINES,
     ) -> None:
         self._runner = runner
+        self._baselines = baselines
 
     def capture(self, command: Sequence[str]) -> RuntimeFacts:
         if not command:
@@ -123,12 +130,23 @@ class SubprocessRuntimeVerifier:
                 raise RuntimeVerificationError("schema_generation_failed") from exc
         return RuntimeFacts(match.group(1), digest.hexdigest())
 
-    def verify(self, command: Sequence[str]) -> None:
+    def verify(
+        self,
+        command: Sequence[str],
+        *,
+        expected_schema_digest: str | None = None,
+    ) -> None:
         facts = self.capture(command)
-        if facts.codex_version != EXPECTED_CODEX_VERSION:
-            raise RuntimeVerificationError("codex_version_mismatch")
-        if facts.schema_digest != EXPECTED_SCHEMA_DIGEST:
+        baseline = self._baselines.get(facts.codex_version)
+        if baseline is None:
+            raise RuntimeVerificationError("codex_version_unsupported")
+        if facts.schema_digest != baseline.schema_digest:
             raise RuntimeVerificationError("schema_digest_mismatch")
+        if (
+            expected_schema_digest is not None
+            and expected_schema_digest != baseline.schema_digest
+        ):
+            raise RuntimeVerificationError("runtime_baseline_mismatch")
 
 
 class StaticRuntimeVerifier:
@@ -138,7 +156,12 @@ class StaticRuntimeVerifier:
         self.reason = reason
         self.calls = 0
 
-    def verify(self, command: Sequence[str]) -> None:
+    def verify(
+        self,
+        command: Sequence[str],
+        *,
+        expected_schema_digest: str | None = None,
+    ) -> None:
         self.calls += 1
         if self.reason is not None:
             raise RuntimeVerificationError(self.reason)
@@ -160,7 +183,11 @@ class AppServerFactory:
         self, _request, cancellation: CloseRegistrar | None = None
     ) -> JsonRpcClient:
         command = self._resolver.resolve()
-        self._verifier.verify(command)
+        expected_schema_digest = getattr(_request, "runtime_evidence_digest", None)
+        self._verifier.verify(
+            command,
+            expected_schema_digest=expected_schema_digest,
+        )
         transport = self._transport_factory((*command, "app-server"))
         client = JsonRpcClient(transport)
         close_callback = client.close

@@ -28,7 +28,9 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from gkd_watchdog.constants import (
     EXPECTED_CODEX_VERSION,
     EXPECTED_SCHEMA_DIGEST,
+    LEGACY_RUNTIME_BASELINE,
     MAX_WAIT_MS,
+    RUNTIME_BASELINES,
 )
 from gkd_watchdog.jsonrpc import (
     AppServerError,
@@ -957,10 +959,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("live adapter unavailable")
 
     runtime = SubprocessRuntimeVerifier().capture((codex,))
-    if runtime.codex_version != EXPECTED_CODEX_VERSION:
-        raise SystemExit("Codex version mismatch")
-    if runtime.schema_digest != EXPECTED_SCHEMA_DIGEST:
-        raise SystemExit("app-server schema digest mismatch")
+    baseline = RUNTIME_BASELINES.get(runtime.codex_version)
+    if baseline is None:
+        raise SystemExit("unsupported: codex_version_unsupported; capture required")
+    if runtime.schema_digest != baseline.schema_digest:
+        raise SystemExit("unsupported: schema_digest_mismatch; capture required")
+    if baseline != LEGACY_RUNTIME_BASELINE:
+        raise SystemExit(
+            "unsupported: runtime baseline is not approved for the historical live lane"
+        )
     try:
         m1b_contracts = _m1b_contract_summary()
     except LiveProbeError as exc:

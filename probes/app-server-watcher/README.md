@@ -40,3 +40,11 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. python3 probes/app-server-watcher/liv
 The outcome is always exactly `external_watcher_supported` or `unsupported`.
 Any missing live fact, ambiguous identity, unexpected frame, unsafe anomaly,
 timeout, config mutation, or cleanup failure produces `unsupported`.
+
+The historical live lane was captured against `codex-cli 0.147.0`; its
+version/schema evidence remains read-only. The current local CLI baseline is
+`0.152.0` with a different relevant-schema digest, recorded in
+`evidence/m-1-native-d2/compatibility-baselines.json`. A new or changed CLI
+must be captured and reviewed before it can be used by this legacy lane. This
+compatibility record does not enable the automatic watcher or change the
+manual-first default bundle.

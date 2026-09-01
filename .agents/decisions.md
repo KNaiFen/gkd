@@ -723,3 +723,7 @@
 - [2026-09-01] manual-first development bundle 首次拆出 `legacy-automatic` pack。
   - Why: 默认人工任务不需要 task/role/bridge/acceptance/release/verifier CLI；这些实现先移出默认安装面，等待试运行后再决定删除或归档。
   - Impact: `0.0.0-dev.1` content digest 为 `9a683001eb877e944c5def8dde91aa20f2a965bd9e74bf2d9609a37d3163cf2c`，默认安装 16 个文件；`legacy-automatic` pack digest 为 `7baa56dbc11eb403483920038e4054cd57637eed4f7833766ed1dfd112784aeb`，已通过显式 pack-stage/pack-verify。v0.1.5、生产、AIO、tag/Release 均未改动。
+
+- [2026-09-02] legacy runtime baseline 改为显式版本 registry。
+  - Why: watcher runtime 原先把 `0.147.0` 和单一 schema digest 写死；本机当前 CLI `0.152.0` 的相关 schema 已发生漂移，继续把它归类为普通版本 mismatch 会丢失可复核的兼容边界。
+  - Impact: `RUNTIME_BASELINES` 登记历史 `0.147.0` 与当前捕获 `0.152.0`；未知版本明确返回 `codex_version_unsupported`，登记版本 schema 漂移返回 `schema_digest_mismatch`，请求绑定错误 baseline 返回 `runtime_baseline_mismatch`。旧 aliases/evidence 保留，当前 baseline 只进入 legacy compatibility record，不恢复 automatic watcher。

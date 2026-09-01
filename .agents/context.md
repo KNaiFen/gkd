@@ -14,6 +14,7 @@
 
 - O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构；Stage 0 的规则/愿景/ADR、Stage 1 的协议/模板和未发布 development bundle 入口已完成，下一步是人工试运行。
 - 当前 development bundle source 为 `0.0.0-dev.1`，由 canonical generator 生成的 content digest 为 `9a683001eb877e944c5def8dde91aa20f2a965bd9e74bf2d9609a37d3163cf2c`；默认安装仅含 foundation 与 manual Skill，`legacy-automatic` pack digest 为 `7baa56dbc11eb403483920038e4054cd57637eed4f7833766ed1dfd112784aeb`。旧 PR workflow 已移入 `legacy/workflows/`，不再自动触发。尚未 tag、Release、生产安装或 AIO 接入。三次 manual-first 试运行已分别覆盖返工、no-op 和中断恢复，下一步是评估是否继续删除 legacy 实现。
+- Legacy compatibility baseline（2026-09-02）：本机 CLI 为 `0.152.0`，相关 schema digest 为 `398b3be7ac8f5135c7ed6f258e3ba0264c734715b0384539adb462b873745519`；历史 `0.147.0`/`ea75b776...` evidence 保持只读。runtime registry 对未知 CLI 返回 `codex_version_unsupported`，对已登记版本 schema 漂移返回 `schema_digest_mismatch`；当前 capture 仅记录兼容性，不启用 legacy watcher 或改变 manual-first bundle。
 
 ## Historical facts
 

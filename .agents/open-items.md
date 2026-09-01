@@ -135,4 +135,5 @@
 - [x] Manual-first Stage 3（默认安装面）：development bundle 默认仅含 foundation 与 manual Skill，旧 task/role/bridge/acceptance/release/verifier 归入显式 `legacy-automatic` pack；默认安装和 legacy pack 均已完成安装/验证冒烟。
 - [x] Manual-first Stage 3（默认 CI）：旧 `GKD Verify` PR workflow 已移入 `legacy/workflows/`，GitHub 不再为普通 manual-first 变更自动运行完整 verifier。
 - [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
+- [x] Manual-first Stage 3 compatibility baseline：登记 `0.152.0` CLI/schema capture，保留 `0.147.0` 历史读取；未知版本和 schema drift 明确 fail-closed，未恢复 automatic watcher。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
