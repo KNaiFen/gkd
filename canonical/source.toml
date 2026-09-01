@@ -203,6 +203,7 @@ kind = "library"
 files = [
   { source = "payload/lib/gkd_main/__init__.py", target = "gkd/lib/gkd_main/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_main/cli.py", target = "gkd/lib/gkd_main/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_main/orchestrator.py", target = "gkd/lib/gkd_main/orchestrator.py", mode = "0644" },
 ]
 
 [[components]]

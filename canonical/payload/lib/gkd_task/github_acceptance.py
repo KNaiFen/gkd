@@ -38,26 +38,40 @@ def _repository_path(repository: Any) -> str:
     return value
 
 
-def _request(value: Any) -> tuple[str, str, int, str | None]:
+def _request(value: Any) -> tuple[str, str, int | None, str | None, str | None]:
     if not isinstance(value, dict):
         raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
     operation = value.get("operation")
     if operation == "snapshot":
         expected = {"operation", "repository", "prNumber"}
         expected_head = None
+        head_branch = None
+    elif operation == "pulls":
+        expected = {"operation", "repository", "headBranch"}
+        expected_head = None
+        head_branch = value.get("headBranch")
     elif operation == "merge":
         expected = {"operation", "repository", "prNumber", "expectedHead"}
         expected_head = value.get("expectedHead")
         require_sha1(expected_head, "INVALID_GITHUB_ADAPTER_REQUEST")
+        head_branch = None
     else:
         raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
     if set(value) != expected:
         raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
     number = value.get("prNumber")
-    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+    if operation != "pulls" and (isinstance(number, bool) or not isinstance(number, int) or number < 1):
+        raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
+    if operation == "pulls" and (
+        not isinstance(head_branch, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", head_branch)
+        or ".." in head_branch
+        or "//" in head_branch
+        or head_branch.endswith((".", "/", ".lock"))
+    ):
         raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
     repository = value["repository"]
-    return operation, repository, number, expected_head
+    return operation, repository, number, expected_head, head_branch
 
 
 def _object(value: Any) -> dict[str, Any]:
@@ -105,7 +119,8 @@ class GitHubAcceptanceAdapter:
         values: list[Any] = []
         expected_total: int | None = None
         for page in range(1, 101):
-            response = self._api("GET", f"{endpoint}?per_page=100&page={page}")
+            separator = "&" if "?" in endpoint else "?"
+            response = self._api("GET", f"{endpoint}{separator}per_page=100&page={page}")
             if key is None:
                 if not isinstance(response, list):
                     raise TaskError("INVALID_GITHUB_RESPONSE")
@@ -221,6 +236,44 @@ class GitHubAcceptanceAdapter:
         validate_snapshot(snapshot)
         return snapshot
 
+    def find_open_pull_requests(self, repository: str, head_branch: str) -> list[int]:
+        repository_path = _repository_path(repository)
+        if (
+            not isinstance(head_branch, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", head_branch)
+            or ".." in head_branch
+            or "//" in head_branch
+            or head_branch.endswith((".", "/", ".lock"))
+        ):
+            raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
+        owner = repository_path.split("/", 1)[0]
+        values = self._pages(
+            f"repos/{repository_path}/pulls?state=open&head={owner}:{head_branch}",
+            None,
+        )
+        result: list[int] = []
+        for raw in values:
+            pull = _object(raw)
+            number = pull.get("number")
+            state = pull.get("state")
+            head = _object(pull.get("head"))
+            base = _object(pull.get("base"))
+            base_repo = _object(base.get("repo"))
+            if (
+                isinstance(number, bool)
+                or not isinstance(number, int)
+                or number < 1
+                or state != "open"
+                or head.get("ref") != head_branch
+                or not isinstance(base_repo.get("full_name"), str)
+                or f"github.com/{base_repo['full_name']}".casefold() != repository.casefold()
+            ):
+                raise TaskError("INVALID_GITHUB_RESPONSE")
+            result.append(number)
+        if len(result) != len(set(result)):
+            raise TaskError("INVALID_GITHUB_RESPONSE")
+        return sorted(result)
+
     def merge(self, repository: str, pr_number: int, expected_head: str) -> dict[str, Any]:
         repository_path = _repository_path(repository)
         require_sha1(expected_head, "INVALID_GITHUB_ADAPTER_REQUEST")
@@ -238,7 +291,7 @@ class GitHubAcceptanceAdapter:
         raise TaskError("INVALID_GITHUB_RESPONSE")
 
 
-def _read_request() -> tuple[str, str, int, str | None]:
+def _read_request() -> tuple[str, str, int | None, str | None, str | None]:
     raw = sys.stdin.buffer.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise TaskError("INVALID_GITHUB_ADAPTER_REQUEST")
@@ -253,13 +306,14 @@ def _read_request() -> tuple[str, str, int, str | None]:
 
 def main() -> int:
     try:
-        operation, repository, pr_number, expected_head = _read_request()
+        operation, repository, pr_number, expected_head, head_branch = _read_request()
         adapter = GitHubAcceptanceAdapter()
-        result = (
-            adapter.snapshot(repository, pr_number)
-            if operation == "snapshot"
-            else adapter.merge(repository, pr_number, expected_head)
-        )
+        if operation == "snapshot":
+            result = adapter.snapshot(repository, pr_number or 0)
+        elif operation == "pulls":
+            result = {"pullRequests": adapter.find_open_pull_requests(repository, head_branch or "")}
+        else:
+            result = adapter.merge(repository, pr_number or 0, expected_head or "")
     except MergeIndeterminate:
         return 75
     except (TaskError, OSError, UnicodeDecodeError, ValueError, TypeError, KeyError):

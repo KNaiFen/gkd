@@ -809,3 +809,14 @@ class SubprocessGitHubAdapter:
         return self._call(
             {"operation": "merge", "repository": repository, "prNumber": pr_number, "expectedHead": expected_head}
         )
+
+    def find_open_pull_requests(self, repository: str, head_branch: str) -> list[int]:
+        value = self._call({"operation": "pulls", "repository": repository, "headBranch": head_branch})
+        numbers = value.get("pullRequests")
+        if (
+            not isinstance(numbers, list)
+            or any(isinstance(number, bool) or not isinstance(number, int) or number < 1 for number in numbers)
+            or numbers != sorted(set(numbers))
+        ):
+            raise TaskError("INVALID_GITHUB_RESPONSE")
+        return numbers
