@@ -1,1 +1,5 @@
-"""Trusted-main read-only orchestration entry points."""
+"""Trusted-main orchestration entry points."""
+
+from .orchestrator import TrustedMainCIFacade, TrustedMainOrchestrator
+
+__all__ = ("TrustedMainCIFacade", "TrustedMainOrchestrator")

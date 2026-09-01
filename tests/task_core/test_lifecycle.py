@@ -50,7 +50,7 @@ class LifecycleContracts(unittest.TestCase):
         offer_id = json.loads((self.repo.task_root / "offer.json").read_text(encoding="utf-8"))["offerId"]
         capability = RuntimeStore(self.repo.runtime_root).read_capability(offer_id)
         tracked = subprocess.run(
-            ["git", "-C", str(self.repo.candidate), "grep", "-n", capability["capability"], "HEAD"],
+            ["git", "-C", str(self.repo.candidate), "grep", "-n", "--", capability["capability"], "HEAD"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
