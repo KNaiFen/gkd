@@ -742,3 +742,7 @@
 - [2026-09-02] app-server initialize capability 只记录真实或历史登记的能力边界。
   - Why: 本机 `codex-cli 0.152.0` 的真实 initialize response 仅含 `codexHome`、`platformFamily`、`platformOs`、`userAgent`，没有服务端 capability 广告；历史 `0.147.0` 只有 protocol evidence，不能补造 response capability。
   - Impact: `parse_initialize_response` 严格校验四个元数据字段，capability 缺失、null、类型/名称漂移和未捕获值稳定归类为 `unsupported`；历史摘要保持 `compatibility-only`，不恢复 automatic watcher 或修改 MCP、CLI parser、turn/steer。
+
+- [2026-09-02] turn/steer runtime availability 以 feature registry 优先于 schema presence。
+  - Why: 本机 `codex-cli 0.152.0` 将 `steer` 标记为 `removed`，但生成 JSON schema 仍保留 `TurnSteerParams`；继续按 schema 直接调用会把历史协议形状误报为当前能力。
+  - Impact: 版本 registry 将 current `steer` 记录为 `removed`、历史 `0.147.0` 保留 `compatibility-only`；current digest 可进入请求解析以得到稳定 `turn_steer_unsupported`，watcher/factory 在任何 session、transport 或真实 RPC 前 fail-closed。历史读取、interrupt 确认和 expected-turn CAS 负向测试保持不变。

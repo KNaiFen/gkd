@@ -1,0 +1,14 @@
+{
+  "codexVersion": "0.152.0",
+  "features": {
+    "steer": {
+      "enabled": true,
+      "status": "removed"
+    }
+  },
+  "schemaMethods": [
+    "turn/steer"
+  ],
+  "source": "codex-cli features list local capture",
+  "runtimeAvailability": "unsupported"
+}

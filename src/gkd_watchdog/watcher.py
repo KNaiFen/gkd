@@ -9,14 +9,16 @@ import time
 from typing import Any, Callable, Mapping, Protocol
 
 from .constants import (
+    FEATURE_REMOVED,
     EXPECTED_SCHEMA_DIGEST,
     INTERRUPT_CONFIRM_TIMEOUT_MS,
     RPC_TIMEOUT_MS,
     SCHEMA_VERSION,
+    STEER_FEATURE,
 )
 from .jsonrpc import AppServerError, AppServerRemoteError, AppServerStartError
 from .model import WatchRequest, WatchResult, canonical_json
-from .runtime import RuntimeVerificationError
+from .runtime import RuntimeVerificationError, runtime_feature_status
 
 
 class AppServerSession(Protocol):
@@ -106,10 +108,16 @@ class WatchService:
         health_checks = 0
         child_active = False
         if request.runtime_evidence_digest != EXPECTED_SCHEMA_DIGEST:
+            reason = (
+                "turn_steer_unsupported"
+                if runtime_feature_status(request.runtime_evidence_digest, STEER_FEATURE)
+                == FEATURE_REMOVED
+                else "runtime_evidence_mismatch"
+            )
             return self._result_without_session(
                 request,
                 "protocol_error",
-                "runtime_evidence_mismatch",
+                reason,
                 health_checks,
                 started,
             )

@@ -48,6 +48,26 @@ MAX_MESSAGE_BYTES = 1_048_576
 CAPABILITY_UNSUPPORTED = "unsupported"
 CAPABILITY_COMPATIBILITY_ONLY = "compatibility-only"
 CAPABILITY_SUPPORTED = "supported"
+FEATURE_REMOVED = "removed"
+STEER_FEATURE = "steer"
+
+# A generated schema can retain a method after the CLI feature registry has
+# retired it.  Keep this registry separate from schema presence so runtime
+# callers cannot infer callability from generated request fields.
+RUNTIME_FEATURE_REGISTRY: Mapping[str, Mapping[str, str]] = MappingProxyType(
+    {
+        LEGACY_RUNTIME_BASELINE.codex_version: MappingProxyType(
+            {STEER_FEATURE: CAPABILITY_COMPATIBILITY_ONLY}
+        ),
+        CURRENT_RUNTIME_BASELINE.codex_version: MappingProxyType(
+            {STEER_FEATURE: FEATURE_REMOVED}
+        ),
+    }
+)
+
+APPROVED_RUNTIME_DIGESTS = frozenset(
+    baseline.schema_digest for baseline in RUNTIME_BASELINES.values()
+)
 
 RELEVANT_SCHEMA_FILES = (
     "codex_app_server_protocol.v2.schemas.json",

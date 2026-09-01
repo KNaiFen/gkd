@@ -29,6 +29,8 @@
 
 - [2026-09-02] app-server initialize capability 适配完成：current `0.152.0` 真实响应只含四个必需 server metadata 字段且没有 capability 广告，解析器将缺失/漂移归类为 `unsupported`；历史 `0.147.0` protocol evidence 保持 `compatibility-only`，不恢复 automatic watcher。
 
+- [2026-09-02] turn/steer 退场适配完成：current `0.152.0` feature registry 明确 `steer=removed`，即使生成 schema 保留 `turn/steer`，watcher 与 app-server factory 也在 session/transport 前稳定返回 `turn_steer_unsupported`；历史 `0.147.0` watcher 读取、interrupt/CAS 负向语义保持 compatibility-only，未恢复 automatic watcher。
+
 - [2026-09-02] 子代理事件适配返工完成：current `0.152.0` fixture/parser 仅接受官方
   `thread/turn/error/item.*` direct 外壳；未有真实脱敏 capture 的协作 item 字段保持
   `UNSUPPORTED_*`，旧 `0.147.0` payload wrapper 与 legacy spawn/terminal 语义不变。

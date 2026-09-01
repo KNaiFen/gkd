@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import unittest
 
-from gkd_watchdog.constants import MAX_WAIT_MS
+from gkd_watchdog.constants import CURRENT_RUNTIME_BASELINE, MAX_WAIT_MS
 from gkd_watchdog.model import RequestValidationError, WATCH_REQUEST_SCHEMA, WatchRequest
 
 from tests.watchdog.helpers import valid_request
@@ -62,6 +62,14 @@ class WatchRequestTests(unittest.TestCase):
     def test_rejects_well_formed_but_unapproved_runtime_digest(self) -> None:
         with self.assertRaises(RequestValidationError):
             WatchRequest.parse(valid_request(runtimeEvidenceDigest="0" * 64))
+
+    def test_accepts_current_registered_digest_for_runtime_capability_gate(self) -> None:
+        request = WatchRequest.parse(
+            valid_request(runtimeEvidenceDigest=CURRENT_RUNTIME_BASELINE.schema_digest)
+        )
+        self.assertEqual(
+            request.runtime_evidence_digest, CURRENT_RUNTIME_BASELINE.schema_digest
+        )
 
     def test_rejects_credential_shaped_values_in_every_echoed_id(self) -> None:
         credentials = (

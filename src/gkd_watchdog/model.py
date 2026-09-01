@@ -8,7 +8,7 @@ import re
 from typing import Any, Mapping
 
 from .constants import (
-    EXPECTED_SCHEMA_DIGEST,
+    APPROVED_RUNTIME_DIGESTS,
     MAX_HEALTH_INTERVAL_MS,
     MAX_WAIT_MS,
     SCHEMA_VERSION,
@@ -116,7 +116,7 @@ class WatchRequest:
             _require_id(value, field)
         if self.child_thread_id == self.parent_thread_id:
             raise RequestValidationError("parent and child thread IDs must differ")
-        if self.runtime_evidence_digest != EXPECTED_SCHEMA_DIGEST:
+        if self.runtime_evidence_digest not in APPROVED_RUNTIME_DIGESTS:
             raise RequestValidationError("runtimeEvidenceDigest is invalid")
         if not 0 < self.max_wait_ms <= MAX_WAIT_MS:
             raise RequestValidationError("maxWaitMs is outside the allowed range")
@@ -152,7 +152,7 @@ class WatchRequest:
         if (
             not isinstance(digest, str)
             or not DIGEST_PATTERN.fullmatch(digest)
-            or digest != EXPECTED_SCHEMA_DIGEST
+            or digest not in APPROVED_RUNTIME_DIGESTS
         ):
             raise RequestValidationError("runtimeEvidenceDigest is invalid")
 
@@ -264,7 +264,7 @@ WATCH_REQUEST_SCHEMA: dict[str, Any] = {
         },
         "runtimeEvidenceDigest": {
             "type": "string",
-            "const": EXPECTED_SCHEMA_DIGEST,
+            "enum": sorted(APPROVED_RUNTIME_DIGESTS),
         },
         "maxWaitMs": {"type": "integer", "minimum": 1, "maximum": MAX_WAIT_MS},
         "healthIntervalMs": {

@@ -15,6 +15,12 @@
           ],
           "source": "evidence/m-1-native-d2/capability-probe.json"
         },
+        "turnSteer": {
+          "runtimeAvailability": "compatibility-only",
+          "schemaPresence": true,
+          "status": "compatibility-only",
+          "source": "evidence/m-1-native-d2/capability-probe.json"
+        },
         "model": "gpt-5.6-sol",
         "reasoningEffort": "xhigh",
         "multiAgentV2": {
@@ -63,6 +69,12 @@
             "userAgent"
           ],
           "source": "codex-cli 0.152.0 local capture"
+        },
+        "turnSteer": {
+          "runtimeAvailability": "unsupported",
+          "schemaPresence": true,
+          "status": "removed",
+          "source": "codex-cli features list local capture"
         },
         "model": "gpt-5.6-sol",
         "reasoningEffort": "xhigh",

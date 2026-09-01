@@ -19,3 +19,5 @@ GKD 工作流的规范源码、版本管理与专属验证仓库。
 迁移完成前，已发布的 `v0.1.5` legacy bundle 及其 `gkd-task`/`gkd-role`、automatic runtime bridge、watcher、fixed-head acceptance、release engine 和专属 verifier 仅作为 legacy/兼容能力保留；当前开发线为未发布的 `0.0.0-dev.1`，也不是普通任务入口。旧命令不应由新的执行代理 prompt 主动调用；既有发布资产、生产目录和 AIO 保持不变。
 
 Legacy CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。仓库 CI policy 位于 `.gkd/policy.json`；旧验证入口包括 `scripts/gkd-verify --base-sha <full-sha>`，以及必须显式指定的 `--lane historical`、`optional-ci-advice`、`optional-review-remediation` 和 `optional-packs` lane。结果复用可使用 `--results-dir <directory>` 与 `--canonical-results <directory>`；automatic delivery、historical evidence 和 host-capability probe 仍遵循各自旧参数和固定树约束。
+
+旧 watcher 的 `0.147.0` 读取与负向 CAS/interrupt 合同继续作为 compatibility-only lane。当前 CLI `0.152.0` 的 feature registry 将 `steer` 标记为 `removed`；即使生成 schema 仍含 `turn/steer` 字段，运行时也会在启动 app-server 前返回 `turn_steer_unsupported`，不会发送真实调用。详见 `evidence/turn-steer-retirement/feature-registry.json`。

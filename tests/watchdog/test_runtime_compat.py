@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 import subprocess
 import unittest
+from unittest import mock
 
 from gkd_watchdog.constants import (
+    FEATURE_REMOVED,
     CURRENT_RUNTIME_BASELINE,
     EXPECTED_CODEX_VERSION,
     EXPECTED_SCHEMA_DIGEST,
@@ -14,6 +16,8 @@ from gkd_watchdog.constants import (
     RELEVANT_SCHEMA_FILES,
     RuntimeBaseline,
     RUNTIME_BASELINES,
+    RUNTIME_FEATURE_REGISTRY,
+    STEER_FEATURE,
 )
 from gkd_watchdog.runtime import (
     AppServerFactory,
@@ -22,6 +26,7 @@ from gkd_watchdog.runtime import (
     RuntimeVerificationError,
     SubprocessRuntimeVerifier,
     parse_initialize_response,
+    runtime_feature_status,
 )
 
 from tests.watchdog.helpers import parsed_request
@@ -32,6 +37,9 @@ BASELINE_RECORD = (
     / "evidence"
     / "m-1-native-d2"
     / "compatibility-baselines.json"
+)
+FEATURE_REGISTRY_RECORD = (
+    Path(__file__).parent / "fixtures" / "feature-registry-0.152.0.json"
 )
 
 
@@ -123,6 +131,27 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         self.assertEqual(CAPABILITY_COMPATIBILITY_ONLY, fixture["capabilityStatus"])
         self.assertEqual([], fixture["capabilityNames"])
 
+    def test_feature_registry_distinguishes_schema_presence_from_current_callability(self) -> None:
+        fixture = json.loads(FEATURE_REGISTRY_RECORD.read_text(encoding="utf-8"))
+        self.assertEqual("0.152.0", fixture["codexVersion"])
+        self.assertEqual("removed", fixture["features"]["steer"]["status"])
+        self.assertEqual(["turn/steer"], fixture["schemaMethods"])
+        self.assertEqual("unsupported", fixture["runtimeAvailability"])
+        self.assertEqual(
+            FEATURE_REMOVED,
+            RUNTIME_FEATURE_REGISTRY[CURRENT_RUNTIME_BASELINE.codex_version][
+                STEER_FEATURE
+            ],
+        )
+        self.assertEqual(
+            FEATURE_REMOVED,
+            runtime_feature_status(CURRENT_RUNTIME_BASELINE.schema_digest, STEER_FEATURE),
+        )
+        self.assertEqual(
+            "compatibility-only",
+            runtime_feature_status(LEGACY_RUNTIME_BASELINE.schema_digest, STEER_FEATURE),
+        )
+
     def test_legacy_aliases_still_point_to_the_historical_baseline(self) -> None:
         self.assertEqual(EXPECTED_CODEX_VERSION, LEGACY_RUNTIME_BASELINE.codex_version)
         self.assertEqual(EXPECTED_SCHEMA_DIGEST, LEGACY_RUNTIME_BASELINE.schema_digest)
@@ -147,6 +176,14 @@ class RuntimeCompatibilityTests(unittest.TestCase):
                 if entry["codexVersion"] == LEGACY_RUNTIME_BASELINE.codex_version
                 else "unsupported",
                 initialize["capabilityStatus"],
+            )
+            turn_steer = entry["featureSummary"]["turnSteer"]
+            self.assertTrue(turn_steer["schemaPresence"])
+            self.assertEqual(
+                "compatibility-only"
+                if entry["codexVersion"] == LEGACY_RUNTIME_BASELINE.codex_version
+                else "removed",
+                turn_steer["status"],
             )
 
     def test_registered_version_accepts_matching_schema_and_request_digest(self) -> None:
@@ -180,6 +217,20 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeVerificationError, "schema_digest_mismatch"):
             verifier.verify(("codex",))
 
+    def test_verifier_prefers_removed_feature_over_request_digest_mismatch(self) -> None:
+        runner = FakeRunner("0.152.0")
+        baseline = RuntimeBaseline("0.152.0", fake_schema_digest())
+        verifier = SubprocessRuntimeVerifier(
+            runner=runner,
+            baselines={baseline.codex_version: baseline},
+        )
+
+        with mock.patch(
+            "gkd_watchdog.runtime.runtime_feature_status",
+            return_value=FEATURE_REMOVED,
+        ), self.assertRaisesRegex(RuntimeVerificationError, "turn_steer_unsupported"):
+            verifier.verify(("codex",), expected_schema_digest="0" * 64)
+
     def test_factory_rejects_request_bound_to_a_different_baseline(self) -> None:
         runner = FakeRunner("0.152.0")
         baseline = RuntimeBaseline("0.152.0", fake_schema_digest())
@@ -202,6 +253,33 @@ class RuntimeCompatibilityTests(unittest.TestCase):
             RuntimeVerificationError, "runtime_baseline_mismatch"
         ):
             factory(parsed_request())
+        self.assertEqual(calls, [])
+
+    def test_factory_rejects_removed_current_steer_before_transport(self) -> None:
+        runner = FakeRunner("0.152.0")
+        baseline = RuntimeBaseline("0.152.0", fake_schema_digest())
+        calls: list[tuple[str, ...]] = []
+
+        def forbidden_transport(argv):
+            calls.append(tuple(argv))
+            raise AssertionError("transport must not start")
+
+        factory = AppServerFactory(
+            FixedResolver(),
+            SubprocessRuntimeVerifier(
+                runner=runner,
+                baselines={baseline.codex_version: baseline},
+            ),
+            transport_factory=forbidden_transport,
+        )
+        request = parsed_request(
+            runtimeEvidenceDigest=CURRENT_RUNTIME_BASELINE.schema_digest
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeVerificationError, "turn_steer_unsupported"
+        ):
+            factory(request)
         self.assertEqual(calls, [])
 
 

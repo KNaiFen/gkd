@@ -92,6 +92,10 @@ WATCHDOG_CONTRACT_TEST_IDS = build_contract_catalog(
         "normal_terminal_no_steer": (
             "tests.watchdog.test_watcher.WatchServiceTests.test_normal_terminal_returns_immediately_without_steer",
         ),
+        "current_removed_steer": (
+            "tests.watchdog.test_watcher.WatchServiceTests.test_current_removed_steer_fails_closed_before_session_or_control",
+            "tests.watchdog.test_model.WatchRequestTests.test_accepts_current_registered_digest_for_runtime_capability_gate",
+        ),
         "active_stale_is_healthy": (
             "tests.watchdog.test_watcher.WatchServiceTests.test_stale_active_child_remains_healthy_across_ticks",
         ),

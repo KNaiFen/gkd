@@ -6,6 +6,7 @@ import unittest
 
 from gkd_watchdog.watcher import CancellationToken, WatchService
 from gkd_watchdog.jsonrpc import AppServerRemoteError
+from gkd_watchdog.constants import CURRENT_RUNTIME_BASELINE
 
 from tests.watchdog.helpers import FakeClock, ScriptedSession, parsed_request
 
@@ -28,6 +29,23 @@ def turn_notification(status: str, *, at_ms: int = 0):
 
 
 class WatchServiceTests(unittest.TestCase):
+    def test_current_removed_steer_fails_closed_before_session_or_control(self) -> None:
+        clock = FakeClock()
+        request = parsed_request(
+            runtimeEvidenceDigest=CURRENT_RUNTIME_BASELINE.schema_digest
+        )
+        calls = []
+
+        def forbidden_factory(_request, _cancellation):
+            calls.append(True)
+            raise AssertionError("current removed steer must not start a session")
+
+        result = WatchService(forbidden_factory, clock=clock).watch(request)
+
+        self.assertEqual(result.outcome, "protocol_error")
+        self.assertEqual(result.reason, "turn_steer_unsupported")
+        self.assertEqual(calls, [])
+
     def test_twelve_hour_deadline_is_single_and_hourly_ticks_are_silent(self) -> None:
         clock = FakeClock()
         session = ScriptedSession(clock, statuses=["active"] * 20)

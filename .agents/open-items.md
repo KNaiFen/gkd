@@ -145,3 +145,6 @@
 - [x] 2026-09-02 app-server initialize/capability 适配：current `0.152.0` initialize 真实响应
   仅有四个 server metadata 字段且 capability 缺失，解析稳定记录 `unsupported`；历史
   `0.147.0` protocol evidence 保持 `compatibility-only`，未恢复 automatic watcher。
+- [x] 2026-09-02 turn/steer 退场适配：feature registry 以 `steer=removed` 覆盖 current
+  `0.152.0`；schema presence 与 runtime availability 已分离，current 调用在 session/transport
+  前稳定返回 `turn_steer_unsupported`，历史 `0.147.0` watcher/CAS/interrupt 负向语义保持可复核。

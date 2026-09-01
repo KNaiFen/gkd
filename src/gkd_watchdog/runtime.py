@@ -13,11 +13,14 @@ import tempfile
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from .constants import (
+    FEATURE_REMOVED,
     CAPABILITY_COMPATIBILITY_ONLY,
     CAPABILITY_UNSUPPORTED,
     RELEVANT_SCHEMA_FILES,
     RUNTIME_BASELINES,
+    RUNTIME_FEATURE_REGISTRY,
     RPC_TIMEOUT_MS,
+    STEER_FEATURE,
     RuntimeBaseline,
 )
 from .jsonrpc import AppServerStartError, JsonRpcClient, SubprocessTransport
@@ -27,6 +30,17 @@ class RuntimeVerificationError(RuntimeError):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+def runtime_feature_status(schema_digest: str, feature: str) -> str:
+    """Return the registered runtime status for a feature and schema digest."""
+
+    for codex_version, baseline in RUNTIME_BASELINES.items():
+        if baseline.schema_digest == schema_digest:
+            return RUNTIME_FEATURE_REGISTRY[codex_version].get(
+                feature, CAPABILITY_UNSUPPORTED
+            )
+    return CAPABILITY_UNSUPPORTED
 
 
 INITIALIZE_REQUIRED_FIELDS = frozenset(
@@ -229,6 +243,8 @@ class SubprocessRuntimeVerifier:
             raise RuntimeVerificationError("codex_version_unsupported")
         if facts.schema_digest != baseline.schema_digest:
             raise RuntimeVerificationError("schema_digest_mismatch")
+        if runtime_feature_status(facts.schema_digest, STEER_FEATURE) == FEATURE_REMOVED:
+            raise RuntimeVerificationError("turn_steer_unsupported")
         if (
             expected_schema_digest is not None
             and expected_schema_digest != baseline.schema_digest
@@ -269,8 +285,10 @@ class AppServerFactory:
     def __call__(
         self, _request, cancellation: CloseRegistrar | None = None
     ) -> JsonRpcClient:
-        command = self._resolver.resolve()
         expected_schema_digest = getattr(_request, "runtime_evidence_digest", None)
+        if runtime_feature_status(expected_schema_digest, STEER_FEATURE) == FEATURE_REMOVED:
+            raise RuntimeVerificationError("turn_steer_unsupported")
+        command = self._resolver.resolve()
         self._verifier.verify(
             command,
             expected_schema_digest=expected_schema_digest,
