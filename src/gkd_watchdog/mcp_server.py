@@ -24,6 +24,16 @@ SERVER_NAME = "gkd-watchdog"
 SERVER_VERSION = "1"
 TOOL_NAME = "gkd_watch_agent"
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
+UNSUPPORTED_PROTOCOL_ERROR_CODE = -32602
+UNSUPPORTED_PROTOCOL_ERROR_MESSAGE = "unsupported protocol version"
+
+
+def negotiate_protocol_version(requested: Any) -> str | None:
+    """Return an explicitly supported MCP version, without fallback."""
+
+    if isinstance(requested, str) and requested in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested
+    return None
 
 
 class JsonLineWriter:
@@ -116,12 +126,15 @@ class McpServer:
         if not isinstance(params, Mapping):
             self._error(request_id, -32602, "invalid initialize parameters")
             return
-        requested = params.get("protocolVersion")
-        protocol = (
-            requested
-            if requested in SUPPORTED_PROTOCOL_VERSIONS
-            else SUPPORTED_PROTOCOL_VERSIONS[0]
-        )
+        protocol = negotiate_protocol_version(params.get("protocolVersion"))
+        if protocol is None:
+            self._error(
+                request_id,
+                UNSUPPORTED_PROTOCOL_ERROR_CODE,
+                UNSUPPORTED_PROTOCOL_ERROR_MESSAGE,
+                {"supportedProtocolVersions": list(SUPPORTED_PROTOCOL_VERSIONS)},
+            )
+            return
         self._result(
             request_id,
             {
@@ -258,13 +271,18 @@ class McpServer:
     def _result(self, request_id: Any, result: Any) -> None:
         self._writer.write({"jsonrpc": "2.0", "id": request_id, "result": result})
 
-    def _error(self, request_id: Any, code: int, message: str) -> None:
+    def _error(
+        self,
+        request_id: Any,
+        code: int,
+        message: str,
+        data: Mapping[str, Any] | None = None,
+    ) -> None:
+        error: dict[str, Any] = {"code": code, "message": message}
+        if data is not None:
+            error["data"] = dict(data)
         self._writer.write(
-            {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {"code": code, "message": message},
-            }
+            {"jsonrpc": "2.0", "id": request_id, "error": error}
         )
 
 

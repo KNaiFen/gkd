@@ -12,7 +12,14 @@ import threading
 import time
 import unittest
 
-from gkd_watchdog.mcp_server import JsonLineWriter, McpServer, TOOL_NAME
+from gkd_watchdog.mcp_server import (
+    JsonLineWriter,
+    McpServer,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    TOOL_NAME,
+    UNSUPPORTED_PROTOCOL_ERROR_CODE,
+    UNSUPPORTED_PROTOCOL_ERROR_MESSAGE,
+)
 from gkd_watchdog.watcher import WatchService
 
 from tests.watchdog.helpers import RealTimeActiveSession, valid_request
@@ -54,6 +61,66 @@ def read_json_line(process: subprocess.Popen[str], timeout: float = 2.0):
 
 
 class McpAdapterTests(unittest.TestCase):
+    def test_initialize_negotiates_each_registered_protocol_version(self) -> None:
+        stream = CapturingStream()
+        server = McpServer(
+            lambda: (_ for _ in ()).throw(AssertionError()),
+            writer=JsonLineWriter(stream),
+        )
+
+        for request_id, version in enumerate(SUPPORTED_PROTOCOL_VERSIONS, 1):
+            server.handle(
+                rpc(
+                    request_id,
+                    "initialize",
+                    {"protocolVersion": version, "capabilities": {}, "clientInfo": {}},
+                )
+            )
+
+        self.assertEqual(
+            [message["result"]["protocolVersion"] for message in stream.messages],
+            list(SUPPORTED_PROTOCOL_VERSIONS),
+        )
+
+    def test_initialize_unknown_protocol_returns_stable_unsupported_error(self) -> None:
+        stream = CapturingStream()
+        server = McpServer(
+            lambda: (_ for _ in ()).throw(AssertionError()),
+            writer=JsonLineWriter(stream),
+        )
+
+        server.handle(
+            rpc(
+                41,
+                "initialize",
+                {"protocolVersion": "mcp_2026_07_28", "capabilities": {}, "clientInfo": {}},
+            )
+        )
+        server.handle(
+            rpc(
+                42,
+                "initialize",
+                {"capabilities": {}, "clientInfo": {}},
+            )
+        )
+
+        self.assertEqual(
+            [
+                (message["error"]["code"], message["error"]["message"])
+                for message in stream.messages
+            ],
+            [
+                (UNSUPPORTED_PROTOCOL_ERROR_CODE, UNSUPPORTED_PROTOCOL_ERROR_MESSAGE),
+                (UNSUPPORTED_PROTOCOL_ERROR_CODE, UNSUPPORTED_PROTOCOL_ERROR_MESSAGE),
+            ],
+        )
+        for message in stream.messages:
+            self.assertEqual(
+                message["error"]["data"]["supportedProtocolVersions"],
+                list(SUPPORTED_PROTOCOL_VERSIONS),
+            )
+            self.assertNotIn("mcp_2026_07_28", json.dumps(message))
+
     def test_subprocess_initialize_list_call_and_success_framing(self) -> None:
         environment = os.environ.copy()
         environment["PYTHONDONTWRITEBYTECODE"] = "1"

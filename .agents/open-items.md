@@ -138,3 +138,4 @@
 - [x] Manual-first Stage 3 compatibility baseline：登记 `0.152.0` CLI/schema capture，保留 `0.147.0` 历史读取；未知版本和 schema drift 明确 fail-closed，未恢复 automatic watcher。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
 - [x] 2026-09-02 子代理事件适配返工：current `0.152.0` fixture/parser 收敛到官方 direct JSONL 外壳；协作 item 具体字段无脱敏 capture 时明确 unsupported，旧 `0.147.0` wrapper 保持可读。
+- [x] 2026-09-02 MCP 协商适配返工：已知协议显式协商，未知/缺失版本稳定 unsupported 且不回退；live metadata 额外字段 fail-closed，未宣称 `mcp_2026_07_28` 支持。

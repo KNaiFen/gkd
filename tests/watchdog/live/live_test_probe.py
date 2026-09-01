@@ -18,6 +18,12 @@ sys.path.insert(0, str(LIVE_DIR))
 from gkd_watchdog.constants import EXPECTED_SCHEMA_DIGEST, MAX_WAIT_MS
 from gkd_watchdog.jsonrpc import AppServerMalformedJSON, JsonRpcClient
 from live_probe import build_evidence
+from mcp_adapter import Adapter, _correlation
+from gkd_watchdog.mcp_server import (
+    SUPPORTED_PROTOCOL_VERSIONS,
+    UNSUPPORTED_PROTOCOL_ERROR_CODE,
+    UNSUPPORTED_PROTOCOL_ERROR_MESSAGE,
+)
 from live_support import (
     LIVE_SCHEMA_VERSION,
     LiveBinding,
@@ -88,6 +94,61 @@ def m1b_contracts():
 
 
 class LiveSupportTests(unittest.TestCase):
+    def test_live_adapter_negotiates_without_protocol_fallback(self) -> None:
+        adapter = object.__new__(Adapter)
+        messages = []
+        adapter.write = messages.append
+
+        adapter._initialize(
+            1,
+            {"protocolVersion": SUPPORTED_PROTOCOL_VERSIONS[1]},
+        )
+        adapter._initialize(2, {"protocolVersion": "mcp_2026_07_28"})
+
+        self.assertEqual(
+            messages[0]["result"]["protocolVersion"],
+            SUPPORTED_PROTOCOL_VERSIONS[1],
+        )
+        self.assertEqual(messages[1]["error"]["code"], UNSUPPORTED_PROTOCOL_ERROR_CODE)
+        self.assertEqual(
+            messages[1]["error"]["message"], UNSUPPORTED_PROTOCOL_ERROR_MESSAGE
+        )
+        self.assertEqual(
+            messages[1]["error"]["data"]["supportedProtocolVersions"],
+            list(SUPPORTED_PROTOCOL_VERSIONS),
+        )
+
+    def test_mcp_correlation_accepts_only_historically_observed_fields(self) -> None:
+        metadata = {
+            "threadId": "parent-thread",
+            "x-codex-turn-metadata": {
+                "thread_id": "parent-thread",
+                "session_id": "session",
+                "turn_id": "turn",
+                "model": "gpt-5.6-sol",
+                "reasoning_effort": "xhigh",
+            },
+        }
+        self.assertEqual(
+            _correlation(metadata),
+            {"sessionId": "session", "threadId": "parent-thread", "turnId": "turn"},
+        )
+
+        with self.assertRaisesRegex(LiveProbeError, "mcp_metadata_fields_unsupported"):
+            _correlation({**metadata, "protocolVersion": "mcp_2026_07_28"})
+        with self.assertRaisesRegex(
+            LiveProbeError, "mcp_turn_metadata_fields_unsupported"
+        ):
+            _correlation(
+                {
+                    "threadId": "parent-thread",
+                    "x-codex-turn-metadata": {
+                        **metadata["x-codex-turn-metadata"],
+                        "agent_role": "gkd_executor",
+                    },
+                }
+            )
+
     def test_real_app_server_envelope_without_jsonrpc_is_accepted(self) -> None:
         class ShapeTransport:
             def __init__(self) -> None:

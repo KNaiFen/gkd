@@ -19,6 +19,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from gkd_watchdog.jsonrpc import JsonRpcClient, SubprocessTransport
+from gkd_watchdog.mcp_server import (
+    SUPPORTED_PROTOCOL_VERSIONS,
+    UNSUPPORTED_PROTOCOL_ERROR_CODE,
+    UNSUPPORTED_PROTOCOL_ERROR_MESSAGE,
+    negotiate_protocol_version,
+)
 from gkd_watchdog.model import canonical_json
 from gkd_watchdog.runtime import (
     AppServerFactory,
@@ -29,7 +35,9 @@ from gkd_watchdog.watcher import WatchService
 from live_support import LIVE_SCENARIOS, LiveBinding, LiveProbeError, atomic_write_json
 
 
-PROTOCOL_VERSION = "2025-06-18"
+# Keep the historical probe version as a compatibility alias. Negotiation is
+# performed against the explicit registry and never falls back silently.
+PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "gkd-live-gate"
 SERVER_VERSION = "1"
 GATE_TOOL = "gkd_live_gate"
@@ -37,6 +45,10 @@ HOLD_TOOL = "gkd_canary_hold"
 GATE_FIELDS = frozenset({"scenario"})
 HOLD_FIELDS = frozenset({"mode"})
 CALL_FIELDS = frozenset({"name", "arguments", "_meta"})
+CORRELATION_METADATA_FIELDS = frozenset({"threadId", "x-codex-turn-metadata"})
+TURN_METADATA_FIELDS = frozenset(
+    {"thread_id", "session_id", "turn_id", "model", "reasoning_effort"}
+)
 CHILD_STATE_FIELDS = frozenset(
     {"schemaVersion", "sessionId", "childThreadId", "childTurnId", "mode"}
 )
@@ -59,9 +71,13 @@ def _required_value(name: str) -> str:
 def _correlation(metadata: Any) -> dict[str, str]:
     if not isinstance(metadata, Mapping):
         raise LiveProbeError("mcp_correlation_missing")
+    if set(metadata) != CORRELATION_METADATA_FIELDS:
+        raise LiveProbeError("mcp_metadata_fields_unsupported")
     turn_metadata = metadata.get("x-codex-turn-metadata")
     if not isinstance(turn_metadata, Mapping):
         raise LiveProbeError("mcp_turn_correlation_missing")
+    if set(turn_metadata) != TURN_METADATA_FIELDS:
+        raise LiveProbeError("mcp_turn_metadata_fields_unsupported")
     thread_id = metadata.get("threadId")
     nested_thread_id = turn_metadata.get("thread_id")
     session_id = turn_metadata.get("session_id")
@@ -346,20 +362,35 @@ class Adapter:
         request_id = message.get("id")
         params = message.get("params", {})
         if method == "initialize":
-            self._result(
-                request_id,
-                {
-                    "protocolVersion": PROTOCOL_VERSION,
-                    "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                },
-            )
+            self._initialize(request_id, params)
         elif method == "tools/list":
             self._list_tools(request_id)
         elif method == "tools/call":
             self._call(request_id, params)
         else:
             self._error(request_id, -32601, "method not found")
+
+    def _initialize(self, request_id: Any, params: Any) -> None:
+        if not isinstance(params, Mapping):
+            self._error(request_id, -32602, "invalid initialize parameters")
+            return
+        protocol = negotiate_protocol_version(params.get("protocolVersion"))
+        if protocol is None:
+            self._error(
+                request_id,
+                UNSUPPORTED_PROTOCOL_ERROR_CODE,
+                UNSUPPORTED_PROTOCOL_ERROR_MESSAGE,
+                {"supportedProtocolVersions": list(SUPPORTED_PROTOCOL_VERSIONS)},
+            )
+            return
+        self._result(
+            request_id,
+            {
+                "protocolVersion": protocol,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+            },
+        )
 
     def _list_tools(self, request_id: Any) -> None:
         self._result(
@@ -528,14 +559,17 @@ class Adapter:
     def _result(self, request_id: Any, result: Any) -> None:
         self.write({"jsonrpc": "2.0", "id": request_id, "result": result})
 
-    def _error(self, request_id: Any, code: int, message: str) -> None:
-        self.write(
-            {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {"code": code, "message": message},
-            }
-        )
+    def _error(
+        self,
+        request_id: Any,
+        code: int,
+        message: str,
+        data: Mapping[str, Any] | None = None,
+    ) -> None:
+        error: dict[str, Any] = {"code": code, "message": message}
+        if data is not None:
+            error["data"] = dict(data)
+        self.write({"jsonrpc": "2.0", "id": request_id, "error": error})
 
 
 def main() -> int:

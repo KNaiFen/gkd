@@ -731,3 +731,7 @@
 - [2026-09-02] 子代理事件适配返工收紧 current direct JSONL 合同。
   - Why: 首轮 fixture 将未被官方 capture 证明的顶层 `function_call`、`subagent.started`、`task.completed` 和协作 item 字段写成 `0.152.0` 当前协议，容易把猜测当作事实。
   - Impact: current adapter 仅接受已证实的 `thread.started`、`turn.started`、`turn.completed`、`turn.failed`、`error`、`item.started`/`item.completed` 外壳；协作 item 具体字段无真实脱敏证据时 fail-closed 为 `UNSUPPORTED_*`。旧 `0.147.0` payload wrapper、spawn/task/fork 与 child terminal 负向语义保持不变。
+
+- [2026-09-02] MCP 协商适配只允许显式登记版本和已证实 metadata 字段。
+  - Why: 当前 Codex CLI `0.152.0` 未提供 `mcp_2026_07_28` 支持证据；未知协议版本若静默选择首选版本会把不兼容客户端误报为成功，metadata 漂移也可能把猜测字段当作身份事实。
+  - Impact: `McpServer` 与 live adapter 共用 `2025-06-18`/`2024-11-05` registry，未知/缺失版本返回稳定 `-32602` unsupported；correlation metadata 额外字段直接 fail-closed。未来版本或字段必须先有真实脱敏 capture 与独立验证，不改变 automatic watcher 或 manual-first 默认入口。

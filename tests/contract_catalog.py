@@ -130,6 +130,8 @@ WATCHDOG_CONTRACT_TEST_IDS = build_contract_catalog(
             "tests.watchdog.test_mcp.McpAdapterTests.test_active_watch_capacity_is_bounded_before_service_construction",
         ),
         "mcp_framing_and_silence": (
+            "tests.watchdog.test_mcp.McpAdapterTests.test_initialize_negotiates_each_registered_protocol_version",
+            "tests.watchdog.test_mcp.McpAdapterTests.test_initialize_unknown_protocol_returns_stable_unsupported_error",
             "tests.watchdog.test_mcp.McpAdapterTests.test_subprocess_initialize_list_call_and_success_framing",
             "tests.watchdog.test_mcp.McpAdapterTests.test_subprocess_invalid_request_uses_jsonrpc_error_without_side_effect",
             "tests.watchdog.test_mcp.McpAdapterTests.test_health_ticks_emit_no_progress_result_or_log_before_cancel",
