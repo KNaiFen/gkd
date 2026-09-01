@@ -1,7 +1,7 @@
 # P3 Acceptance
 
 - Candidate fixed head: `2e25b8ce9d2f30b6051da5c8e1bad04acb1fcea9`
-- Squash merge: `b832439d7d8c74f2db6a2a903e61a9fcd6ab5948`
+- Squash merge: `b832439d9b10f9b7856bc4e6e2b9fd85ba658930`
 - Pull request: `#57`
 - Independent reviewer: `acceptor`
 - Review outcome: `accepted`
