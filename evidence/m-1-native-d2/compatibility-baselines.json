@@ -4,6 +4,17 @@
       "capturedAt": "2026-08-17T16:44:02Z",
       "codexVersion": "0.147.0",
       "featureSummary": {
+        "initialize": {
+          "capabilityNames": [],
+          "capabilityStatus": "compatibility-only",
+          "responseFields": [
+            "codexHome",
+            "platformFamily",
+            "platformOs",
+            "userAgent"
+          ],
+          "source": "evidence/m-1-native-d2/capability-probe.json"
+        },
         "model": "gpt-5.6-sol",
         "reasoningEffort": "xhigh",
         "multiAgentV2": {
@@ -42,6 +53,17 @@
       "capturedAt": "2026-09-01T16:56:00Z",
       "codexVersion": "0.152.0",
       "featureSummary": {
+        "initialize": {
+          "capabilityNames": [],
+          "capabilityStatus": "unsupported",
+          "responseFields": [
+            "codexHome",
+            "platformFamily",
+            "platformOs",
+            "userAgent"
+          ],
+          "source": "codex-cli 0.152.0 local capture"
+        },
         "model": "gpt-5.6-sol",
         "reasoningEffort": "xhigh",
         "multiAgentV2": {

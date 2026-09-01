@@ -10,9 +10,11 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from .constants import (
+    CAPABILITY_COMPATIBILITY_ONLY,
+    CAPABILITY_UNSUPPORTED,
     RELEVANT_SCHEMA_FILES,
     RUNTIME_BASELINES,
     RPC_TIMEOUT_MS,
@@ -25,6 +27,91 @@ class RuntimeVerificationError(RuntimeError):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+INITIALIZE_REQUIRED_FIELDS = frozenset(
+    {"codexHome", "platformFamily", "platformOs", "userAgent"}
+)
+
+
+@dataclass(frozen=True)
+class InitializeFacts:
+    """Safe facts extracted from one app-server initialize response.
+
+    The current and historical captures do not contain a server capability
+    advertisement.  A capability name is therefore never treated as
+    supported merely because it is present in a response-shaped mapping.
+    """
+
+    codex_home: str
+    platform_family: str
+    platform_os: str
+    user_agent: str
+    capability_status: str
+    capability_reason: str
+    capability_names: tuple[str, ...]
+
+    @property
+    def capabilities_status(self) -> str:
+        """Compatibility alias for callers using the plural field name."""
+
+        return self.capability_status
+
+    @property
+    def capabilities(self) -> tuple[str, ...]:
+        return self.capability_names
+
+
+def parse_initialize_response(value: Any) -> InitializeFacts:
+    """Validate the versioned initialize response without inventing support.
+
+    ``InitializeResponse`` in the captured 0.152.0 schema has four required
+    server metadata fields and no ``capabilities`` property.  Capability
+    mappings from another runtime are retained only as names and classified
+    unsupported until a reviewed capture registers them.
+    """
+
+    if not isinstance(value, Mapping):
+        raise RuntimeVerificationError("initialize_response_invalid")
+    if any(field not in value for field in INITIALIZE_REQUIRED_FIELDS):
+        raise RuntimeVerificationError("initialize_response_invalid")
+    metadata: dict[str, str] = {}
+    for field in INITIALIZE_REQUIRED_FIELDS:
+        item = value[field]
+        if not isinstance(item, str) or not item:
+            raise RuntimeVerificationError("initialize_response_invalid")
+        metadata[field] = item
+
+    missing = object()
+    raw_capabilities = value.get("capabilities", missing)
+    capability_names: tuple[str, ...] = ()
+    if raw_capabilities is missing:
+        capability_reason = "capabilities_missing"
+    elif raw_capabilities is None:
+        capability_reason = "capabilities_null"
+    elif not isinstance(raw_capabilities, Mapping):
+        capability_reason = "capabilities_type"
+    else:
+        raw_names = tuple(raw_capabilities)
+        if any(not isinstance(name, str) for name in raw_names):
+            capability_reason = "capability_name_type"
+        else:
+            names = tuple(sorted(raw_names))
+            capability_names = names
+            if any(not isinstance(raw_capabilities[name], bool) for name in names):
+                capability_reason = "capability_value_type"
+            else:
+                capability_reason = "capabilities_uncaptured"
+
+    return InitializeFacts(
+        codex_home=metadata["codexHome"],
+        platform_family=metadata["platformFamily"],
+        platform_os=metadata["platformOs"],
+        user_agent=metadata["userAgent"],
+        capability_status=CAPABILITY_UNSUPPORTED,
+        capability_reason=capability_reason,
+        capability_names=capability_names,
+    )
 
 
 class CommandResolver(Protocol):
@@ -206,8 +293,10 @@ class AppServerFactory:
                 },
                 timeout_ms=RPC_TIMEOUT_MS,
             )
-            if not isinstance(result, dict):
-                raise RuntimeVerificationError("initialize_response_invalid")
+            initialize_facts = parse_initialize_response(result)
+            # Keep the response-derived facts attached to the session for
+            # diagnostic consumers without exposing the raw initialize body.
+            client.initialize_facts = initialize_facts
         except Exception:
             if cancellation is not None:
                 cancellation.unregister_close(close_callback)

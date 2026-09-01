@@ -27,6 +27,8 @@
 - R4 final: PR #28 fixed head `7eea74239e3ea258f7f81e3f2eda2c14f69433fd` 经独立审查和 policy-backed `GKD Verify` 通过，并以 squash merge `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af` 进入 main。source 为 `0.1.3`，bundle digest 为 `cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd`；L3/L4、final record 与 `v0.1.3` tag/Release 都精确绑定该 source，asset `gkd-0.1.3-final-2a63cd8.tar.gz` SHA-256 为 `9d9e6ea0fff64e0894af08a547b6798f1f6634e0e4cf4e174cd8dfc5c0179954`。从回下载 asset 的 project restage 已验证 inventory `37cc3ab1cc1967583a404e1c992eac02bb6c7f29eabbb36ec5b7ac60dc0b6eda`；该任务是自托管手工 bootstrap 例外，没有 claim、delivery、activation 或 receipt；候选 worktree、任务分支、sandbox canary PR/branch 与 R4 temporary roots 均已清理。
 - Useful paths: 审查事实源位于 `/Users/knaifen/Documents/Codex/aio-coding-hub/main/.trellis/tasks/08-17-gkd-workflow-remediation/`。
 
+- [2026-09-02] app-server initialize capability 适配完成：current `0.152.0` 真实响应只含四个必需 server metadata 字段且没有 capability 广告，解析器将缺失/漂移归类为 `unsupported`；历史 `0.147.0` protocol evidence 保持 `compatibility-only`，不恢复 automatic watcher。
+
 - [2026-09-02] 子代理事件适配返工完成：current `0.152.0` fixture/parser 仅接受官方
   `thread/turn/error/item.*` direct 外壳；未有真实脱敏 capture 的协作 item 字段保持
   `UNSUPPORTED_*`，旧 `0.147.0` payload wrapper 与 legacy spawn/terminal 语义不变。

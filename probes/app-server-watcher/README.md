@@ -48,3 +48,8 @@ version/schema evidence remains read-only. The current local CLI baseline is
 must be captured and reviewed before it can be used by this legacy lane. This
 compatibility record does not enable the automatic watcher or change the
 manual-first default bundle.
+
+The app-server initialize response is parsed separately from capability
+claims. Current `0.152.0` responses have no server capability advertisement,
+so that fact is recorded as `unsupported`; the historical `0.147.0` summary is
+`compatibility-only` and remains read-only.

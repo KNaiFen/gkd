@@ -69,6 +69,38 @@ class AutoResponseTransport:
 
 
 class AppServerClientTests(unittest.TestCase):
+    def test_factory_retains_only_normalized_initialize_facts(self) -> None:
+        class InitializeTransport:
+            def write_message(self, message) -> None:
+                self.request = message
+
+            def read_message(self, timeout_ms):
+                return {
+                    "id": self.request["id"],
+                    "result": {
+                        "codexHome": "<redacted>",
+                        "platformFamily": "unix",
+                        "platformOs": "macos",
+                        "userAgent": "fixture",
+                    },
+                }
+
+            def close(self) -> None:
+                pass
+
+        factory = AppServerFactory(
+            FixedResolver(("codex",)),
+            StaticRuntimeVerifier(),
+            transport_factory=lambda _argv: InitializeTransport(),
+        )
+        client = factory(parsed_request())
+        try:
+            facts = client.initialize_facts
+        finally:
+            client.close()
+        self.assertEqual(facts.capability_status, "unsupported")
+        self.assertEqual(facts.capability_reason, "capabilities_missing")
+
     def test_actual_subprocess_normal_terminal_drops_body_from_transcript(self) -> None:
         client = client_for("normal")
         try:

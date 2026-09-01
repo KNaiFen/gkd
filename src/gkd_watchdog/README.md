@@ -28,6 +28,11 @@ The versioned, redacted capture record is
 `evidence/m-1-native-d2/compatibility-baselines.json`. It preserves the old
 `0.147.0` evidence and records the local `0.152.0` protocol summary without
 storing generated schemas, command output, paths, or conversation bodies.
+The current `0.152.0` initialize response contains only the four required
+server metadata fields and does not advertise server capabilities; the parser
+records that boundary as `unsupported`. The historical `0.147.0` protocol
+summary is `compatibility-only`, so neither record is a claim that a current
+app-server watcher is available.
 
 This task proves hermetic core and adapter contracts only. It does not claim
 that a live Codex MCP connection can remain blocked for 12 hours; that is the

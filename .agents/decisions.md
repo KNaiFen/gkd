@@ -738,3 +738,7 @@
 - [2026-09-02] CLI probe/parser current direct JSONL 只接受可证实的身份与终止外壳。
   - Why: 缺失或漂移的 `thread.started` 身份、伪造的 parsed version/format metadata 和未计入的 `turn.failed` 会让历史/当前事实边界不清晰；无真实 capture 的 collaboration item 仍不能推导 spawn 关系。
   - Impact: `0.152.0` current 父/子流缺身份或 metadata 不一致时返回 `UNSUPPORTED_ROLLOUT_FORMAT`，`turn.failed` 作为 terminal 记录并保留脱敏错误；`0.147.0` wrapper 与既有 spawn/task/fork 负向语义不变，automatic watcher 不恢复。
+
+- [2026-09-02] app-server initialize capability 只记录真实或历史登记的能力边界。
+  - Why: 本机 `codex-cli 0.152.0` 的真实 initialize response 仅含 `codexHome`、`platformFamily`、`platformOs`、`userAgent`，没有服务端 capability 广告；历史 `0.147.0` 只有 protocol evidence，不能补造 response capability。
+  - Impact: `parse_initialize_response` 严格校验四个元数据字段，capability 缺失、null、类型/名称漂移和未捕获值稳定归类为 `unsupported`；历史摘要保持 `compatibility-only`，不恢复 automatic watcher 或修改 MCP、CLI parser、turn/steer。

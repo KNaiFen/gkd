@@ -17,8 +17,11 @@ from gkd_watchdog.constants import (
 )
 from gkd_watchdog.runtime import (
     AppServerFactory,
+    CAPABILITY_COMPATIBILITY_ONLY,
+    CAPABILITY_UNSUPPORTED,
     RuntimeVerificationError,
     SubprocessRuntimeVerifier,
+    parse_initialize_response,
 )
 
 from tests.watchdog.helpers import parsed_request
@@ -66,6 +69,60 @@ def fake_schema_digest() -> str:
 
 
 class RuntimeCompatibilityTests(unittest.TestCase):
+    @staticmethod
+    def _initialize_response(**overrides):
+        value = {
+            "codexHome": "<redacted>",
+            "platformFamily": "unix",
+            "platformOs": "macos",
+            "userAgent": "gkd-capability-probe/0.152.0 (redacted)",
+        }
+        value.update(overrides)
+        return value
+
+    def test_initialize_response_requires_current_schema_metadata(self) -> None:
+        facts = parse_initialize_response(self._initialize_response())
+        self.assertEqual("<redacted>", facts.codex_home)
+        self.assertEqual("unix", facts.platform_family)
+        self.assertEqual("macos", facts.platform_os)
+        self.assertIn("0.152.0", facts.user_agent)
+        self.assertEqual(CAPABILITY_UNSUPPORTED, facts.capability_status)
+        self.assertEqual("capabilities_missing", facts.capability_reason)
+
+        for malformed in (
+            {},
+            {**self._initialize_response(), "platformOs": None},
+            {**self._initialize_response(), "userAgent": 1},
+        ):
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                RuntimeVerificationError, "initialize_response_invalid"
+            ):
+                parse_initialize_response(malformed)
+
+    def test_initialize_capability_type_drift_is_unsupported(self) -> None:
+        for value, reason in (
+            (None, "capabilities_null"),
+            ([], "capabilities_type"),
+            ({"experimentalApi": "true"}, "capability_value_type"),
+            ({"futureApi": True}, "capabilities_uncaptured"),
+            ({1: True}, "capability_name_type"),
+        ):
+            with self.subTest(value=value):
+                facts = parse_initialize_response(
+                    self._initialize_response(capabilities=value)
+                )
+                self.assertEqual(CAPABILITY_UNSUPPORTED, facts.capability_status)
+                self.assertEqual(reason, facts.capability_reason)
+
+    def test_legacy_capability_fixture_remains_compatibility_only(self) -> None:
+        fixture = json.loads(
+            (Path(__file__).parent / "fixtures" / "initialize-0.147.0-compatibility.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(CAPABILITY_COMPATIBILITY_ONLY, fixture["capabilityStatus"])
+        self.assertEqual([], fixture["capabilityNames"])
+
     def test_legacy_aliases_still_point_to_the_historical_baseline(self) -> None:
         self.assertEqual(EXPECTED_CODEX_VERSION, LEGACY_RUNTIME_BASELINE.codex_version)
         self.assertEqual(EXPECTED_SCHEMA_DIGEST, LEGACY_RUNTIME_BASELINE.schema_digest)
@@ -80,6 +137,17 @@ class RuntimeCompatibilityTests(unittest.TestCase):
             baseline = RUNTIME_BASELINES[entry["codexVersion"]]
             self.assertEqual(entry["schemaDigestSha256"], baseline.schema_digest)
             self.assertIn("protocol", entry["featureSummary"])
+            initialize = entry["featureSummary"]["initialize"]
+            self.assertEqual(
+                ["codexHome", "platformFamily", "platformOs", "userAgent"],
+                initialize["responseFields"],
+            )
+            self.assertEqual(
+                "compatibility-only"
+                if entry["codexVersion"] == LEGACY_RUNTIME_BASELINE.codex_version
+                else "unsupported",
+                initialize["capabilityStatus"],
+            )
 
     def test_registered_version_accepts_matching_schema_and_request_digest(self) -> None:
         runner = FakeRunner("0.152.0")

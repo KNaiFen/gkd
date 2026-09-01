@@ -1,0 +1,35 @@
+{
+  "capabilityBoundary": {
+    "current": {
+      "capabilityNames": [],
+      "capabilityStatus": "unsupported",
+      "cliVersion": "0.152.0",
+      "responseFields": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ],
+      "source": "codex-cli local initialize capture"
+    },
+    "legacy": {
+      "capabilityNames": [],
+      "capabilityStatus": "compatibility-only",
+      "cliVersion": "0.147.0",
+      "responseFields": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ],
+      "source": "evidence/m-1-native-d2/capability-probe.json"
+    }
+  },
+  "schemaVersion": 1,
+  "security": {
+    "rawInitializeResponseStored": false,
+    "absolutePathsStored": false,
+    "credentialsStored": false
+  },
+  "task": "GKD-app-server-capability-init"
+}

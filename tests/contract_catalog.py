@@ -147,6 +147,20 @@ WATCHDOG_CONTRACT_TEST_IDS = build_contract_catalog(
 )
 
 
+APP_SERVER_INITIALIZE_CONTRACT_TEST_IDS = build_contract_catalog(
+    {
+        "initialize_response_shape": (
+            "tests.watchdog.test_runtime_compat.RuntimeCompatibilityTests.test_initialize_response_requires_current_schema_metadata",
+            "tests.watchdog.test_app_server.AppServerClientTests.test_factory_retains_only_normalized_initialize_facts",
+        ),
+        "initialize_capability_boundary": (
+            "tests.watchdog.test_runtime_compat.RuntimeCompatibilityTests.test_initialize_capability_type_drift_is_unsupported",
+            "tests.watchdog.test_runtime_compat.RuntimeCompatibilityTests.test_legacy_capability_fixture_remains_compatibility_only",
+        ),
+    }
+)
+
+
 FOUNDATION_CONTRACT_TEST_IDS = build_contract_catalog(
     {
         "manifest_lock_and_digest": (

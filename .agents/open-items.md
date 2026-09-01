@@ -142,3 +142,6 @@
 - [x] 2026-09-02 CLI probe/parser 适配返工：current `0.152.0` direct JSONL 严格校验
   thread identity、版本/format metadata 与 terminal 事件；历史 `0.147.0` wrapper 保持可读，
   协作字段无真实 capture 时明确 unsupported。
+- [x] 2026-09-02 app-server initialize/capability 适配：current `0.152.0` initialize 真实响应
+  仅有四个 server metadata 字段且 capability 缺失，解析稳定记录 `unsupported`；历史
+  `0.147.0` protocol evidence 保持 `compatibility-only`，未恢复 automatic watcher。

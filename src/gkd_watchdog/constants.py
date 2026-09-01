@@ -42,6 +42,13 @@ INTERRUPT_CONFIRM_TIMEOUT_MS = 10_000
 MAX_RPC_ID = 2_147_483_647
 MAX_MESSAGE_BYTES = 1_048_576
 
+# Initialize capability facts are deliberately tri-state.  The current and
+# historical captures only establish unsupported/compatibility-only values;
+# no runtime is registered as watcher-capable here.
+CAPABILITY_UNSUPPORTED = "unsupported"
+CAPABILITY_COMPATIBILITY_ONLY = "compatibility-only"
+CAPABILITY_SUPPORTED = "supported"
+
 RELEVANT_SCHEMA_FILES = (
     "codex_app_server_protocol.v2.schemas.json",
     "v2/ThreadListParams.json",

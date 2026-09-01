@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from tests.contract_catalog import (
+    APP_SERVER_INITIALIZE_CONTRACT_TEST_IDS,
     DELIVERY_CONTRACT_TEST_IDS,
     FOUNDATION_CONTRACT_TEST_IDS,
     WATCHDOG_CONTRACT_TEST_IDS,
@@ -14,7 +15,7 @@ from tests.contract_catalog import (
 
 class ContractCatalogContracts(unittest.TestCase):
     def test_catalogs_use_full_test_ids_and_stable_contract_order(self) -> None:
-        for catalog in (DELIVERY_CONTRACT_TEST_IDS, FOUNDATION_CONTRACT_TEST_IDS, WATCHDOG_CONTRACT_TEST_IDS):
+        for catalog in (DELIVERY_CONTRACT_TEST_IDS, FOUNDATION_CONTRACT_TEST_IDS, WATCHDOG_CONTRACT_TEST_IDS, APP_SERVER_INITIALIZE_CONTRACT_TEST_IDS):
             self.assertEqual(sorted(catalog), list(catalog))
             for test_ids in catalog.values():
                 self.assertEqual(sorted(test_ids), list(test_ids))
