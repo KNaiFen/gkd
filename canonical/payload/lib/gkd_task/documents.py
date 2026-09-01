@@ -50,7 +50,32 @@ def _read_document(path: Path) -> bytes:
     return raw
 
 
-def parse_sections(raw: bytes, expected: tuple[str, ...]) -> dict[str, str]:
+def _document_for_sections(expected: tuple[str, ...]) -> str | None:
+    if expected == REQUIREMENTS_SECTIONS:
+        return "requirements"
+    if expected == PLAN_SECTIONS:
+        return "plan"
+    if expected == IMPLEMENTATION_SECTIONS:
+        return "implementation"
+    return None
+
+
+def parse_sections(
+    raw: bytes,
+    expected: tuple[str, ...],
+    document: str | None = None,
+) -> dict[str, str]:
+    # P4 documents may carry a trusted, canonical machine-facts block after
+    # their human sections.  Legacy documents without the block keep the exact
+    # historical parser behavior.
+    try:
+        from gkd_main.facts import strip_facts_block
+
+        raw = strip_facts_block(raw, document or _document_for_sections(expected))
+    except TaskError:
+        raise
+    except (ImportError, UnicodeDecodeError):
+        raise TaskError("INVALID_PLANNING_DOCUMENT") from None
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -71,13 +96,33 @@ def parse_sections(raw: bytes, expected: tuple[str, ...]) -> dict[str, str]:
     return sections
 
 
+def parse_document_facts(raw: bytes, document: str) -> dict[str, Any] | None:
+    """Read the optional P4 machine-facts block without changing legacy reads."""
+
+    if document not in {"requirements", "plan", "implementation", "delivery", "acceptance"}:
+        raise TaskError("INVALID_DOCUMENT_KIND")
+    try:
+        from gkd_main.facts import parse_facts_block
+
+        value = parse_facts_block(raw, document)
+    except (UnicodeDecodeError, TaskError):
+        raise TaskError("INVALID_DOCUMENT_FACTS") from None
+    return value
+
+
+def render_document_facts(raw: bytes, document: str) -> dict[str, Any] | None:
+    """Alias used by high-level consumers while retaining a small API surface."""
+
+    return parse_document_facts(raw, document)
+
+
 def inspect_package(root: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
     if root.is_symlink() or not root.is_dir():
         raise TaskError("INVALID_PLANNING_PACKAGE")
     raw = {name: _read_document(root / name) for name in DOCUMENT_NAMES}
-    parse_sections(raw["requirements.md"], REQUIREMENTS_SECTIONS)
-    plan_sections = parse_sections(raw["plan.md"], PLAN_SECTIONS)
-    parse_sections(raw["implementation.md"], IMPLEMENTATION_SECTIONS)
+    parse_sections(raw["requirements.md"], REQUIREMENTS_SECTIONS, "requirements")
+    plan_sections = parse_sections(raw["plan.md"], PLAN_SECTIONS, "plan")
+    parse_sections(raw["implementation.md"], IMPLEMENTATION_SECTIONS, "implementation")
     material = {name: plan_sections[name] for name in PLAN_MATERIAL_SECTIONS}
     records = {
         "requirements": {

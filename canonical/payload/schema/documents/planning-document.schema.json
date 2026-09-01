@@ -1,0 +1,58 @@
+{
+  "$id": "gkd://schema/documents/planning-document-v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GKD planning document machine-facts envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "document", "task", "planning", "factsDigest"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "gkd-document-machine-facts" },
+    "document": { "enum": ["requirements", "plan", "implementation"] },
+    "task": { "$ref": "#/$defs/task" },
+    "planning": { "$ref": "#/$defs/planning" },
+    "factsDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "repository", "taskBranch", "baseSha", "revision", "epoch", "phase"],
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "minLength": 1 },
+        "taskBranch": { "type": "string", "minLength": 1 },
+        "baseSha": { "$ref": "#/$defs/sha1" },
+        "revision": { "type": "integer", "minimum": 0 },
+        "epoch": { "type": "integer", "minimum": 0 },
+        "phase": {
+          "enum": ["planning", "awaiting_claim", "implementing", "delivered", "accepted", "completed"]
+        },
+        "claimId": { "$ref": "#/$defs/sha256" },
+        "claimBaseHead": { "$ref": "#/$defs/sha1" },
+        "implementationHead": { "$ref": "#/$defs/sha1" },
+        "deliveredAt": { "$ref": "#/$defs/timestamp" },
+        "candidateHead": { "$ref": "#/$defs/sha1" },
+        "acceptedAt": { "$ref": "#/$defs/timestamp" },
+        "merged": { "type": "boolean" }
+      }
+    },
+    "planning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["documentSchemaVersion"],
+      "properties": {
+        "documentSchemaVersion": { "const": 2 },
+        "requirementsDigest": { "$ref": "#/$defs/sha256" },
+        "planDigest": { "$ref": "#/$defs/sha256" },
+        "implementationDigest": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

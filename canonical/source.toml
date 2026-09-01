@@ -203,6 +203,7 @@ kind = "library"
 files = [
   { source = "payload/lib/gkd_main/__init__.py", target = "gkd/lib/gkd_main/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_main/cli.py", target = "gkd/lib/gkd_main/cli.py", mode = "0644" },
+  { source = "payload/lib/gkd_main/facts.py", target = "gkd/lib/gkd_main/facts.py", mode = "0644" },
   { source = "payload/lib/gkd_main/orchestrator.py", target = "gkd/lib/gkd_main/orchestrator.py", mode = "0644" },
 ]
 
@@ -238,6 +239,14 @@ files = [
   { source = "payload/schema/task/result-manifest.schema.json", target = "gkd/schema/task/result-manifest.schema.json", mode = "0644" },
   { source = "payload/schema/task/runtime.schema.json", target = "gkd/schema/task/runtime.schema.json", mode = "0644" },
   { source = "payload/schema/task/task-state.schema.json", target = "gkd/schema/task/task-state.schema.json", mode = "0644" },
+]
+
+[[components]]
+name = "document-schemas"
+kind = "library"
+files = [
+  { source = "payload/schema/documents/document-facts.schema.json", target = "gkd/schema/documents/document-facts.schema.json", mode = "0644" },
+  { source = "payload/schema/documents/planning-document.schema.json", target = "gkd/schema/documents/planning-document.schema.json", mode = "0644" },
 ]
 
 [[components]]

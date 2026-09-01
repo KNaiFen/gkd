@@ -7,7 +7,7 @@ import json
 from typing import Any, Protocol
 
 from gkd_ci.github import GitHubClient
-from gkd_ci.monitor import MonitorRequest, monitor_fixed_head
+from gkd_ci.monitor import MonitorRequest, monitor_fixed_head, validate_terminal_result
 from gkd_ci.policy import POLICY_PATH, load_validated_policy, policy_binding
 from gkd_task.acceptance import (
     GitHubAdapter,
@@ -16,7 +16,7 @@ from gkd_task.acceptance import (
     validate_review,
 )
 from gkd_task.canonical import canonical_bytes, require_sha1, sha256_bytes
-from gkd_task.delivery_artifacts import artifact_paths
+from gkd_task.delivery_artifacts import artifact_paths, load_automatic_delivery_artifacts
 from gkd_task.errors import TaskError
 from gkd_task.gitops import (
     branch,
@@ -31,6 +31,7 @@ from gkd_task.gitops import (
 from gkd_task.model import validate_result_manifest
 from gkd_task.orchestrator import TrustedTaskContext, resolve_trusted_task_context
 from gkd_task.runtime import RuntimeStore
+from .facts import render_machine_facts
 
 
 class PullRequestLocator(Protocol):
@@ -181,6 +182,79 @@ class TrustedMainOrchestrator:
             document_digest,
             results_path,
             evidence_path,
+        )
+
+    def render_facts(
+        self,
+        document: str,
+        *,
+        review: dict[str, Any] | None = None,
+        ci: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render path-free facts from the current fixed task/artifact tree."""
+
+        _trusted_main(self.context)
+        service = self._service()
+        state = service._state()
+        candidate_head = head(self.context.candidate_root)
+        if review is not None:
+            try:
+                validate_review(review)
+            except TaskError:
+                raise
+            if review["taskId"] != state["taskId"] or review["candidateHead"] != candidate_head:
+                raise TaskError("INVALID_REVIEW")
+        if ci is not None:
+            try:
+                validate_terminal_result(ci)
+            except TaskError:
+                raise
+            if (
+                ci["repository"] != self.context.repository
+                or ci["baseBranch"] != self.context.base_branch
+                or ci["headBranch"] != self.context.task_branch
+                or ci["expectedHead"] != candidate_head
+                or ci["observedHead"] not in {None, candidate_head}
+            ):
+                raise TaskError("TERMINAL_RESULT_INVALID")
+        result_manifest = None
+        verifier_results = None
+        evidence = None
+        requirements_digest = state["documents"]["requirements"]["digest"]
+        plan_digest = state["documents"]["plan"]["digest"]
+        implementation_digest = state["documents"]["implementation"]["digest"]
+        if document in {"delivery", "acceptance"}:
+            delivery = state["lifecycle"].get("delivery")
+            if delivery is not None:
+                implementation_head = delivery["implementationHead"]
+                paths = artifact_paths(self.context.task_path)
+                if "executionBundleDigest" in state["lifecycle"].get("claim", {}):
+                    load_automatic_delivery_artifacts(
+                        self.context.candidate_root,
+                        implementation_head,
+                        state,
+                        delivery["candidateOutputBundleDigest"],
+                        paths["results"],
+                        paths["evidence"],
+                    )
+                try:
+                    result_manifest = json.loads(read_tree_file(self.context.candidate_root, implementation_head, paths["manifest"]))
+                    verifier_results = json.loads(read_tree_file(self.context.candidate_root, implementation_head, paths["results"]))
+                    evidence = json.loads(read_tree_file(self.context.candidate_root, implementation_head, paths["evidence"]))
+                except (TaskError, UnicodeDecodeError, json.JSONDecodeError):
+                    if "executionBundleDigest" in state["lifecycle"].get("claim", {}):
+                        raise TaskError("INVALID_RESULT_MANIFEST") from None
+        return render_machine_facts(
+            document,
+            state,
+            result=result_manifest,
+            verifier_results=verifier_results,
+            evidence=evidence,
+            review=review,
+            ci=ci,
+            requirements_digest=requirements_digest,
+            plan_digest=plan_digest,
+            implementation_digest=implementation_digest,
         )
 
     def monitor_ci(
