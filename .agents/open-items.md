@@ -124,3 +124,9 @@
 - [x] 编排输入面收敛 P3：PR #57 fixed head `2e25b8ce9d2f30b6051da5c8e1bad04acb1fcea9`、merge `b832439d9b10f9b7856bc4e6e2b9fd85ba658930`；trusted-main facade 已覆盖 delivery、CI、accept、rework 的路径/digest/PR/check 派生，429 项 verifier 与 fixed-head CI/独立 acceptance 通过。CI 随机 grep 缺陷已修复，交接命名/head 输入错误与 executor 超时均保留在任务 retrospective 并以 fresh lifecycle 收敛。非生产 stage 已刷新到 bundle `6ac9bf17cb6f860646787be335d61a26c3b0268ef9ce85b9c90109c1487f0cea`、inventory `08b3c6beae60acf56d30ad77edac3376cbcb798488a83c12c1991f1f1ae7d5ba`；下一项为 P4 机器事实渲染与文档 schema 迁移。
 - [x] 编排输入面收敛 P4：PR #58 fixed head `3758f41849dc97d5121fd0f3c59266a5dd1d3351`、merge `f13258a0a1eaab1634b397f302dc17e382d0dcf1`；机器事实 renderer、严格 task/timestamp schema、facts document kind 绑定、review/CI 当前 head 绑定及 planning schema 对齐已完成，437 项 verifier、fixed-head CI 与独立 acceptance 通过。首次 acceptance 的四项 finding 已经 fresh rework 修复；期间的 bundle lock 漂移、候选 head drift、executor context 缺失均已按 revoke/fresh lifecycle 收敛。下一项为 P5 bundle/project stage 收敛与低层接口退场。
 - [x] 编排输入面收敛 P5：PR #59 fixed head `dea2ab7c99a87dd279d44b0fc43c322a79e2a2e8`、merge `6e1d4f7352a322ec753f8600016d0d6625aabc25`；trusted-main stage facade 与 `gkd-main stage` 已将 bundle digest、project inventory、目标布局和 refresh 转换为 CLI 派生，保留低层诊断兼容面。439 项 Python 3.9 verifier、fixed-head CI、独立 acceptance 通过；executor 曾因 sealed host handoff 缺失超时，按已交付 fixed tree 继续验收，未重放旧 attempt。非生产 stage 已刷新，生产、AIO、tag、Release 未变；编排输入面收敛计划完成，后续需另立计划并重新授权。
+
+- [ ] Manual-first Stage 0：完成 VISION/AGENTS/README、ADR-002 和人工协议落盘；`v0.1.5` 冻结为 legacy。当前已完成文档切片，待独立提交。
+- [ ] Manual-first Stage 1：建立最小人工入口和新 session 启动说明；不再要求 Agent 手填机器 JSON、CAS、digest 或专用生命周期参数。
+- [ ] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
+- [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
+- [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。

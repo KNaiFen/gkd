@@ -715,3 +715,7 @@
 - [2026-09-01] P5 bundle/project stage 收敛已验收合并。
   - Why: 高层 stage transition 应从受信 bundle source 派生 digest、inventory、target layout 和 refresh action，减少 agent 手填 roots、JSON、digest 与 argv，同时保留低层诊断和 legacy compatibility。
   - Impact: PR #59 fixed head `dea2ab7c99a87dd279d44b0fc43c322a79e2a2e8` 以 squash merge `6e1d4f7352a322ec753f8600016d0d6625aabc25` 进入 main；Python 3.9.6 的 439 项 verifier、fixed-head CI 和独立 acceptance 通过，bundle content digest 为 `c7a517ac260f3b27187e396d9c24742c5a45d0d496d3a7208907f06f44862bdf`。执行期间 executor 因 sealed host handoff 缺失超时，未沿旧 attempt 重试；trusted main 使用已交付 fixed tree 完成验收合并。非生产 stage 已刷新；生产、AIO、tag、Release 未变。该编排输入面收敛计划至此完成，后续变更须另立计划并重新授权。
+
+- [2026-09-01] 接受 manual-first 架构重构，冻结 `v0.1.5` legacy。
+  - Why: P1-P5 已经减少了重复输入，但仍保留完整 automatic task/claim/acceptance 状态机；用户明确选择以人工 plan、Git worktree 和 progress report 作为默认协作模型。
+  - Impact: 新默认流程只要求目标、工作目录和行为约束，使用 `plan.md`、`progress.md`、`review.md` 交接。offer/claim/activation、CAS/journal、fixed-head monitor、机器事实 renderer 和大规模合同验证降为 legacy/optional；旧发行物、生产、AIO 和历史记录保持只读。该决定记录于 `docs/adr/002-manual-first-workflow.md`，施工协议位于 `docs/manual-workflow.md`。

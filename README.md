@@ -2,9 +2,11 @@
 
 GKD 工作流的规范源码、版本管理与专属验证仓库。
 
+当前迁移目标是 manual-first：主代理写入目标、工作目录和行为约束，创建 Git worktree；执行代理按 `plan.md` 工作并更新 `progress.md`；主代理通过查看 diff、计划和报告决定通过或返工。完整协议见 [Manual-first 工作流](docs/manual-workflow.md)。迁移完成前，旧 automatic workflow 仍只作为 legacy 保留。
+
 长期使命、用户承诺和冲突取舍以唯一的 [VISION](VISION.md) 为准。
 
-当前仓库提供可扩展的 development bundle foundation、确定性任务核心、固定角色/路由核心、project-scoped automatic runtime bridge、trusted fixed-head rejection/rework、无副作用的 finalization/release promotion record，以及由仓库 policy 驱动的 GitHub fixed-head CI monitor。资源/产物规划、固定范围脱敏 scanner 和 repository-neutral review/remediation core 保留为显式 optional pack，默认安装、project stage 和 executor context 不加载它们。`0.1.1` 还提供独立的生产迁移计划、应用、doctor 与回滚/恢复接口；旧 temporary migration 命令继续拒绝生产根目录。该 doctor 仅覆盖受管角色、Skill 和配置块，明确不读取、写入或认证留给 P2 的用户 global `AGENTS.md` policy。实际生产安装与 AIO 接入仍由 trusted main 在独立门禁中执行。
+原有 development bundle、确定性任务核心、自动 runtime bridge、fixed-head 验收、release engine 和专属 verifier 作为 `v0.1.5` legacy 保留。它们不再是普通人工任务的默认上下文；迁移计划完成前不修改既有发布资产、生产目录或 AIO。
 
 Canonical CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。
 

@@ -2,21 +2,20 @@
 
 ## 项目定位
 
-- 本仓库是 GKD 工作流的规范源码、版本管理与专属验证仓库。
-- 消费项目只固定并安装已发布的 GKD bundle；普通产品改动不得触发完整 GKD 测试。
+- 本仓库正在迁移到 manual-first Agent 工作流：目标、工作目录、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
+- 迁移完成前，原有 `v0.1.5` bundle、自动路由、固定 head 验收和发布验证仍作为 legacy 实现保留。
 
 ## 工作规则
 
 - 材料性规划前必须完整阅读并遵守 [VISION.md](VISION.md)。
 - 修改前阅读最近的 `AGENTS.md` 以及 `.agents/` 中的持久记录。
-- 保持变更小而明确，机制与项目策略分层，禁止写死仓库、用户名或本机绝对路径。
+- 保持变更小而明确，禁止写死仓库、用户名或本机绝对路径。
+- 人工任务的持久交接使用 `plan.md`、`progress.md`、`review.md`；不要为普通任务新增机器合同或状态副本。
 - 项目状态变化时同步更新 `.agents/context.md`、`.agents/decisions.md` 和 `.agents/open-items.md`。
 - 完成任务前运行与变更范围相称的最小验证，并记录可复核证据。
 - 每个完成的任务单独提交，使用简短、具体的中文提交说明。
 
 ## 当前门禁
 
-- 用户已于 2026-08-18 明确授予 `gkd_core_implementation`；只允许按冻结的 GKD 本体实施计划在本仓库、临时测试环境和已批准的两个 public GitHub 仓库内实施。
-- 里程碑 -1/0/1/2 使用人工顶层执行会话；里程碑 3/4/5 只有在固定角色、offer/claim 和修订后的静默等待门禁全部通过后才可自动调用专用 executor，失败时继续人工交接。
-- 自动路线只允许连续调用实际单次上限达到 3,600,000ms 的 `wait_agent`，最多覆盖 claim 后 12 小时。健康超时后不输出、不分析、不检查仓库或 CI，立即再次等待；若运行时实际上限不足一小时，禁止退化为更短循环。
-- 生产 `~/.codex` 安装、AIO 修改或迁移、付费 runner、Secrets、计划外 GitHub 设置仍未授权。
+- 本次 manual-first 重构已获用户授权，但先按阶段施工；旧 automatic workflow 不再作为新任务入口。
+- `v0.1.5`、生产 `~/.codex`、AIO、付费 runner、Secrets、既有 tag/Release 和计划外 GitHub 设置保持不变，除非另有明确授权。

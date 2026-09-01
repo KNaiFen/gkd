@@ -2,17 +2,17 @@
 
 - Subagent 生命周期修正（2026-08-28）：全局 `SubagentStop` mailbox-drain hook 已停用，兼容脚本改为无操作；用户级 `AGENTS.md` 现在只允许基于明确容量错误、权威驻留/mailbox 快照和一次性消息确认的人工恢复。该配置不属于 GKD bundle，未改变 Codex 并发上限或项目发布状态。
 
-- Goal: 建立可版本化、可安装、可专门验证的 GKD canonical distribution source。
+- Goal: 将 GKD 默认工作流重构为 manual-first；主代理只管理目标、工作目录、行为约束，执行代理通过 Markdown 报告交接。
 
 ## Current state
 
-- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；生产当前由 trusted main 对 `v0.1.2` 完成最近一次 migration 验证。
+- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；该发行物现冻结为 legacy，生产当前由 trusted main 对 `v0.1.2` 完成最近一次 migration 验证。
 - AIO adoption 的 B4、C、D 已完成；后续生产或 AIO 普通产品改动、GitHub settings/Secrets、付费 runner、tag/Release 仍须单独明确授权。
 - O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 已于 2026-08-28 以 merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 完成。
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。用户已授权新的编排输入面收敛计划；P1-P5 均已合并。P4 PR #58 fixed head `3758f41849dc97d5121fd0f3c59266a5dd1d3351` 以 squash merge `f13258a0a1eaab1634b397f302dc17e382d0dcf1` 进入 main，437 项默认/core 验证与 fixed-head CI 通过；机器事实 renderer、严格 schema、文档 kind 绑定、review/CI head 绑定均已落地。P4 首次验收发现四项缺陷并经 fresh rework 修复，bundle content digest `0beb23c6f203f199adf6bc3efa82b618c3af8d5709581ae7203f015ab26fc12f`。P5 PR #59 fixed head `dea2ab7c99a87dd279d44b0fc43c322a79e2a2e8` 以 squash merge `6e1d4f7352a322ec753f8600016d0d6625aabc25` 进入 main，新增 trusted-main stage facade 与 CLI 派生式 project refresh，439 项 Python 3.9 verifier、fixed-head CI、独立 acceptance 通过，bundle content digest `c7a517ac260f3b27187e396d9c24742c5a45d0d496d3a7208907f06f44862bdf`。生产、AIO、tag、Release 未变；当前编排输入面收敛计划已完成，暂无下一项。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构，当前先施工 Stage 0/1，旧 automatic workflow 不再作为新任务入口。
 
 ## Historical facts
 
