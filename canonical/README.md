@@ -72,6 +72,14 @@ required human inputs, never document content or a package path. These commands
 do not replace the lower-level lifecycle CLI or create offers, claims, runtime
 attachments or task state.
 
+From a trusted checkout, `gkd-main stage --production-root <explicit-root>`
+validates the current non-production project stage. Add `--refresh` to replace
+an owned stage from the canonical source; the command derives the bundle digest,
+target ownership and inventory, and preserves the prior stage if replacement
+fails. Optional packs remain explicit with repeated `--pack` values. The older
+`gkd-role project-stage`, `project-verify`, and `project-remove` commands remain
+available for diagnostics and compatibility.
+
 The repository verifier keeps its default invocation and core scope list.
 `scripts/gkd-verify --lane historical` is the explicit watcher/probe historical
 lane; it never runs from the default command. With an explicit `--results-dir`,
