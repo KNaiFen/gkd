@@ -405,6 +405,14 @@ def _validate_current_event(record: dict[str, object], code: str) -> None:
     event_type = record.get("type")
     if "payload" in record or not isinstance(event_type, str) or event_type not in CURRENT_EVENT_TYPES:
         _unsupported(code, "current rollout event uses an unknown wrapper or event type")
+    if "thread_id" in record and (
+        not isinstance(record["thread_id"], str) or not record["thread_id"]
+    ):
+        _unsupported(code, "current event thread identity is invalid")
+    if event_type == "thread.started" and (
+        not isinstance(record.get("thread_id"), str) or not record["thread_id"]
+    ):
+        _unsupported(code, "current thread.started event has no valid thread identity")
     if event_type in {"item.started", "item.completed"}:
         item = record.get("item")
         item_type = item.get("type") if isinstance(item, dict) else None
@@ -433,6 +441,8 @@ def parse_rollout_records(
             _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollout identity is invalid")
         if not isinstance(records, list):
             _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollout records must be a list")
+        if not records:
+            _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "child rollout contains no records")
         children[thread_id] = _decode_event_records(records, "UNSUPPORTED_ROLLOUT_FORMAT")
     format_name = _rollout_format(parent, "UNSUPPORTED_ROLLOUT_FORMAT")
     if format_name == "current-direct-v1":
@@ -541,6 +551,10 @@ def normalize_host_events(
     """Reduce one live JSONL stream to path-free host-owned facts."""
     parsed = parse_host_events(events, cli_version, source)
     events = parsed["events"]
+    if any(event.get("type") != "error" for event in events) and not any(
+        event.get("type") == "thread.started" for event in events
+    ):
+        _unsupported("UNSUPPORTED_HOST_EVENT_FORMAT", "current host stream has no thread identity")
     if any(
         event.get("type") in {"item.started", "item.completed"}
         and _event_item(event).get("type") == "collab_tool_call"
@@ -560,7 +574,9 @@ def normalize_host_events(
         if value not in event_types:
             event_types.append(value)
     host_error = _host_error(events, stderr, repo)
-    parent_terminal_observed = any(event.get("type") == "turn.completed" for event in events)
+    parent_terminal_observed = any(
+        event.get("type") in {"turn.completed", "turn.failed"} for event in events
+    )
     return {
         "parentTurnEntered": any(event.get("type") == "turn.started" for event in events),
         "spawnCount": 0,
@@ -735,7 +751,7 @@ def _normalize_current_rollout_facts(
         for record in parent_records
         if record.get("type") == "thread.started" and isinstance(record.get("thread_id"), str)
     }
-    if parent_thread_ids and parent_thread_ids != {parent_thread_id}:
+    if parent_thread_ids != {parent_thread_id}:
         _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current parent thread identity drifted")
     for thread_id, records in children.items():
         child_thread_ids = {
@@ -743,7 +759,7 @@ def _normalize_current_rollout_facts(
             for record in records
             if record.get("type") == "thread.started" and isinstance(record.get("thread_id"), str)
         }
-        if child_thread_ids and child_thread_ids != {thread_id}:
+        if records and child_thread_ids != {thread_id}:
             _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "current child thread identity drifted")
     if any(record.get("type") == "turn.started" for record in parent_records) and not any(
         record.get("type") in {"turn.completed", "turn.failed"} for record in parent_records
@@ -781,7 +797,9 @@ def _normalize_current_rollout_facts(
         "childBindingValid": False,
         "childThreadIdentityHash": None,
         "childTerminalObserved": False,
-        "parentTerminalObserved": any(record.get("type") == "turn.completed" for record in parent_records),
+        "parentTerminalObserved": any(
+            record.get("type") in {"turn.completed", "turn.failed"} for record in parent_records
+        ),
         "codexExitCode": codex_exit_code,
         "eventTypes": event_types,
         "threadIdentityHashes": sorted(sha256_bytes(identity.encode("utf-8")) for identity in thread_ids),
@@ -807,6 +825,25 @@ def normalize_rollout_facts(
         parsed = parse_rollout_records(parent_records, child_rollouts, cli_version, source)
     if parsed.get("schemaVersion") != ROLLOUT_ADAPTER_SCHEMA_VERSION or not isinstance(parsed.get("parentRecords"), list):
         _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed rollout adapter metadata is invalid")
+    parsed_version = parsed.get("cliVersion")
+    parsed_format = parsed.get("format")
+    if not isinstance(parsed_version, str) or parsed_version not in {
+        LEGACY_ROLLOUT_VERSION,
+        CURRENT_ROLLOUT_VERSION,
+    }:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed rollout CLI version is invalid")
+    if parsed_format not in {"legacy-payload-v1", "current-direct-v1"}:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "unknown parsed rollout format")
+    if (parsed_version == LEGACY_ROLLOUT_VERSION) != (parsed_format == "legacy-payload-v1"):
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed rollout version and format do not match")
+    if not isinstance(parsed.get("source"), str) or not parsed["source"]:
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed rollout source is invalid")
+    children = parsed.get("childRollouts")
+    if not isinstance(children, dict) or any(
+        not isinstance(thread_id, str) or not thread_id or not isinstance(records, list) or not records
+        for thread_id, records in children.items()
+    ):
+        _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parsed child rollouts are invalid")
     if not isinstance(parent_thread_id, str) or not parent_thread_id:
         _unsupported("UNSUPPORTED_ROLLOUT_FORMAT", "parent thread identity is required")
     if parsed.get("format") == "legacy-payload-v1":

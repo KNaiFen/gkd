@@ -735,3 +735,6 @@
 - [2026-09-02] MCP 协商适配只允许显式登记版本和已证实 metadata 字段。
   - Why: 当前 Codex CLI `0.152.0` 未提供 `mcp_2026_07_28` 支持证据；未知协议版本若静默选择首选版本会把不兼容客户端误报为成功，metadata 漂移也可能把猜测字段当作身份事实。
   - Impact: `McpServer` 与 live adapter 共用 `2025-06-18`/`2024-11-05` registry，未知/缺失版本返回稳定 `-32602` unsupported；correlation metadata 额外字段直接 fail-closed。未来版本或字段必须先有真实脱敏 capture 与独立验证，不改变 automatic watcher 或 manual-first 默认入口。
+- [2026-09-02] CLI probe/parser current direct JSONL 只接受可证实的身份与终止外壳。
+  - Why: 缺失或漂移的 `thread.started` 身份、伪造的 parsed version/format metadata 和未计入的 `turn.failed` 会让历史/当前事实边界不清晰；无真实 capture 的 collaboration item 仍不能推导 spawn 关系。
+  - Impact: `0.152.0` current 父/子流缺身份或 metadata 不一致时返回 `UNSUPPORTED_ROLLOUT_FORMAT`，`turn.failed` 作为 terminal 记录并保留脱敏错误；`0.147.0` wrapper 与既有 spawn/task/fork 负向语义不变，automatic watcher 不恢复。

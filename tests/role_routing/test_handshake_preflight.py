@@ -324,6 +324,63 @@ class HandshakePreflightContracts(unittest.TestCase):
             normalize_host_events(collaboration, 0, "", Path("/temporary/probe"))
         self.assertEqual("UNSUPPORTED_HOST_EVENT_FORMAT", raised.exception.code)
 
+    def test_failed_turn_is_a_terminal_host_event_and_retains_error(self) -> None:
+        facts = normalize_host_events(
+            [
+                {"type": "thread.started", "thread_id": "parent-thread"},
+                {"type": "turn.started"},
+                {"type": "turn.failed", "error": {"code": "model_error", "message": "redacted"}},
+            ],
+            1,
+            "",
+            Path("/temporary/probe"),
+        )
+        self.assertIs(facts["parentTurnEntered"], True)
+        self.assertIs(facts["parentTerminalObserved"], True)
+        self.assertEqual({"code": "model_error", "message": "redacted"}, facts["hostError"])
+
+    def test_current_rollout_requires_parent_and_child_thread_identities(self) -> None:
+        parent = self._load_jsonl_fixture("current-parent.jsonl")
+        parsed = parse_rollout_records(parent, {}, "0.152.0", "fixture/current.jsonl")
+        parent_without_thread = [record for record in parent if record["type"] != "thread.started"]
+        parsed_without_thread = parse_rollout_records(parent_without_thread, {}, "0.152.0", "fixture/current.jsonl")
+        with self.assertRaises(PreflightError) as parent_error:
+            normalize_rollout_facts(parsed_without_thread, parent_thread_id="current-parent")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", parent_error.exception.code)
+
+        child = self._load_jsonl_fixture("current-child.jsonl")
+        child_without_thread = [record for record in child if record["type"] != "thread.started"]
+        parsed_child = parse_rollout_records(parent, {"current-child": child_without_thread}, "0.152.0", "fixture/current.jsonl")
+        with self.assertRaises(PreflightError) as child_error:
+            normalize_rollout_facts(parsed_child, parent_thread_id="current-parent")
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", child_error.exception.code)
+
+    def test_normalizer_rejects_parsed_version_and_format_drift(self) -> None:
+        parsed = parse_rollout_records(
+            self._load_jsonl_fixture("current-parent.jsonl"),
+            {},
+            "0.152.0",
+            "fixture/current.jsonl",
+        )
+        for mutation in (
+            {**parsed, "cliVersion": "0.147.0"},
+            {**parsed, "format": "legacy-payload-v1"},
+            {**parsed, "source": ""},
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(PreflightError) as raised:
+                normalize_rollout_facts(mutation, parent_thread_id="current-parent")
+            self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", raised.exception.code)
+
+    def test_empty_child_rollout_is_unsupported(self) -> None:
+        with self.assertRaises(PreflightError) as raised:
+            parse_rollout_records(
+                self._load_jsonl_fixture("current-parent.jsonl"),
+                {"current-child": []},
+                "0.152.0",
+                "fixture/current.jsonl",
+            )
+        self.assertEqual("UNSUPPORTED_ROLLOUT_FORMAT", raised.exception.code)
+
     def test_event_parser_records_version_and_source_without_mixing_raw_facts(self) -> None:
         parent = self._load_jsonl_fixture("legacy-parent.jsonl")
         children = {"legacy-child": self._load_jsonl_fixture("legacy-child.jsonl")}
@@ -418,6 +475,16 @@ class HandshakePreflightContracts(unittest.TestCase):
         with self.assertRaises(PreflightError) as raised:
             normalize_host_events(
                 [{"type": "thread.started", "thread_id": "parent-thread"}, {"type": "turn.started"}],
+                0,
+                "",
+                Path("/temporary/probe"),
+            )
+        self.assertEqual("UNSUPPORTED_HOST_EVENT_FORMAT", raised.exception.code)
+
+    def test_current_host_stream_missing_thread_identity_is_unsupported(self) -> None:
+        with self.assertRaises(PreflightError) as raised:
+            normalize_host_events(
+                [{"type": "turn.started"}, {"type": "turn.completed"}],
                 0,
                 "",
                 Path("/temporary/probe"),

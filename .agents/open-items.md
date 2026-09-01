@@ -139,3 +139,6 @@
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
 - [x] 2026-09-02 子代理事件适配返工：current `0.152.0` fixture/parser 收敛到官方 direct JSONL 外壳；协作 item 具体字段无脱敏 capture 时明确 unsupported，旧 `0.147.0` wrapper 保持可读。
 - [x] 2026-09-02 MCP 协商适配返工：已知协议显式协商，未知/缺失版本稳定 unsupported 且不回退；live metadata 额外字段 fail-closed，未宣称 `mcp_2026_07_28` 支持。
+- [x] 2026-09-02 CLI probe/parser 适配返工：current `0.152.0` direct JSONL 严格校验
+  thread identity、版本/format metadata 与 terminal 事件；历史 `0.147.0` wrapper 保持可读，
+  协作字段无真实 capture 时明确 unsupported。
