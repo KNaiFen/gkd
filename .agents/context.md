@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。用户已授权新的编排输入面收敛计划；P1-P4 均已合并。P4 PR #58 fixed head `3758f41849dc97d5121fd0f3c59266a5dd1d3351` 以 squash merge `f13258a0a1eaab1634b397f302dc17e382d0dcf1` 进入 main，437 项默认/core 验证与 fixed-head CI 通过；机器事实 renderer、严格 schema、文档 kind 绑定、review/CI head 绑定均已落地。P4 首次验收发现四项缺陷并经 fresh rework 修复，bundle content digest `0beb23c6f203f199adf6bc3efa82b618c3af8d5709581ae7203f015ab26fc12f`。生产、AIO、tag、Release 未变。下一项为 P5 bundle/project stage 收敛与低层接口退场。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。用户已授权新的编排输入面收敛计划；P1-P5 均已合并。P4 PR #58 fixed head `3758f41849dc97d5121fd0f3c59266a5dd1d3351` 以 squash merge `f13258a0a1eaab1634b397f302dc17e382d0dcf1` 进入 main，437 项默认/core 验证与 fixed-head CI 通过；机器事实 renderer、严格 schema、文档 kind 绑定、review/CI head 绑定均已落地。P4 首次验收发现四项缺陷并经 fresh rework 修复，bundle content digest `0beb23c6f203f199adf6bc3efa82b618c3af8d5709581ae7203f015ab26fc12f`。P5 PR #59 fixed head `dea2ab7c99a87dd279d44b0fc43c322a79e2a2e8` 以 squash merge `6e1d4f7352a322ec753f8600016d0d6625aabc25` 进入 main，新增 trusted-main stage facade 与 CLI 派生式 project refresh，439 项 Python 3.9 verifier、fixed-head CI、独立 acceptance 通过，bundle content digest `c7a517ac260f3b27187e396d9c24742c5a45d0d496d3a7208907f06f44862bdf`。生产、AIO、tag、Release 未变；当前编排输入面收敛计划已完成，暂无下一项。
 
 ## Historical facts
 

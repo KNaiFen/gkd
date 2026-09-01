@@ -125,4 +125,4 @@ foundation
 
 ## 当前启动项
 
-O1-O8 与 P0 已完成。O8 以 PR #53 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d` merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 合入：十种 public legacy format 的 core read/reject-or-restore 合同由 catalog 明确绑定，完整兼容矩阵移入 `release-upgrade/matrix`（11 tests、双运行 evidence 一致），historical watcher 继续独立。ADR-001 决定不在本计划合并 `gkd-finalize` 与 `gkd-release`；任何未来迁移须另立 ADR/任务并重新取得授权。总计划已完成。
+O1-O8、P0 与编排输入面 P1-P5 已完成。O8 以 PR #53 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d` merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 合入：十种 public legacy format 的 core read/reject-or-restore 合同由 catalog 明确绑定，完整兼容矩阵移入 `release-upgrade/matrix`（11 tests、双运行 evidence 一致），historical watcher 继续独立。P5 以 PR #59 fixed head `dea2ab7c99a87dd279d44b0fc43c322a79e2a2e8` squash merge `6e1d4f7352a322ec753f8600016d0d6625aabc25` 合入，新增 trusted-main stage facade 与 CLI 派生式 project refresh，439 项 Python 3.9 verifier、fixed-head CI 和独立 acceptance 通过。ADR-001 决定不在本计划合并 `gkd-finalize` 与 `gkd-release`；任何未来迁移须另立 ADR/任务并重新取得授权。总体计划已完成，后续工作必须另立计划并重新授权。
