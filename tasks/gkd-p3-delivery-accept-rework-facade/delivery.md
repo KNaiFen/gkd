@@ -2,7 +2,7 @@
 
 ## Implementation
 
-- Implementation head: `718d78d2a62f893179e21b64ca79fe20e838e30d`
+- Implementation head: `718d78ddee2428ae4a8099389672f4723c4c3611`
 - Candidate output bundle digest: `6ac9bf17cb6f860646787be335d61a26c3b0268ef9ce85b9c90109c1487f0cea`
 - Result manifest digest: `5002966cc84a1b134d1b77047bb3208b1f489c57246c33c44251a16a90f83fa0`
 - Verifier result digest: `a37e2722c85394057ab42d30f7bdc4bf067a5d4cf420687696954bb273dd5143`
