@@ -707,3 +707,7 @@
 - [2026-09-01] P3 delivery/CI/accept/rework facade 已返工后合并。
   - Why: 首次 fixed-head CI 暴露 capability 以 `-` 开头时 `git grep` 返回 129 的随机测试缺陷；独立验收拒绝后，fresh lifecycle 修复为显式 `--` 参数边界并重新交付。
   - Impact: PR #57 fixed head `2e25b8ce9d2f30b6051da5c8e1bad04acb1fcea9` 以 squash merge `b832439d9b10f9b7856bc4e6e2b9fd85ba658930` 进入 main；429 项本地 verifier、fixed-head CI、独立 acceptance 通过。首次 host task-name mismatch、一次 39 位 head 输入和两次 executor 超时均按 revoke/fresh lifecycle 处理，未重放旧 attempt。非生产 stage bundle `6ac9bf17cb6f860646787be335d61a26c3b0268ef9ce85b9c90109c1487f0cea`、inventory `08b3c6beae60acf56d30ad77edac3376cbcb798488a83c12c1991f1f1ae7d5ba`；生产、AIO、tag、Release 未变。
+
+- [2026-09-01] P4 文档机器事实 renderer/schema 已返工后合并。
+  - Why: 首次独立验收发现 facts task 字段和时间校验不严格、文档 kind 未绑定、review/CI 外部事实未绑定当前任务 head、planning schema 与 renderer 形状不一致；另外早期交付工件曾分散在多个提交，触发固定树门禁。
+  - Impact: fresh rework 修复并集中固化自动交付工件；最终 PR #58 fixed head `3758f41849dc97d5121fd0f3c59266a5dd1d3351` squash merge 为 `f13258a0a1eaab1634b397f302dc17e382d0dcf1`。最终 437 项 verifier、fixed-head CI、独立 acceptance 通过。多轮 executor 超时、sealed context 缺失、bundle lock 短暂漂移均未复用旧 claim；生产、AIO、tag、Release 未变。
