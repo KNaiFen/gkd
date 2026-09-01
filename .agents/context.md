@@ -12,7 +12,7 @@
 
 ## Next task
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构，当前先施工 Stage 0/1，旧 automatic workflow 不再作为新任务入口。
+- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构；Stage 0 的规则/愿景/ADR 已完成，Stage 1 的协议和模板已完成，下一步是将正常入口接入新协议并开始人工试运行。
 
 ## Historical facts
 
