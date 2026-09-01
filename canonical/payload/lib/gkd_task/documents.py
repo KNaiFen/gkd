@@ -50,28 +50,14 @@ def _read_document(path: Path) -> bytes:
     return raw
 
 
-def _document_for_sections(expected: tuple[str, ...]) -> str | None:
-    if expected == REQUIREMENTS_SECTIONS:
-        return "requirements"
-    if expected == PLAN_SECTIONS:
-        return "plan"
-    if expected == IMPLEMENTATION_SECTIONS:
-        return "implementation"
-    return None
-
-
-def parse_sections(
-    raw: bytes,
-    expected: tuple[str, ...],
-    document: str | None = None,
-) -> dict[str, str]:
+def parse_sections(raw: bytes, expected: tuple[str, ...]) -> dict[str, str]:
     # P4 documents may carry a trusted, canonical machine-facts block after
     # their human sections.  Legacy documents without the block keep the exact
     # historical parser behavior.
     try:
         from gkd_main.facts import strip_facts_block
 
-        raw = strip_facts_block(raw, document or _document_for_sections(expected))
+        raw = strip_facts_block(raw)
     except TaskError:
         raise
     except (ImportError, UnicodeDecodeError):
@@ -104,9 +90,11 @@ def parse_document_facts(raw: bytes, document: str) -> dict[str, Any] | None:
     try:
         from gkd_main.facts import parse_facts_block
 
-        value = parse_facts_block(raw, document)
+        value = parse_facts_block(raw)
     except (UnicodeDecodeError, TaskError):
         raise TaskError("INVALID_DOCUMENT_FACTS") from None
+    if value is not None and value.get("document") != document:
+        raise TaskError("INVALID_DOCUMENT_FACTS")
     return value
 
 
@@ -120,9 +108,9 @@ def inspect_package(root: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
     if root.is_symlink() or not root.is_dir():
         raise TaskError("INVALID_PLANNING_PACKAGE")
     raw = {name: _read_document(root / name) for name in DOCUMENT_NAMES}
-    parse_sections(raw["requirements.md"], REQUIREMENTS_SECTIONS, "requirements")
-    plan_sections = parse_sections(raw["plan.md"], PLAN_SECTIONS, "plan")
-    parse_sections(raw["implementation.md"], IMPLEMENTATION_SECTIONS, "implementation")
+    parse_sections(raw["requirements.md"], REQUIREMENTS_SECTIONS)
+    plan_sections = parse_sections(raw["plan.md"], PLAN_SECTIONS)
+    parse_sections(raw["implementation.md"], IMPLEMENTATION_SECTIONS)
     material = {name: plan_sections[name] for name in PLAN_MATERIAL_SECTIONS}
     records = {
         "requirements": {
