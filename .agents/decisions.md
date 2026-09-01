@@ -719,3 +719,7 @@
 - [2026-09-01] 接受 manual-first 架构重构，冻结 `v0.1.5` legacy。
   - Why: P1-P5 已经减少了重复输入，但仍保留完整 automatic task/claim/acceptance 状态机；用户明确选择以人工 plan、Git worktree 和 progress report 作为默认协作模型。
   - Impact: 新默认流程只要求目标、工作目录和行为约束，使用 `plan.md`、`progress.md`、`review.md` 交接。offer/claim/activation、CAS/journal、fixed-head monitor、机器事实 renderer 和大规模合同验证降为 legacy/optional；旧发行物、生产、AIO 和历史记录保持只读。该决定记录于 `docs/adr/002-manual-first-workflow.md`，施工协议位于 `docs/manual-workflow.md`。
+
+- [2026-09-01] manual-first development bundle 首次拆出 `legacy-automatic` pack。
+  - Why: 默认人工任务不需要 task/role/bridge/acceptance/release/verifier CLI；这些实现先移出默认安装面，等待试运行后再决定删除或归档。
+  - Impact: `0.0.0-dev.1` content digest 为 `9a683001eb877e944c5def8dde91aa20f2a965bd9e74bf2d9609a37d3163cf2c`，默认安装 16 个文件；`legacy-automatic` pack digest 为 `7baa56dbc11eb403483920038e4054cd57637eed4f7833766ed1dfd112784aeb`，已通过显式 pack-stage/pack-verify。v0.1.5、生产、AIO、tag/Release 均未改动。

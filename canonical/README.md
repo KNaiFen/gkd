@@ -38,11 +38,11 @@ requires an explicit existing system-temporary root and an explicit existing
 target beneath it. The installed read-only `verify` and `version` surfaces are
 foundation contracts, not a production doctor.
 
-The default installation contains only core runtime files. `ci-advice` owns the
-resource/recommendation/scanner CLI, library, schemas, and `gkd-optimize-ci`;
-`review-remediation` owns the review CLI, core/adapter/remediation library,
-schemas, explicit review input, and Skill. `gkd-bundle pack-stage`,
-`pack-verify`, and `pack-remove` accept only these declared names and bind each
+The manual-first development installation contains the bundle foundation and
+the `gkd-main` coordination Skill. The `legacy-automatic` pack contains the
+old task, role, bridge, acceptance, release, and verifier surfaces; `ci-advice`
+and `review-remediation` remain separate optional packs. `gkd-bundle pack-stage`,
+`pack-verify`, and `pack-remove` accept only declared pack names and bind each
 pack's files, modes, sizes, SHA-256 values, and digest to the bundle lock.
 
 The separate `gkd-role production-migration-*` commands are the only explicit
@@ -60,23 +60,19 @@ protected roots. Temporary installs are fully removed before the final
 protected-state snapshot, and the evidence file is published only after every
 terminal invariant passes.
 
-The development bundle also installs a separate `gkd-task` executable, its
-standard-library `gkd_task` package, and strict task schemas. It owns canonical
-task state, planning and authorization gates, portable worktree resolution,
-offer/claim transactions, lifecycle doctor and trusted fixed-tree acceptance.
-The foundation `gkd-bundle` command surface remains unchanged.
+## Legacy automatic and release surfaces
 
-The installed `gkd-main` command is the read-only trusted-main locator for one
-task context. From a candidate checkout it needs no path arguments; from a
-trusted main checkout it accepts only `--task-id`. Its inspect and preflight
-records are path-redacted and bind the current task snapshot to the verified
-bundle, project inventory and repository policy. `gkd-main planning create`
-accepts the three reviewed Markdown contents directly, validates them with the
-same strict planning parser, and atomically publishes a private selector.
-`planning inspect --package-selector <digest>` reports only package status and
-required human inputs, never document content or a package path. These commands
-do not replace the lower-level lifecycle CLI or create offers, claims, runtime
-attachments or task state.
+When selected explicitly, the `legacy-automatic` pack installs the separate
+`gkd-task` executable, its standard-library `gkd_task` package, and strict task
+schemas. It owns canonical task state, planning and authorization gates,
+portable worktree resolution, offer/claim transactions, lifecycle doctor and
+trusted fixed-tree acceptance. The foundation `gkd-bundle` command surface
+remains unchanged.
+
+The legacy pack also includes the `gkd-main` command as a read-only
+trusted-main locator for one task context. Its inspect, planning and staging
+surfaces remain available for compatibility, but they are not part of the
+manual-first task path.
 
 From a trusted checkout, `gkd-main stage --production-root <explicit-root>`
 validates the current non-production project stage. Add `--refresh` to replace

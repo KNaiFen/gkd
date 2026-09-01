@@ -1,4 +1,4 @@
 interface:
-  display_name: "GKD Main"
-  short_description: "Plan and route canonical GKD tasks"
-  default_prompt: "Use $gkd-main to coordinate this GKD task from trusted main."
+display_name: "GKD Main"
+short_description: "Coordinate a manual-first Agent task"
+default_prompt: "Use $gkd-main with plan.md, progress.md, and review.md."

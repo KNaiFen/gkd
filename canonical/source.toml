@@ -7,24 +7,28 @@ name = "finalization-generic-input"
 kind = "test"
 source = "inputs/finalization/generic-input.json"
 mode = "0644"
+pack = "legacy-automatic"
 
 [[inputs]]
 name = "release-traceability"
 kind = "release-verification"
 source = "inputs/release/traceability.json"
 mode = "0644"
+pack = "legacy-automatic"
 
 [[inputs]]
 name = "release-trusted-main-evaluation"
 kind = "release-verification"
 source = "inputs/release/trusted-main-evaluation.json"
 mode = "0644"
+pack = "legacy-automatic"
 
 [[inputs]]
 name = "release-legacy-format-catalog"
 kind = "release-verification"
 source = "inputs/release/legacy-format-catalog.json"
 mode = "0644"
+pack = "legacy-automatic"
 
 [[inputs]]
 name = "review-multi-repository"
@@ -39,9 +43,13 @@ name = "ci-advice"
 [[packs]]
 name = "review-remediation"
 
+[[packs]]
+name = "legacy-automatic"
+
 [[components]]
 name = "ci-monitor-cli"
 kind = "executable"
+pack = "legacy-automatic"
 files = [
   { source = "payload/bin/gkd-ci-monitor", target = "gkd/bin/gkd-ci-monitor", mode = "0755" },
 ]
@@ -49,6 +57,7 @@ files = [
 [[components]]
 name = "ci-monitor-library"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/lib/gkd_ci/__init__.py", target = "gkd/lib/gkd_ci/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_ci/cli.py", target = "gkd/lib/gkd_ci/cli.py", mode = "0644" },
@@ -60,6 +69,7 @@ files = [
 [[components]]
 name = "ci-monitor-schemas"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/ci/policy.schema.json", target = "gkd/schema/ci/policy.schema.json", mode = "0644" },
   { source = "payload/schema/ci/terminal-result.schema.json", target = "gkd/schema/ci/terminal-result.schema.json", mode = "0644" },
@@ -87,6 +97,7 @@ files = [
 [[components]]
 name = "release-candidate"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/bin/gkd-release", target = "gkd/bin/gkd-release", mode = "0755" },
   { source = "payload/lib/gkd_release/__init__.py", target = "gkd/lib/gkd_release/__init__.py", mode = "0644" },
@@ -168,6 +179,7 @@ files = [
 [[components]]
 name = "finalization-cli"
 kind = "executable"
+pack = "legacy-automatic"
 files = [
   { source = "payload/bin/gkd-finalize", target = "gkd/bin/gkd-finalize", mode = "0755" },
 ]
@@ -175,6 +187,7 @@ files = [
 [[components]]
 name = "finalization-library"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/lib/gkd_finalization/__init__.py", target = "gkd/lib/gkd_finalization/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_finalization/cli.py", target = "gkd/lib/gkd_finalization/cli.py", mode = "0644" },
@@ -184,6 +197,7 @@ files = [
 [[components]]
 name = "finalization-schemas"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/finalization/finalization-record.schema.json", target = "gkd/schema/finalization/finalization-record.schema.json", mode = "0644" },
 ]
@@ -191,6 +205,7 @@ files = [
 [[components]]
 name = "task-cli"
 kind = "executable"
+pack = "legacy-automatic"
 files = [
   { source = "payload/bin/gkd-github-acceptance", target = "gkd/bin/gkd-github-acceptance", mode = "0755" },
   { source = "payload/bin/gkd-main", target = "gkd/bin/gkd-main", mode = "0755" },
@@ -200,6 +215,7 @@ files = [
 [[components]]
 name = "main-library"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/lib/gkd_main/__init__.py", target = "gkd/lib/gkd_main/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_main/cli.py", target = "gkd/lib/gkd_main/cli.py", mode = "0644" },
@@ -210,6 +226,7 @@ files = [
 [[components]]
 name = "task-library"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/lib/gkd_task/__init__.py", target = "gkd/lib/gkd_task/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_task/acceptance.py", target = "gkd/lib/gkd_task/acceptance.py", mode = "0644" },
@@ -233,6 +250,7 @@ files = [
 [[components]]
 name = "task-schemas"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/task/authorization.schema.json", target = "gkd/schema/task/authorization.schema.json", mode = "0644" },
   { source = "payload/schema/task/offer.schema.json", target = "gkd/schema/task/offer.schema.json", mode = "0644" },
@@ -244,6 +262,7 @@ files = [
 [[components]]
 name = "document-schemas"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/documents/document-facts.schema.json", target = "gkd/schema/documents/document-facts.schema.json", mode = "0644" },
   { source = "payload/schema/documents/planning-document.schema.json", target = "gkd/schema/documents/planning-document.schema.json", mode = "0644" },
@@ -252,6 +271,7 @@ files = [
 [[components]]
 name = "verification-results"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/verification-results.schema.json", target = "gkd/schema/verification-results.schema.json", mode = "0644" },
 ]
@@ -259,6 +279,7 @@ files = [
 [[components]]
 name = "role-routing-cli"
 kind = "executable"
+pack = "legacy-automatic"
 files = [
   { source = "payload/bin/gkd-role", target = "gkd/bin/gkd-role", mode = "0755" },
 ]
@@ -266,6 +287,7 @@ files = [
 [[components]]
 name = "role-routing-library"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/lib/gkd_role/__init__.py", target = "gkd/lib/gkd_role/__init__.py", mode = "0644" },
   { source = "payload/lib/gkd_role/activation.py", target = "gkd/lib/gkd_role/activation.py", mode = "0644" },
@@ -282,6 +304,7 @@ files = [
 [[components]]
 name = "role-routing-source"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/config/hard-rules.json", target = "gkd/config/hard-rules.json", mode = "0644" },
   { source = "payload/config/role-routing.json", target = "gkd/config/role-routing.json", mode = "0644" },
@@ -290,6 +313,7 @@ files = [
 [[components]]
 name = "role-routing-schemas"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/schema/role/activation.schema.json", target = "gkd/schema/role/activation.schema.json", mode = "0644" },
   { source = "payload/schema/role/context.schema.json", target = "gkd/schema/role/context.schema.json", mode = "0644" },
@@ -303,8 +327,9 @@ files = [
 ]
 
 [[components]]
-name = "workflow-core-skills"
+name = "legacy-workflow-skills"
 kind = "library"
+pack = "legacy-automatic"
 files = [
   { source = "payload/skills/gkd-accept/SKILL.md", target = "gkd/skills/gkd-accept/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-accept/agents/openai.yaml", target = "gkd/skills/gkd-accept/agents/openai.yaml", mode = "0644" },
@@ -314,6 +339,12 @@ files = [
   { source = "payload/skills/gkd-execute/agents/openai.yaml", target = "gkd/skills/gkd-execute/agents/openai.yaml", mode = "0644" },
   { source = "payload/skills/gkd-local-verify/SKILL.md", target = "gkd/skills/gkd-local-verify/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-local-verify/agents/openai.yaml", target = "gkd/skills/gkd-local-verify/agents/openai.yaml", mode = "0644" },
+]
+
+[[components]]
+name = "manual-workflow-skill"
+kind = "library"
+files = [
   { source = "payload/skills/gkd-main/SKILL.md", target = "gkd/skills/gkd-main/SKILL.md", mode = "0644" },
   { source = "payload/skills/gkd-main/agents/openai.yaml", target = "gkd/skills/gkd-main/agents/openai.yaml", mode = "0644" },
 ]
