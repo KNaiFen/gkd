@@ -2,9 +2,15 @@
 
 `canonical/` is the only bundle source root. `source.toml` is the reviewed
 developer declaration; `manifest.json` and `manifest.lock.json` are generated
-outputs and must never be edited by hand. The current `0.1.5` bundle is a stable
-release candidate whose exact source, bundle, evidence, assets, and provenance
-remain bound until trusted-main promotion.
+outputs and must never be edited by hand. The published `0.1.5` bundle is
+frozen as legacy; this source is now the unreleased manual-first development
+line and must not be presented as a replacement release until migration is
+complete.
+
+The repository is migrating to a manual-first workflow. The development bundle
+under construction teaches the main agent to use `plan.md`, `progress.md`, and
+`review.md`; the remainder of this document describes the `v0.1.5` legacy
+bundle and remains for compatibility until the migration is complete.
 
 The canonical CLI, project staging, and automatic runtime bridge support
 Python 3.9 or newer. TOML parsing uses the standard library on Python 3.11+

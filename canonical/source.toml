@@ -1,6 +1,6 @@
 schema_version = 2
-bundle_version = "0.1.5"
-release_status = "release-candidate"
+bundle_version = "0.0.0-dev.1"
+release_status = "development"
 
 [[inputs]]
 name = "finalization-generic-input"

@@ -127,7 +127,7 @@
 
 - [x] Manual-first Stage 0：完成 VISION/AGENTS/README、ADR-002 和人工协议落盘；`v0.1.5` 冻结为 legacy。已由独立文档提交完成。
 - [x] Manual-first Stage 1（协议切片）：建立三文件人工协议、执行代理启动提示词和模板；不再要求协议使用者手填机器 JSON、CAS、digest 或专用生命周期参数。canonical payload/Skill 接入仍待后续切片。
-- [ ] Manual-first Stage 1（入口接入）：将新协议接入正常 project-scoped Skill/入口，并确认旧 automatic Skill 不再作为默认提示。
+- [x] Manual-first Stage 1（入口接入）：canonical development bundle 的 `gkd-main` Skill 已改为读取 plan/progress/review，并确认旧 `v0.1.5` Skill 仅保留为 legacy。
 - [ ] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
 - [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
