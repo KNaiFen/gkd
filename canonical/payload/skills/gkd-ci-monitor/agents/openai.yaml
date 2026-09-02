@@ -1,4 +1,0 @@
-interface:
-  display_name: "GKD CI Monitor"
-  short_description: "Monitor one policy-bound fixed PR head"
-  default_prompt: "Use $gkd-ci-monitor for this explicit repository, PR, head, and policy."

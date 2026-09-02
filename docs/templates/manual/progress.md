@@ -6,7 +6,11 @@
 
 ## Completed
 
-<!-- Changes and checks already completed. -->
+<!-- Changes completed. Include a check only when it was actually run. -->
+
+## Verification evidence
+
+<!-- Command or manual check, result, and intentionally unverified scope. Omit entries when no check was needed. -->
 
 ## Decisions
 

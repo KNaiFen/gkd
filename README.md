@@ -1,6 +1,6 @@
 # GKD
 
-GKD 工作流的规范源码、版本管理与专属验证仓库。
+GKD 的 manual-first 协作规范。
 
 ## 默认：manual-first
 
@@ -14,8 +14,6 @@ GKD 工作流的规范源码、版本管理与专属验证仓库。
 
 标准顺序是：主代理创建计划和 worktree，执行代理按计划工作并更新进度，完成后通知主代理；主代理检查 diff、`plan.md`、`progress.md` 和必要的局部验证，随后通过，或修改计划/审查意见后继续执行。中断恢复时，新 session 先读取同一 worktree 的计划和进度，再以 Git diff 与历史为准。详见 [Manual-first 工作流](docs/manual-workflow.md) 及 [VISION](VISION.md)。
 
-## 历史材料
+## 当前边界
 
-已发布的 `v0.1.5`、旧任务记录、automatic/fixed-head/release 证据和 Codex 版本观察记录只读保留，用于理解历史决策和核对回归。它们不属于当前入口，仓库不再提供旧生产安装、角色迁移或兼容恢复流程。
-
-当前 development bundle 只承担 foundation 与 `gkd-main` Skill；普通任务不需要 `gkd-task`、`gkd-role`、旧 executor/acceptor/CI Skills 或机器合同。旧源码和测试只读保留，不应被新任务路由调用。
+唯一 GKD Skill 是 [gkd-main](.agents/skills/gkd-main/SKILL.md)。它只协调计划、worktree、进度和审查；执行 session 不加载其他 GKD Skill。旧自动化合同和脚本不在当前工作树中，需要追溯时查看 Git 历史。既有 `v0.1.5`、生产 `~/.codex`、AIO、GitHub 设置、Secrets、付费 runner、tag 和 Release 均不属于本仓库的日常流程。

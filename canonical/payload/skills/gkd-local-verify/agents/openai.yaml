@@ -1,4 +1,0 @@
-interface:
-  display_name: "GKD Local Verify"
-  short_description: "Run the approved local contract"
-  default_prompt: "Use $gkd-local-verify with the task's explicit full base SHA."

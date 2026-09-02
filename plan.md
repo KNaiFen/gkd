@@ -1,14 +1,24 @@
-# 当前项目状态（非进行中任务）
+# Task plan
 
-本文件不是待执行的普通任务计划。当前仓库没有挂起的根目录任务；新的人工任务应在独立 worktree 中创建自己的 `plan.md`、`progress.md` 和 `review.md`。
+## Goal
 
-## 当前方向
+完成 manual-first 工作流收敛：使 `gkd-main` 自包含且可发现，删除仍可执行或可路由的旧自动化合同、脚本、schemas、测试和配置，并保留简短的 Markdown 交接闭环。
 
-- 默认工作流是 manual-first：目标、工作目录和行为约束是唯一必需输入。
-- 兼容修正已完成并作为历史材料保留，不恢复 automatic watcher 或旧验收链为普通入口。
-- 当前 development bundle 为未发布的 `0.0.0-dev.1`；生产面只保留 `gkd-main`，不提供 production migration。
+## Worktree
 
-## 当前边界
+本文件所在的独立 Git worktree 根目录（`.`）。
 
-- 已发布 `v0.1.5` 及 AIO、GitHub、Secrets、runner 和 release 资产继续按既有授权边界处理。
-- 没有根目录 task 需要执行；后续变更先建立任务目录和对应 worktree。
+## Behavior constraints
+
+- 普通执行 session 只读取 `plan.md`、适用的 `AGENTS.md` 和完成目标所需的代码。
+- 不新增机器状态、JSON 合同、生命周期脚本或第二个通用 GKD Skill。
+- 不触碰生产 `~/.codex`、AIO、GitHub 设置、Secrets、付费 runner、既有 tag 或 Release。
+- 删除范围限于仓库中旧 automatic/fixed-head 合同的可执行实现、路由和测试；Git 历史仍是历史追溯方式。
+- 验证只覆盖新的 manual-first 用户路径和删除后仓库不再暴露旧入口的事实。
+
+## Completion conditions
+
+- 当前工作树仅保留自包含、可发现的 `gkd-main`。
+- `gkd-main` 明确规定计划、进度、审查、恢复和最小验证证据。
+- 仓库不再保留或路由旧 task/role/CI/acceptance/release 合同实现。
+- README、模板、持久记录与实现一致，并有可复核的最小验证结果。

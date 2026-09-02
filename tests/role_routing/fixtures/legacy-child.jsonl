@@ -1,2 +1,0 @@
-{"type":"session_meta","payload":{"id":"legacy-child","session_id":"legacy-parent","thread_source":"subagent","source":{"subagent":{"thread_spawn":{"parent_thread_id":"legacy-parent","agent_path":"/root/gkd_executor_handshake","agent_role":"gkd_executor"}}}}}
-{"payload":{"type":"task_complete","last_agent_message":"GKD_EXECUTOR_CHILD_TERMINAL"}}

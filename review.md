@@ -1,15 +1,19 @@
-# 当前项目审查
+# Main-agent review
 
-## 结论
+## Decision
 
-当前仓库指导方向与实现状态一致：manual-first 是唯一入口，旧自动化实现仅是历史材料，不再形成兼容迁移面。
+Approved.
 
-## 已审查
+## Findings
 
-- 默认入口只围绕目标、worktree、行为约束，以及三份 Markdown 交接记录。
-- 最近兼容修正没有增加普通任务所需的机器参数、合同、CAS、receipt 或 fixed-head acceptance。
-- 当前生产 GKD managed surface 只保留 `gkd-main` Skill；development bundle `0.0.0-dev.1` 仍未发布、未接入 AIO。
+- 唯一受跟踪的 `gkd-main` 已包含计划前置、最小读取、最小验证、审查和恢复规则。
+- 已删除旧自动化运行时、脚本、JSON 合同、测试、任务和证据，当前文件不再引用旧入口。
+- 消融后没有保留 bundle、pack、第二个 GKD Skill 或自动验收路径。
 
-## 后续
+## Rework request
 
-旧源码和历史证据继续只读保留；不要把它们的维护、迁移或验证步骤加入普通 manual-first 任务。
+None.
+
+## Remaining risk
+
+旧自动化流程仅能从 Git 历史恢复；当前仓库不再提供兼容运行路径。

@@ -1,4 +1,0 @@
-interface:
-  display_name: "GKD Review Remediation"
-  short_description: "Guide explicit redacted review remediation"
-  default_prompt: "Use $gkd-review-remediation to plan and resume review remediation without taking external actions."

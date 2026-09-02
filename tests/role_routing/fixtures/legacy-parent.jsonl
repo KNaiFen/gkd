@@ -1,4 +1,0 @@
-{"payload":{"type":"task_started"}}
-{"payload":{"type":"function_call","namespace":"agents","name":"spawn_agent","arguments":"{\"agent_type\":\"gkd_executor\",\"task_name\":\"gkd_executor_handshake\",\"fork_turns\":\"none\",\"message\":\"redacted\"}"}}
-{"payload":{"type":"sub_agent_activity","kind":"started","agent_path":"/root/gkd_executor_handshake","agent_thread_id":"legacy-child"}}
-{"payload":{"type":"task_complete","last_agent_message":"GKD_PARENT_TERMINAL"}}
