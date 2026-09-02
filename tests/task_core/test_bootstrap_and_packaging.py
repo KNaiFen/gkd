@@ -163,6 +163,7 @@ class PackagingContracts(unittest.TestCase):
         help_result = subprocess.run([str(executable), "--help"], cwd=target, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
         self.assertEqual(0, help_result.returncode, help_result.stderr)
         self.assertIn("bootstrap", help_result.stdout)
+        self.assertNotIn("migrate-v1", help_result.stdout)
         error = subprocess.run(
             [
                 str(executable),

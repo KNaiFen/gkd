@@ -9,11 +9,9 @@ import sys
 from typing import Any
 
 from .acceptance import SubprocessGitHubAdapter, accept_candidate, rework_candidate, validate_review
-from .canonical import SystemClock, SystemNonce, canonical_bytes, read_canonical_json
+from .canonical import canonical_bytes, read_canonical_json
 from .errors import TaskError
-from .gitops import common_dir, git_root
 from .locator import resolve_candidate
-from .migration import migrate_v1
 from .runtime import RuntimeStore
 from .service import TaskService, bootstrap_task
 
@@ -151,9 +149,6 @@ def _parser() -> MachineParser:
     deliver.add_argument("--verifier-results-path")
     deliver.add_argument("--evidence-path")
 
-    migrate = commands.add_parser("migrate-v1")
-    _add_cas(migrate)
-
     accept = commands.add_parser("accept")
     accept.add_argument("--trusted-root", type=Path, required=True)
     accept.add_argument("--candidate-root", type=Path, required=True)
@@ -263,19 +258,6 @@ def _dispatch(args: Any) -> dict[str, Any]:
             args.merge,
             runtime=_runtime(args.candidate_root, args.runtime_root),
         )
-    if args.command == "migrate-v1":
-        candidate = git_root(args.candidate_root)
-        runtime = _runtime(candidate, args.runtime_root) or RuntimeStore(common_dir(candidate) / "gkd-runtime")
-        return migrate_v1(
-            candidate,
-            args.task_path,
-            runtime,
-            args.expected_head,
-            args.expected_revision,
-            SystemClock(),
-            SystemNonce(),
-        )
-
     service = _service(args)
     if args.command == "attach":
         return service.attach()

@@ -754,3 +754,7 @@
 - [2026-09-02] 删除 GKD 兼容迁移面并收敛 Skill 路由。
   - Why: manual-first 的实际协作只需要 `gkd-main`、Git worktree 和三份 Markdown；production/temporary migration、旧角色和旧 executor/acceptor/CI Skill 会重新引入机器参数、恢复面和入口选择。
   - Impact: `gkd-role` 不再公开 migration 或 production-migration 命令；生产 `~/.codex` 只保留 `gkd-main`，移除旧 GKD roles/Skills 和迁移注入配置。旧源码、任务记录和证据只读保留，不再提供安装、迁移或自动路由入口。
+
+- [2026-09-02] 移除 legacy `gkd-task migrate-v1` 公开 CLI 入口。
+  - Why: 兼容迁移不属于当前 manual-first 协作；保留公开命令会让旧 task 状态迁移看起来仍是受支持的工作流步骤。
+  - Impact: legacy task migration 模块只保留给历史测试和记录读取，CLI help 与命令解析不再暴露 `migrate-v1`。
