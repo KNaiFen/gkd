@@ -1,5 +1,0 @@
-{"type":"thread.started","thread_id":"current-parent"}
-{"type":"turn.started"}
-{"type":"item.started","item":{"type":"reasoning","status":"in_progress"}}
-{"type":"item.completed","item":{"type":"agent_message","status":"completed"}}
-{"type":"turn.completed"}

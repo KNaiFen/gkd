@@ -1,51 +1,12 @@
 # Context
 
-- Subagent 生命周期修正（2026-08-28）：全局 `SubagentStop` mailbox-drain hook 已停用，兼容脚本改为无操作；用户级 `AGENTS.md` 现在只允许基于明确容量错误、权威驻留/mailbox 快照和一次性消息确认的人工恢复。该配置不属于 GKD bundle，未改变 Codex 并发上限或项目发布状态。
-
-- Goal: 将 GKD 默认工作流重构为 manual-first；主代理只管理目标、工作目录、行为约束，执行代理通过 Markdown 报告交接。
-
 ## Current state
 
-- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；该发行物现冻结为历史材料。生产 GKD managed surface 已清理为单一 `gkd-main` Skill，不再提供 GKD 角色、旧 Skill 注入或 production migration。
-- AIO adoption 的 B4、C、D 已完成；后续生产或 AIO 普通产品改动、GitHub settings/Secrets、付费 runner、tag/Release 仍须单独明确授权。
-- O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 已于 2026-08-28 以 merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 完成。
+- GKD 只保留 manual-first 协作：目标、Git worktree、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
+- 唯一项目 Skill 是 `.agents/skills/gkd-main/SKILL.md`；执行 session 不加载其他 GKD Skill。
+- 旧自动化实现、合同、测试、证据和路由已从当前工作树删除，Git 历史是唯一追溯方式。
 
-## Next task
+## Boundaries
 
-- O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构；Stage 0 的规则/愿景/ADR、Stage 1 的协议/模板和未发布 development bundle 入口已完成，下一步是人工试运行。
-- 当前 development bundle source 为 `0.0.0-dev.1`，由 canonical generator 生成的 content digest 为 `815f5c4b943594c06298f7273745894dbbad67e2f5b93860162926cf676c7f18`；默认安装只保留 foundation 与 `gkd-main` Skill。旧 PR workflow 已移入 `legacy/workflows/`，不再自动触发；旧自动运行时、Skill 和角色仅作为历史源码/证据保留，不再提供安装或迁移入口。尚未为 development bundle 创建 tag/Release，AIO 也未接入。
-- Legacy compatibility baseline（2026-09-02）：本机 CLI 为 `0.152.0`，相关 schema digest 为 `398b3be7ac8f5135c7ed6f258e3ba0264c734715b0384539adb462b873745519`；历史 `0.147.0`/`ea75b776...` evidence 保持只读。runtime registry 对未知 CLI 返回 `codex_version_unsupported`，对已登记版本 schema 漂移返回 `schema_digest_mismatch`；当前 capture 仅记录兼容性，不启用 legacy watcher 或改变 manual-first bundle。
-
-## Historical facts
-
-完整历史索引：`.agents/decisions.md`、`.agents/open-items.md` 以及各任务的 `acceptance.md` 与 `retrospective.md`。
-
-- M5 final: version `0.1.0`, bundle digest `6dd423ab0662ba0563d222cc07f35cfdd508d00fffaa893a9d9355783df2dba9`; final record digest `0ecb8a607d4f2f460e12237a1c3ec7a17f2ef8a2c3b6ed47e83e0ee6baadf807`; L3 digest `c7e72d0fe6a0031248765d516f105018ef0e592fd37a66cd0495c59e2ea305a8`; sandbox PR #2 head `98f31a24739418b4855870ec848c269208b760d8`, L4 digest `8ea764e63c6f97996f2d74d9de5e949b9d52d40d62cd2ebfc3db84016530f0d5`, `GKD Canary` passed. Tag `v0.1.0` and GitHub Release target the exact main merge SHA; asset `gkd-0.1.0-final-c14f166.tar.gz` SHA-256 is `fbbdbc526d699bd4fe3744edb65733ea246dc080046fa05e77c46359ad16ebd1`.
-- Constraints: 完整 GKD 测试只在开发 GKD 或形成 GKD release candidate 时运行；消费项目的普通产品代码和文档变更不运行该测试套件。
-- P1 final: candidate output bundle `68188dcaeb98d93902b435c98784e242090ed18828e9d96a8dee735244f7d1ef`，独立 `scripts/gkd-verify --base-sha f060e8342c5c74beacf4e6e429aea54207699b61` 的 418 项通过，PR #23 `GKD Verify` 对固定头成功；squash tree 与候选树一致。post-merge L3/L4、deterministic asset 和 `v0.1.1` Release 均绑定 `ded7a727fb391b8b7062fc531d03c9b6942c834a`，摘要在 `evidence/p1-production-migration/summary.json`。trusted-main production apply 后，doctor 对同一 `0.1.1` bundle 返回 healthy，摘要在 `evidence/p1-production-migration/production-summary.json`；P1 doctor 只报告 `globalAgentsPolicy: outside_scope`，不读取、写入或认证用户级 global `AGENTS.md`。
-- R3 final: PR #27 fixed head `42104c47d1dd74f3d0cb7133261d8bd358c86a27` 已由 `GKD Verify` 和 424 项本地 verifier 覆盖，并以 squash merge `b54d69b52c9b71d3e6ff7b3c8eb2793319ede7ba` 进入 main。手工 bootstrap exception 已在收尾时终止；没有创建 claim、delivery、activation 或 receipt。当时已发布版本为 `v0.1.2`，不得把未发布的 R3 bundle 用于 AIO。
-- R4 final: PR #28 fixed head `7eea74239e3ea258f7f81e3f2eda2c14f69433fd` 经独立审查和 policy-backed `GKD Verify` 通过，并以 squash merge `2a63cd8ff2fcb7f0cb155dcc32578cda4b3381af` 进入 main。source 为 `0.1.3`，bundle digest 为 `cc465d26f08edb2a133775e4d6a58aa517eab1bde0ec2e1ec72f6d9f2c8883bd`；L3/L4、final record 与 `v0.1.3` tag/Release 都精确绑定该 source，asset `gkd-0.1.3-final-2a63cd8.tar.gz` SHA-256 为 `9d9e6ea0fff64e0894af08a547b6798f1f6634e0e4cf4e174cd8dfc5c0179954`。从回下载 asset 的 project restage 已验证 inventory `37cc3ab1cc1967583a404e1c992eac02bb6c7f29eabbb36ec5b7ac60dc0b6eda`；该任务是自托管手工 bootstrap 例外，没有 claim、delivery、activation 或 receipt；候选 worktree、任务分支、sandbox canary PR/branch 与 R4 temporary roots 均已清理。
-- Useful paths: 审查事实源位于 `/Users/knaifen/Documents/Codex/aio-coding-hub/main/.trellis/tasks/08-17-gkd-workflow-remediation/`。
-
-- [2026-09-02] app-server initialize capability 适配完成：current `0.152.0` 真实响应只含四个必需 server metadata 字段且没有 capability 广告，解析器将缺失/漂移归类为 `unsupported`；历史 `0.147.0` protocol evidence 保持 `compatibility-only`，不恢复 automatic watcher。
-
-- [2026-09-02] turn/steer 退场适配完成：current `0.152.0` feature registry 明确 `steer=removed`，即使生成 schema 保留 `turn/steer`，watcher 与 app-server factory 也在 session/transport 前稳定返回 `turn_steer_unsupported`；历史 `0.147.0` watcher 读取、interrupt/CAS 负向语义保持 compatibility-only，未恢复 automatic watcher。
-
-- [2026-09-02] 测试与设计规则收紧：零碎实现改动不新增单元测试，只有影响真实用户工作流或高风险核心行为时才保留必要的端到端验证；每次设计或实现完成后进行消融实验，删除不必要的抽象和设计。
-
-- [2026-09-02] 子代理事件适配返工完成：current `0.152.0` fixture/parser 仅接受官方
-  `thread/turn/error/item.*` direct 外壳；未有真实脱敏 capture 的协作 item 字段保持
-  `UNSUPPORTED_*`，旧 `0.147.0` payload wrapper 与 legacy spawn/terminal 语义不变。
-- [2026-09-02] MCP 协商适配返工完成：MCP 服务端与 live adapter 仅协商登记的
-  `2025-06-18`/`2024-11-05`；未知/缺失版本（含 `mcp_2026_07_28`）返回稳定
-  unsupported，不静默回退；metadata 只接受现有历史合同字段。
-- [2026-09-02] CLI probe/parser 适配返工完成：current `0.152.0` direct JSONL 的
-  thread identity、版本/format metadata 与 `turn.failed` terminal 事实严格校验；历史
-  `0.147.0` payload wrapper 保持可读，缺失身份或未捕获协作字段继续 unsupported。
-- M4 closeout: finalization/release mechanics 已验收合并且没有产生发布副作用；M5 负责完整验证与最终 release candidate。
-- R5/R6 final: R5 fixed host-resource/runner-capacity conflation and merged as `c38e3a3d5a88b87beb13ff38fdefb82fa3416f6e`. R6 candidate `399f9ef61ad207c23627b71aa86a2881cdb19e3c` merged as `be1e515a64c4095676922c484555fb2a048da681`; `v0.1.4` bundle is `cdaa791ace82a5e7c407b29a93a4211b852d7f364900bbcd8a549dbe918bf2a7`, asset SHA-256 is `713fc828d234bc7ddd298cb68f5abfe1ede29f7891c283924cf3c3b98b2c0330`, and restaged inventory is `9cf92e98646e44045b3d1a14333cdef2ea56215bcb07be6ffb0d144e8275e9c3`. The canonical acceptance CLI did not return success before an accidental adapter self-test merged the already verified PR; the closeout records that fact without presenting it as normal acceptance.
-- R7/R8/R9 closeout: R7 `gkd-r7-github-acceptance-adapter` remains blocked at revision 6 with `executor_delivery_cas_mismatch`; it created neither PR nor delivery/acceptance. R8 `gkd-r8-acceptance-delivery-repair` was rejected at fixed head `82afefdb1f143357741ba921b7602129cc74c020`, then returned to planning/epoch 1 with `planning_requirements_digest_immutable`; the recorded rejection concerns the trailing blank line in its immutable requirements file. PR #31 was confirmed unmerged, then closed; its remote task branch was deleted. R9 fixed both workflow defects: GitHub acceptance recognizes REST `merged: true` plus `state: closed`, canonical JSON stdout ends with a newline, exact-head squash merge reconciles exit 75, and delivery runs implementation commit -> delivery document commit -> `gkd-task deliver`. PR #32 fixed head `37bdb598091c6ae94a089bf0e4ca87d8f1746153` passed fixed-head `GKD Verify` and 434 local verifier cases, then squash merged as `790d592d63c7c34a0047f136e18fa15238e722d6`. R7/R8/R9 candidate worktrees, runtime, task branches and temporary root have been removed. R9 source remains version `0.1.4` and is not an installed or published bundle.
-- R10 final: PR #33 fixed head `81ee21751634d5c4609db6313a73353e8221e65d` passed independent 434-contract local verification and fixed-head `GKD Verify`, then canonical `gkd-task accept --merge` squash merged it as `60ac0c49f1054ce2edea49b3ab6758bfbd3432b3`. L3 record `922fdd3b3e071ea485b5289838f2a59ecc22f539895cba90130eb68fed478de5` and sandbox PR #8 fixed head `dbd55a78c25e8208f715562755fee5f3790ffec7` with L4 request/observation `f5fb04688bb6ab5afd46302dcd3312926992f15ea22319db23f52e8c5021edf8` / `cad91ac09a5249c3bb3a4beab65fd1043cbb6b655582d53bd6d464f7c94c7197` produced final/provenance `1ed5923d1090bf2c11fa8a54da8033a4c085b4fd93ffbce6557f376561bac6de` / `d794024d7a354d349fcd46a7944704fdb4bbb09e148b140136d80c7a00beb2ef`. Tag/Release `v0.1.5` target that exact merge; asset `gkd-0.1.5-final-60ac0c4-a.tar.gz` has SHA-256 `f259475f4ca6c3425e53d734d03633541d6a1997e41991eb5a6115958d06a298`, bundle digest `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`, and asset-local isolated project restage inventory `c8e2e37b8c21655202adf9595120b31c098ae1846a39c261d3c0ac8fe2c8180e`. R10 candidate worktree, local/remote task branch, sandbox PR/branch and all R10 temporary roots have been removed.
-- AIO B4 final: PR #177 fixed head `58617c03142c63cd3f4017ef1fea6b2cb0e5f97f` passed local verifier, exact-head monitor with full repository and relative policy, and independent acceptance; canonical squash merge is `36a4b1855e767ce89286950b355cf249918eb732`. First re-acceptance failed with `POLICY_PATH_UNSUPPORTED`, second with `GITHUB_QUERY_FAILED`, and the next executor attempt reported `REPOSITORY_INVALID`; each was preserved as a rejection/error fact and not retried under the same attempt. Canonical rework/epoch 3 then produced the successful delivery and acceptance. Records-only closeout PR #178 fixed head `cd966c1236bf64641a7bd6969823b4a4ed583740` passed the 3600-second monitor and merged as `3f856c88749f4875889164fa72caeebc22143d98`. AIO B4 did not modify workflows, generic policy, bundle pin, production, settings or the original untracked adoption plan directory.
-- AIO C final: 从已发布并 verify 的 v0.1.5 asset 建立隔离 runtime，PR #179 fixed head `0d91548c1990dd059ba6df0f6465e2c275714f36` 经两轮 canonical rework 后通过独立 review、local verifier 和 3600 秒 fixed-head monitor，canonical merge 为 `378fb51569a904573c8a95a9e0b5b51e6820de88`。首轮 acceptance 的 `FILESYSTEM_ERROR` 后由 trusted main 以同一 canonical `gkd-task accept --merge` 重试成功；没有补造 receipt。records-only PR #180 fixed head `f972a3c78b5aa119784b871c7bfc4b43d72bdac5` 通过 3600 秒 monitor 后 squash merge 为 `a133a79c819ff875cfffca40967700679b4fc383`。C 只加入 AIO 专有 history adapter 与 smoke/selftests，明确不把 Trellis 路径传给 GKD migrate-v1，未修改原始未跟踪 adoption plan 目录；C 隔离临时根已可恢复移动到可恢复的 machine-local Trash。
-- AIO D final: D v1 PR #181 因 lifecycle 文档 EOF 空白与 `ci-gate` 失败保留为未合并失败尝试并关闭；D v2 PR #182 因 stale quality-gate selftest 与 fixed-head required-check identity ambiguity canonical blocked 并关闭。全新 v3 从已发布并 verify 的 v0.1.5 asset 建立隔离 runtime，PR #183 fixed head `27c9d9a8d350e1a67a2c2a162e80f65c91277a27` 经独立 `local_ready`、唯一 3600 秒 fixed-head monitor、无 finding acceptance 后 merge 为 `1c4ffe456244339eac2f0dfd9772dda1fe3becc8`；records-only PR #184 fixed head `15ac37dfaff5846b0258ac256e2645e905011b80` 经 3600 秒 monitor 后 merge 为 `259b95b76f719510f67f76a3fb5d85b73d6e4448`。D bundle digest 仍绑定 v0.1.5 `d749b753...`，candidate output digest 为 `0f834309...`；v3 candidate/runtime/temp root 已清理，AIO 原始未跟踪 adoption plan 目录未触碰。
+- `v0.1.5`、生产 `~/.codex`、AIO、GitHub 设置、Secrets、付费 runner、tag 和 Release 保持不变，除非用户另行授权。
+- 新任务只在独立 worktree 中创建三份 Markdown 记录；不重建旧生命周期或机器状态。

@@ -1,6 +1,0 @@
-{
-  "schemaVersion": 1,
-  "probe": "normal_final_wakeup",
-  "instruction": "Return the expected marker immediately without reading files, calling tools, or doing any other work.",
-  "expectedMarker": "GKD_M1_NORMAL_FINAL_OK"
-}

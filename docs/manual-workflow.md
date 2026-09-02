@@ -1,6 +1,6 @@
 # Manual-first 工作流
 
-这是 GKD 迁移后的默认人工协作方式。当前处于施工期；它只约定协作材料和工作顺序，不是新的机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。
+这是 GKD 唯一的人工协作方式。它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。
 
 ## 三个输入
 
@@ -43,9 +43,9 @@
 ## 执行代理启动提示词
 
 ```text
-读取当前 worktree 中的 plan.md。
-按照其中的目标、范围和行为约束工作。
-把重要进展、判断、阻塞和下一步写入 progress.md。
+读取当前 worktree 中的 plan.md 和适用的 AGENTS.md。
+只阅读完成目标所需的代码，并在声明的 worktree 中工作。
+把重要进展、判断、阻塞和实际运行的验证结果写入 progress.md。
 不要修改计划中声明的非目标范围。
 完成后停止并通知主代理，由主代理审查 diff。
 ```
@@ -59,12 +59,12 @@
 - progress.md 是否说明了实际完成情况和剩余风险；
 - 必要的局部测试或手工验证是否足够。
 
-主代理不需要重建 offer、claim、activation、receipt、delivery manifest 或 fixed-head acceptance。通过后按普通 Git 流程合并或保留分支；不通过时修改计划并让执行代理继续。
+通过后按普通 Git 流程合并或保留分支；不通过时修改计划并让执行代理继续。
 
 ## 中断与恢复
 
-新的执行 session 先读取同一个 worktree 的 `plan.md` 和 `progress.md`，再查看未提交 diff 与最近提交。报告不完整时以代码和 Git 历史为准，并把新的判断补回 `progress.md`。不要求恢复旧的 runtime、锁、nonce 或对话线程。
+新的执行 session 先读取同一个 worktree 的 `plan.md` 和 `progress.md`，再查看未提交 diff 与最近提交。报告不完整时以代码和 Git 历史为准，并把新的判断补回 `progress.md`；不依赖旧对话线程。
 
 ## 边界
 
-本协议是唯一正常人工工作流。`gkd-task`、`gkd-role`、watcher、release 和旧验证材料只读保留，不提供生产迁移或兼容恢复入口，也不应被新的执行代理 prompt 主动调用。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产不在本协议范围内。
+本协议是唯一正常人工工作流。执行代理不读取无关历史材料，也不调用其他 GKD 自动化入口。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产不在本协议范围内。

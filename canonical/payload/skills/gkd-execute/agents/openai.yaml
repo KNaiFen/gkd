@@ -1,4 +1,0 @@
-interface:
-  display_name: "GKD Execute"
-  short_description: "Execute one claimed task to delivery"
-  default_prompt: "Use $gkd-execute for the exact activated and claimed GKD task."
