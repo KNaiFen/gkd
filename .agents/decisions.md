@@ -746,3 +746,7 @@
 - [2026-09-02] turn/steer runtime availability 以 feature registry 优先于 schema presence。
   - Why: 本机 `codex-cli 0.152.0` 将 `steer` 标记为 `removed`，但生成 JSON schema 仍保留 `TurnSteerParams`；继续按 schema 直接调用会把历史协议形状误报为当前能力。
   - Impact: 版本 registry 将 current `steer` 记录为 `removed`、历史 `0.147.0` 保留 `compatibility-only`；current digest 可进入请求解析以得到稳定 `turn_steer_unsupported`，watcher/factory 在任何 session、transport 或真实 RPC 前 fail-closed。历史读取、interrupt 确认和 expected-turn CAS 负向测试保持不变。
+
+- [2026-09-02] 收窄 manual-first 文档的必需流程并校准项目状态记录。
+  - Why: 审查发现普通任务的核心确实只有目标、工作目录和行为约束，但规则文件把完整 VISION、全部 `.agents` 状态同步以及 scope/non-goals/completion fields 变成了隐性前置；根目录交接文件和生产安装状态也已过期。
+  - Impact: 普通任务只需读取适用的 `AGENTS.md`，并使用三份 Markdown 记录；`.agents` 仅在架构、流程、发布状态或授权边界变化时读取/更新；计划辅助字段按需要补充。根目录记录改为当前项目状态，生产 development bundle 安装事实与 Stage 2/3 完成状态已同步。

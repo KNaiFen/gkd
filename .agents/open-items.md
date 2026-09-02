@@ -128,13 +128,13 @@
 - [x] Manual-first Stage 0：完成 VISION/AGENTS/README、ADR-002 和人工协议落盘；`v0.1.5` 冻结为 legacy。已由独立文档提交完成。
 - [x] Manual-first Stage 1（协议切片）：建立三文件人工协议、执行代理启动提示词和模板；不再要求协议使用者手填机器 JSON、CAS、digest 或专用生命周期参数。canonical payload/Skill 接入仍待后续切片。
 - [x] Manual-first Stage 1（入口接入）：canonical development bundle 的 `gkd-main` Skill 已改为读取 plan/progress/review，并确认旧 `v0.1.5` Skill 仅保留为 legacy。
-- [ ] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
+- [x] Manual-first Stage 2：用三个真实任务验证创建、执行、返工和中断恢复流程；不运行旧 automatic 验收链。
 - [x] Manual-first Stage 2 试运行 #1：在独立 worktree 完成 README 入口清理，主代理发现版本措辞错误后写 review，新 session 按 review 修正，最终 diff 与 progress 通过人工审查。
 - [x] Manual-first Stage 2 试运行 #2：执行代理在独立 worktree 搜索确认目标 helper 已由 O1 删除，记录 no-op 和语法验证，不制造重复代码变更。
 - [x] Manual-first Stage 2 试运行 #3：新 session 读取中断前的 plan/progress，在同一 worktree 完成模板索引并记录恢复依据；主代理审查后通过。
 - [x] Manual-first Stage 3（默认安装面）：development bundle 默认仅含 foundation 与 manual Skill，旧 task/role/bridge/acceptance/release/verifier 归入显式 `legacy-automatic` pack；默认安装和 legacy pack 均已完成安装/验证冒烟。
 - [x] Manual-first Stage 3（默认 CI）：旧 `GKD Verify` PR workflow 已移入 `legacy/workflows/`，GitHub 不再为普通 manual-first 变更自动运行完整 verifier。
-- [ ] Manual-first Stage 3：将旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证移出默认安装/上下文，保留 legacy 读取与迁移面。
+- [x] Manual-first Stage 3：旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证已移出默认安装面与普通任务上下文，保留 legacy 读取与迁移面。
 - [x] Manual-first Stage 3 compatibility baseline：登记 `0.152.0` CLI/schema capture，保留 `0.147.0` 历史读取；未知版本和 schema drift 明确 fail-closed，未恢复 automatic watcher。
 - [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
 - [x] 2026-09-02 子代理事件适配返工：current `0.152.0` fixture/parser 收敛到官方 direct JSONL 外壳；协作 item 具体字段无脱敏 capture 时明确 unsupported，旧 `0.147.0` wrapper 保持可读。

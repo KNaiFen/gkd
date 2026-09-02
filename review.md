@@ -1,23 +1,15 @@
-# Review
+# 当前项目审查
 
 ## 结论
 
-通过第一阶段 `legacy-compat-baseline`。
+当前仓库指导方向与实现状态一致：manual-first 是普通任务唯一入口，兼容实现和旧自动化能力是显式 legacy/optional 面。
 
-## 审查依据
+## 已审查
 
-- `70c383a` 将 runtime baseline 改为显式版本 registry，保留 `0.147.0` 历史别名并登记 `0.152.0` 当前 capture。
-- 未知 CLI、已登记版本的 schema 漂移、请求 digest 与实际 baseline 不匹配分别返回窄错误；app-server transport 在校验失败时不会启动。
-- 当前 capture 只进入兼容性记录；历史 watcher 仍要求旧 baseline，automatic watcher 没有重新启用。
-- 变更没有处理子代理事件、MCP、CLI 文本 parser、initialize 能力或 `turn/steer`。
+- 默认入口只围绕目标、worktree、行为约束，以及三份 Markdown 交接记录。
+- 最近兼容修正没有增加普通任务所需的机器参数、合同、CAS、receipt 或 fixed-head acceptance。
+- 当前生产 GKD managed surface 已记录为 development bundle `0.0.0-dev.1`，但该版本仍未发布、未接入 AIO。
 
-## 验证
+## 后续
 
-- watchdog discover：53 项通过。
-- runtime/app-server/native probe 专项：25 项通过。
-- historical watchdog contract：47 项通过，输出 `compatibility_baseline_recorded`。
-- `git diff --check`：通过。
-
-## 下一步
-
-进入第二阶段前，保留该 worktree 的 plan/progress/review 作为交接材料。第二阶段只处理子代理事件归一化，不得提前修改 `turn/steer`。
+若要删除或继续归档 legacy 实现，应另立计划并单独审查；不要把 legacy 维护步骤加入普通 manual-first 任务。

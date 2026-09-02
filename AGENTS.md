@@ -7,11 +7,11 @@
 
 ## 工作规则
 
-- 材料性规划前必须完整阅读并遵守 [VISION.md](VISION.md)。
-- 修改前阅读最近的 `AGENTS.md` 以及 `.agents/` 中的持久记录。
+- 材料性规划、架构或流程变更前必须完整阅读并遵守 [VISION.md](VISION.md)。
+- 普通任务先阅读适用的 `AGENTS.md`；只有会改变 GKD 架构、流程、发布状态或授权边界时，才读取 `.agents/` 中的持久记录。
 - 保持变更小而明确，禁止写死仓库、用户名或本机绝对路径。
 - 人工任务的持久交接使用 `plan.md`、`progress.md`、`review.md`；不要为普通任务新增机器合同或状态副本。
-- 项目状态变化时同步更新 `.agents/context.md`、`.agents/decisions.md` 和 `.agents/open-items.md`。
+- 只有 GKD 架构、流程、发布状态或授权边界变化时，才同步更新 `.agents/context.md`、`.agents/decisions.md` 和 `.agents/open-items.md`；普通任务不要求更新这三个文件。
 - 完成任务前运行与变更范围相称的最小验证，并记录可复核证据。
 - 每个完成的任务单独提交，使用简短、具体的中文提交说明。
 

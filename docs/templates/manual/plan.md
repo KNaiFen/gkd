@@ -12,14 +12,14 @@
 
 <!-- Rules the execution agent must follow. -->
 
-## Scope
+## Scope (optional)
 
-<!-- Files, modules, or user-visible behavior included in this task. -->
+<!-- 可选：需要明确时再填写文件、模块或用户可见行为。 -->
 
-## Non-goals
+## Non-goals (optional)
 
-<!-- Explicitly out of scope. -->
+<!-- 可选：需要明确时再填写明确的非目标。 -->
 
-## Completion conditions
+## Completion conditions (optional)
 
-<!-- What the main agent will inspect before approving the result. -->
+<!-- 可选：需要明确时再填写主代理批准前要检查的结果。 -->

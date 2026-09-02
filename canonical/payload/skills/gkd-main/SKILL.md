@@ -8,7 +8,7 @@ description: Coordinate a manual-first Agent task with a plan, Git worktree, pro
 Use the task worktree and three human-readable Markdown files as the normal coordination surface.
 
 1. Read the applicable `AGENTS.md` and the worktree's `plan.md` before editing.
-2. Ensure `plan.md` states the goal, worktree, behavior constraints, scope, non-goals, and completion conditions. Do not create a machine state copy.
+2. Ensure `plan.md` states the goal, worktree, and behavior constraints. Add scope, non-goals, or completion conditions only when they clarify this task; do not create a machine state copy.
 3. Start the execution session with the prompt in `docs/manual-workflow.md`. Work only in the declared worktree and update `progress.md` when making decisions, reaching milestones, or becoming blocked.
 4. Let the execution agent finish and stop. Do not ask it to accept, merge, archive, or operate another task.
 5. Review the Git diff, recent history, `plan.md`, and `progress.md`. Record the decision in `review.md`.
