@@ -31,6 +31,8 @@
 
 - [2026-09-02] turn/steer 退场适配完成：current `0.152.0` feature registry 明确 `steer=removed`，即使生成 schema 保留 `turn/steer`，watcher 与 app-server factory 也在 session/transport 前稳定返回 `turn_steer_unsupported`；历史 `0.147.0` watcher 读取、interrupt/CAS 负向语义保持 compatibility-only，未恢复 automatic watcher。
 
+- [2026-09-02] 测试与设计规则收紧：零碎实现改动不新增单元测试，只有影响真实用户工作流或高风险核心行为时才保留必要的端到端验证；每次设计或实现完成后进行消融实验，删除不必要的抽象和设计。
+
 - [2026-09-02] 子代理事件适配返工完成：current `0.152.0` fixture/parser 仅接受官方
   `thread/turn/error/item.*` direct 外壳；未有真实脱敏 capture 的协作 item 字段保持
   `UNSUPPORTED_*`，旧 `0.147.0` payload wrapper 与 legacy spawn/terminal 语义不变。

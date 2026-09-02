@@ -148,3 +148,5 @@
 - [x] 2026-09-02 turn/steer 退场适配：feature registry 以 `steer=removed` 覆盖 current
   `0.152.0`；schema presence 与 runtime availability 已分离，current 调用在 session/transport
   前稳定返回 `turn_steer_unsupported`，历史 `0.147.0` watcher/CAS/interrupt 负向语义保持可复核。
+
+- [x] 2026-09-02 测试与设计规则已收紧：零碎实现改动不新增单元测试，只在真实用户工作流或高风险核心行为受影响时保留必要的端到端验证；每次设计或实现完成后进行消融实验，移除不必要的抽象和设计。
