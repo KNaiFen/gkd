@@ -1,4 +1,4 @@
-"""Canonical GKD roles, routing, waiting, activation, and migration."""
+"""Canonical GKD roles, routing, waiting, and activation."""
 
 import sys
 

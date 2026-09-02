@@ -2,8 +2,8 @@
 
 ## 项目定位
 
-- 本仓库正在迁移到 manual-first Agent 工作流：目标、工作目录、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
-- 迁移完成前，原有 `v0.1.5` bundle、自动路由、固定 head 验收和发布验证仍作为 legacy 实现保留。
+- 本仓库采用 manual-first Agent 工作流：目标、工作目录、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
+- 旧 bundle、自动路由、固定 head 验收和发布验证只作为历史材料保留，不是当前入口，也不提供迁移流程。
 
 ## 工作规则
 

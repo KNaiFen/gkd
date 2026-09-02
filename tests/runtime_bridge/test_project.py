@@ -290,7 +290,7 @@ class ProjectStagingContracts(unittest.TestCase):
         target = temporary_root / "target"
         temporary_root.mkdir()
         target.mkdir()
-        installed = gkd_bundle.install(Path("canonical"), temporary_root, target)
+        installed = gkd_bundle.install(Path("canonical"), temporary_root, target, ("legacy-automatic",))
         code = """
 import sys
 from pathlib import Path
@@ -356,7 +356,7 @@ finally:
         target = temporary_root / "target"
         temporary_root.mkdir()
         target.mkdir()
-        installed = gkd_bundle.install(Path("canonical"), temporary_root, target)
+        installed = gkd_bundle.install(Path("canonical"), temporary_root, target, ("legacy-automatic",))
         project = self._project("installed-pack-project")
         with self.assertRaisesRegex(TaskError, "OPTIONAL_PACK_NOT_INSTALLED"):
             stage_project(target / "gkd", installed["contentDigest"], project, self.production, packs=("ci-advice",))

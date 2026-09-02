@@ -6,14 +6,14 @@
 
 ## Current state
 
-- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；该发行物现冻结为 legacy，生产 GKD managed surface 已按用户授权安装 development bundle `0.0.0-dev.1`（digest `33b0f0ae5c8e591b6cc0673c1f338dc83a3b36bdcedd087e0a7f801a4d1bfcda`），production-migration-doctor 返回 healthy。
+- 当前已发布 GKD pin 为 `v0.1.5`，bundle digest 为 `d749b753fb11aeab44d41b4e1d8bec44c7fa2d18a4b08148fbc0e0c127e27e6d`；该发行物现冻结为历史材料。生产 GKD managed surface 已清理为单一 `gkd-main` Skill，不再提供 GKD 角色、旧 Skill 注入或 production migration。
 - AIO adoption 的 B4、C、D 已完成；后续生产或 AIO 普通产品改动、GitHub settings/Secrets、付费 runner、tag/Release 仍须单独明确授权。
 - O1 已于 2026-08-28 以 merge `eacd9652134a767902d74da5b4b3d084fa122dfa` 完成；O2 已于 2026-08-28 以 merge `2107ebccfb1f11979cf38d5b6ce1281bfb122bbb` 完成。
 
 ## Next task
 
 - O1-O8 与 Python 3.9 compatibility 已完成。O8 以 fixed head `a0a776f1e1cadbed90b553406ca49d615a10b97d`、merge `2dd8a433ac83721cd7b980a024e1e17950f1f52c` 完成十种公开 legacy format 的 catalog 与显式 `release-upgrade/matrix`。P1-P5 均已合并；此前的编排输入面收敛计划现作为历史记录保留。2026-09-01 用户授权 manual-first 架构重构；Stage 0 的规则/愿景/ADR、Stage 1 的协议/模板和未发布 development bundle 入口已完成，下一步是人工试运行。
-- 当前 development bundle source 为 `0.0.0-dev.1`，由 canonical generator 生成的 content digest 为 `33b0f0ae5c8e591b6cc0673c1f338dc83a3b36bdcedd087e0a7f801a4d1bfcda`；默认安装仅含 foundation 与 manual Skill，`legacy-automatic` pack digest 为 `7baa56dbc11eb403483920038e4054cd57637eed4f7833766ed1dfd112784aeb`。旧 PR workflow 已移入 `legacy/workflows/`，不再自动触发。该 development bundle 已通过明确授权安装到生产 GKD managed surface；尚未为 `0.0.0-dev.1` 创建 tag/Release，AIO 也未接入。三次 manual-first 试运行已分别覆盖返工、no-op 和中断恢复，下一步是评估是否继续删除 legacy 实现。
+- 当前 development bundle source 为 `0.0.0-dev.1`，由 canonical generator 生成的 content digest 为 `3349077b50bca3d1b31919ef7004b8071229599abfbd0464baadab12b963bd16`；默认安装只保留 foundation 与 `gkd-main` Skill。旧 PR workflow 已移入 `legacy/workflows/`，不再自动触发；旧自动运行时、Skill 和角色仅作为历史源码/证据保留，不再提供安装或迁移入口。尚未为 development bundle 创建 tag/Release，AIO 也未接入。
 - Legacy compatibility baseline（2026-09-02）：本机 CLI 为 `0.152.0`，相关 schema digest 为 `398b3be7ac8f5135c7ed6f258e3ba0264c734715b0384539adb462b873745519`；历史 `0.147.0`/`ea75b776...` evidence 保持只读。runtime registry 对未知 CLI 返回 `codex_version_unsupported`，对已登记版本 schema 漂移返回 `schema_digest_mismatch`；当前 capture 仅记录兼容性，不启用 legacy watcher 或改变 manual-first bundle。
 
 ## Historical facts

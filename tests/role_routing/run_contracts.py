@@ -15,13 +15,11 @@ import tempfile
 import unittest
 
 import gkd_bundle
-from gkd_role.migration import apply_migration, verify_migration
 from gkd_role.roles import context_manifest, role_catalog
 from gkd_role.routing import m2a_route_evidence
 from gkd_task.canonical import atomic_write, canonical_bytes, digest_object, read_canonical_json, require_keys, require_sha256, sha256_bytes
 from gkd_task.errors import TaskError
 from gkd_task.results import CanonicalResultError, load_canonical_results
-from tests.role_routing.helpers import build_migration_home
 
 
 ACCEPTED_M2_BUNDLE_DIGEST = "5b115a918d8a5241551b0be8dac657a448e1b912815493e1988007b1f4ed1880"
@@ -154,27 +152,13 @@ def _validate_handshake(value: dict[str, object]) -> None:
         raise TaskError("INVALID_ROLE_HANDSHAKE")
 
 
-def _exercise_install(source: Path, temporary: Path, name: str, bundle_digest: str) -> dict[str, object]:
+def _exercise_install(source: Path, temporary: Path, name: str) -> dict[str, object]:
     install_root = temporary / f"bundle-{name}"
     target = install_root / "target"
     install_root.mkdir(); target.mkdir()
     installed = gkd_bundle.install(source, install_root, target)
-    home = temporary / f"home-{name}"
-    build_migration_home(home)
-    migrated = apply_migration(target / "gkd", home, bundle_digest)
-    verified = verify_migration(target / "gkd", home, bundle_digest)
-    result = {
-        "bundleVersion": installed["bundleVersion"],
-        "contentDigest": installed["contentDigest"],
-        "files": installed["files"],
-        "planDigest": migrated["planDigest"],
-        "surfaceDigest": migrated["afterDigest"],
-        "inventoryDigest": migrated["inventoryDigest"],
-        "roleDigests": verified["roleDigests"],
-        "skillDigests": verified["skillDigests"],
-    }
+    result = {key: installed[key] for key in ("bundleVersion", "contentDigest", "files")}
     shutil.rmtree(install_root)
-    shutil.rmtree(home)
     return result
 
 
@@ -223,8 +207,8 @@ def main() -> int:
             raise TaskError("ROLE_HANDSHAKE_BUNDLE_DRIFT")
         if handshake["handshakeDigest"] != ACCEPTED_M2_HANDSHAKE_DIGEST:
             raise TaskError("ROLE_HANDSHAKE_HISTORY_DRIFT")
-        first = _exercise_install(source, temporary, "a", bundle_digest)
-        second = _exercise_install(source, temporary, "b", bundle_digest)
+        first = _exercise_install(source, temporary, "a")
+        second = _exercise_install(source, temporary, "b")
         if first != second:
             raise TaskError("M2_INSTALL_NONDETERMINISTIC")
         if any(temporary.iterdir()):

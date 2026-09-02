@@ -14,7 +14,6 @@ CORE_SCOPE_PATHS = (
     "tests/task_core",
     "tests/role_routing",
     "tests/runtime_bridge",
-    "tests/production_migration",
     "tests/foundation",
 )
 

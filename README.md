@@ -14,10 +14,8 @@ GKD 工作流的规范源码、版本管理与专属验证仓库。
 
 标准顺序是：主代理创建计划和 worktree，执行代理按计划工作并更新进度，完成后通知主代理；主代理检查 diff、`plan.md`、`progress.md` 和必要的局部验证，随后通过，或修改计划/审查意见后继续执行。中断恢复时，新 session 先读取同一 worktree 的计划和进度，再以 Git diff 与历史为准。详见 [Manual-first 工作流](docs/manual-workflow.md) 及 [VISION](VISION.md)。
 
-## Legacy：旧自动工作流
+## 历史材料
 
-迁移完成前，已发布的 `v0.1.5` legacy bundle 及其 `gkd-task`/`gkd-role`、automatic runtime bridge、watcher、fixed-head acceptance、release engine 和专属 verifier 仅作为 legacy/兼容能力保留；当前开发线为未发布的 `0.0.0-dev.1`，也不是普通任务入口。旧命令不应由新的执行代理 prompt 主动调用；既有发布资产和 AIO 保持不变，生产目录仅在明确授权的 production migration 中更新。
+已发布的 `v0.1.5`、旧任务记录、automatic/fixed-head/release 证据和 Codex 版本观察记录只读保留，用于理解历史决策和核对回归。它们不属于当前入口，仓库不再提供旧生产安装、角色迁移或兼容恢复流程。
 
-Legacy CLI、project staging 与 automatic runtime bridge 最低支持 Python 3.9。仓库 CI policy 位于 `.gkd/policy.json`；旧验证入口包括 `scripts/gkd-verify --base-sha <full-sha>`，以及必须显式指定的 `--lane historical`、`optional-ci-advice`、`optional-review-remediation` 和 `optional-packs` lane。结果复用可使用 `--results-dir <directory>` 与 `--canonical-results <directory>`；automatic delivery、historical evidence 和 host-capability probe 仍遵循各自旧参数和固定树约束。
-
-旧 watcher 的 `0.147.0` 读取与负向 CAS/interrupt 合同继续作为 compatibility-only lane。当前 CLI `0.152.0` 的 feature registry 将 `steer` 标记为 `removed`；即使生成 schema 仍含 `turn/steer` 字段，运行时也会在启动 app-server 前返回 `turn_steer_unsupported`，不会发送真实调用。详见 `evidence/turn-steer-retirement/feature-registry.json`。
+当前 development bundle 只承担 foundation 与 `gkd-main` Skill；普通任务不需要 `gkd-task`、`gkd-role`、旧 executor/acceptor/CI Skills 或机器合同。旧源码和测试只读保留，不应被新任务路由调用。

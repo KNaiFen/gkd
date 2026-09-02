@@ -82,7 +82,7 @@ TRACEABILITY_EVIDENCE = {
     "GKD-014": (
         "tests.role_routing.test_roles.RoleContracts.test_context_manifests_are_minimal_and_explicit_about_omissions",
         "tests.role_routing.test_roles.RoleContracts.test_unknown_role_source_fields_and_conflicting_skill_names_fail_closed",
-        "tests.role_routing.test_mutations.MutationContracts.test_mutation_legacy_role_replacement_is_killed",
+        "tests.role_routing.test_packaging.PackagingContracts.test_role_cli_no_longer_exposes_migration_commands",
     ),
     "GKD-015": (
         "tests.review_core.test_core.ReviewCoreContracts.test_partial_approval_resume_and_recovery_preserve_machine_facts",

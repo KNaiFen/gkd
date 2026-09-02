@@ -134,9 +134,9 @@
 - [x] Manual-first Stage 2 试运行 #3：新 session 读取中断前的 plan/progress，在同一 worktree 完成模板索引并记录恢复依据；主代理审查后通过。
 - [x] Manual-first Stage 3（默认安装面）：development bundle 默认仅含 foundation 与 manual Skill，旧 task/role/bridge/acceptance/release/verifier 归入显式 `legacy-automatic` pack；默认安装和 legacy pack 均已完成安装/验证冒烟。
 - [x] Manual-first Stage 3（默认 CI）：旧 `GKD Verify` PR workflow 已移入 `legacy/workflows/`，GitHub 不再为普通 manual-first 变更自动运行完整 verifier。
-- [x] Manual-first Stage 3：旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证已移出默认安装面与普通任务上下文，保留 legacy 读取与迁移面。
+- [x] Manual-first Stage 3：旧 automatic CLI、bridge、watcher、fixed-head acceptance 和合同验证已移出默认安装面与普通任务上下文，保留只读历史材料，不再提供迁移面。
 - [x] Manual-first Stage 3 compatibility baseline：登记 `0.152.0` CLI/schema capture，保留 `0.147.0` 历史读取；未知版本和 schema drift 明确 fail-closed，未恢复 automatic watcher。
-- [ ] Manual-first Stage 4：在试运行稳定后分批删除或归档不再使用的实现、Skill、schema、tests 和 evidence runner，并发布新的 manual-first 版本。
+- [x] Manual-first Stage 4（本次切片）：删除 role migration/production migration 入口及其专用实现、schema、测试和 verifier scope；生产 Skill 路由收敛为单一 `gkd-main`。历史自动实现仍可在仓库历史中追溯，但不再安装或路由。
 - [x] 2026-09-02 子代理事件适配返工：current `0.152.0` fixture/parser 收敛到官方 direct JSONL 外壳；协作 item 具体字段无脱敏 capture 时明确 unsupported，旧 `0.147.0` wrapper 保持可读。
 - [x] 2026-09-02 MCP 协商适配返工：已知协议显式协商，未知/缺失版本稳定 unsupported 且不回退；live metadata 额外字段 fail-closed，未宣称 `mcp_2026_07_28` 支持。
 - [x] 2026-09-02 CLI probe/parser 适配返工：current `0.152.0` direct JSONL 严格校验

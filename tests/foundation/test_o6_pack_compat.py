@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tests.foundation.helpers import copy_source, gkd_bundle, run_cli
+from tests.foundation.helpers import copy_source, gkd_bundle
 
 
 class O6PackCompatibilityContracts(unittest.TestCase):
@@ -23,39 +23,6 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         source = copy_source(destination)
         gkd_bundle.generate(source)
         return source
-
-    def _legacy_source(self, name: str = "legacy") -> Path:
-        source = self._future_source(name)
-        declaration_path = source / "source.toml"
-        declaration = declaration_path.read_text(encoding="utf-8")
-        declaration = declaration.replace("schema_version = 2", "schema_version = 1", 1)
-        declaration = declaration.replace('[[packs]]\nname = "ci-advice"\n\n', "", 1)
-        declaration = declaration.replace('[[packs]]\nname = "review-remediation"\n\n', "", 1)
-        declaration = declaration.replace('pack = "ci-advice"\n', "")
-        declaration = declaration.replace('pack = "review-remediation"\n', "")
-        declaration_path.write_text(declaration, encoding="utf-8")
-        schema_path = source / "manifest.schema.json"
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        schema["schemaVersion"] = 1
-        schema["required"].remove("packs")
-        schema["properties"].pop("packs")
-        schema["properties"]["schemaVersion"] = {"const": 1}
-        schema_path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
-        return source
-
-    def test_v1_source_cli_generate_and_verify_remain_supported(self) -> None:
-        source = self._legacy_source()
-        generated = run_cli("generate", "--source-root", str(source))
-        self.assertEqual(0, generated.returncode, generated.stderr)
-        manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
-        lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
-        self.assertEqual(1, manifest["schemaVersion"])
-        self.assertNotIn("packs", manifest)
-        self.assertNotIn("packs", lock)
-        self.assertNotIn("coreDigest", lock)
-        verified = gkd_bundle.verify_bundle_root(source / "payload")
-        self.assertEqual("verified", verified["status"])
-        self.assertEqual([], verified["availablePacks"])
 
     def test_v1_source_rejects_pack_declarations(self) -> None:
         source = self._future_source("v1-packs")
@@ -74,15 +41,15 @@ class O6PackCompatibilityContracts(unittest.TestCase):
         current_manifest = json.loads((current / "manifest.json").read_text(encoding="utf-8"))
         current_lock = json.loads((current / "manifest.lock.json").read_text(encoding="utf-8"))
         self.assertEqual(2, current_manifest["schemaVersion"])
-        self.assertEqual(115, len(current_lock["installFiles"]))
-        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in current_manifest["packs"]])
+        self.assertEqual(111, len(current_lock["installFiles"]))
+        self.assertEqual(["ci-advice", "legacy-automatic", "review-remediation"], [item["name"] for item in current_manifest["packs"]])
 
         source = self._future_source("all-packs")
         verified_source = gkd_bundle.verify_bundle_root(source / "payload")
-        self.assertEqual(["ci-advice", "review-remediation"], verified_source["availablePacks"])
+        self.assertEqual(["ci-advice", "legacy-automatic", "review-remediation"], verified_source["availablePacks"])
         lock = json.loads((source / "manifest.lock.json").read_text(encoding="utf-8"))
         self.assertEqual(2, lock["schemaVersion"])
-        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in lock["packs"]])
+        self.assertEqual(["ci-advice", "legacy-automatic", "review-remediation"], [item["name"] for item in lock["packs"]])
         self.assertRegex(lock["coreDigest"], r"^[0-9a-f]{64}$")
 
         target = self.root / "target"

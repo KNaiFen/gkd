@@ -30,7 +30,6 @@ SCOPE_PATHS = {
     "task-core": "tests/task_core",
     "role-routing": "tests/role_routing",
     "runtime-bridge": "tests/runtime_bridge",
-    "p1-production-migration": "tests/production_migration",
     "foundation": "tests/foundation",
 }
 

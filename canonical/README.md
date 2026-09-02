@@ -1,194 +1,24 @@
 # Canonical development bundle
 
-`canonical/` is the only bundle source root. `source.toml` is the reviewed
-developer declaration; `manifest.json` and `manifest.lock.json` are generated
-outputs and must never be edited by hand. The published `0.1.5` bundle is
-frozen as legacy; this source is now the unreleased manual-first development
-line and must not be presented as a replacement release until migration is
-complete.
+`canonical/` 是 GKD 的唯一 bundle 源目录。`source.toml` 是人工审查的声明；
+`manifest.json` 和 `manifest.lock.json` 由 generator 生成，不得手工编辑。
 
-The repository is migrating to a manual-first workflow. The development bundle
-under construction teaches the main agent to use `plan.md`, `progress.md`, and
-`review.md`; the remainder of this document describes the `v0.1.5` legacy
-bundle and remains for compatibility until the migration is complete.
+当前 development bundle 的正常安装面只有 foundation 和 `gkd-main` Skill。
+`gkd-main` 负责读取 `plan.md`、`progress.md`、`review.md`，协调执行 session，
+并把审查决定留在主代理。普通任务不需要 GKD role、automatic route、fixed-head
+acceptance、生产安装器或任何 migration 命令。
 
-The canonical CLI, project staging, and automatic runtime bridge support
-Python 3.9 or newer. TOML parsing uses the standard library on Python 3.11+
-and the bundled, MIT-licensed Tomli 2.0.1 compatibility parser on Python 3.9.
+旧 task/role/bridge、CI/review、release 和 migration 文件可能仍在源码、测试或
+历史 bundle 声明中，用于理解既有决策和验证旧记录；它们不属于当前路由，不应安装
+到生产 `~/.codex`，也不提供兼容恢复入口。历史 optional pack 同样不由 GKD 自动选择。
 
-The content digest is SHA-256 over newline-delimited canonical JSON records,
-sorted by canonical source path. Each record binds path, file type, mode and
-content SHA-256. Inputs are `manifest.schema.json`, the generated
-`manifest.json`, every declared payload file, and every declared explicit
-test or release-verification input. These external inputs stay under
-`canonical/inputs/`, are never installed into `gkd/`, and are verified by name
-through `gkd-bundle verify-input --source-root canonical --name <name>`. The
-lock is excluded from its own digest by this rule, then binds the complete
-ordered input records.
-Canonical metadata is required to be a regular `0644` file before generation;
-installed schema, manifest, lock and install metadata are checked against their
-actual type and mode during verification.
+Canonical CLI 支持 Python 3.9 或更新版本；TOML 解析在 Python 3.11+ 使用标准库，
+Python 3.9/3.10 使用仓库内的 Tomli 兼容实现。bundle content digest 是按规范化
+JSON 记录计算的 SHA-256，manifest、lock 和所有声明 payload 必须保持一致。
 
-An incompatible manifest shape increments `schema_version`. Every bundle
-content change regenerates the manifest and lock; release promotion only accepts
-one already-built asset set bound to one exact source SHA.
+bootstrap installer 只接受显式存在的系统临时目录及其下的目标，不接受生产 home。
+安装后的 `verify`/`version` 是 foundation 只读检查，不是生产 doctor。生成或修改
+bundle 后必须重新生成 manifest/lock，并运行与变更范围相称的测试。
 
-The bootstrap installer has no production or user-home mode. Installation
-requires an explicit existing system-temporary root and an explicit existing
-target beneath it. The installed read-only `verify` and `version` surfaces are
-foundation contracts, not a production doctor.
-
-The manual-first development installation contains the bundle foundation and
-the `gkd-main` coordination Skill. The `legacy-automatic` pack contains the
-old task, role, bridge, acceptance, release, and verifier surfaces; `ci-advice`
-and `review-remediation` remain separate optional packs. `gkd-bundle pack-stage`,
-`pack-verify`, and `pack-remove` accept only declared pack names and bind each
-pack's files, modes, sizes, SHA-256 values, and digest to the bundle lock.
-
-The separate `gkd-role production-migration-*` commands are the only explicit
-production-home migration surface. They stage the bounded GKD roles, Skills and
-managed config block, preserve a private path-relative recovery record until
-terminal verification, and expose plan, apply, doctor, rollback and recovery
-results without configuration contents or an absolute home path. The older
-temporary `migration-*` commands remain production-forbidden.
-Its doctor certifies only that bounded transaction and explicitly reports
-`globalAgentsPolicy: outside_scope`; it neither reads, writes, nor certifies
-the user-specific global `AGENTS.md` policy reserved for P2.
-
-Evidence output must resolve outside the source, temporary installation and
-protected roots. Temporary installs are fully removed before the final
-protected-state snapshot, and the evidence file is published only after every
-terminal invariant passes.
-
-## Legacy automatic and release surfaces
-
-When selected explicitly, the `legacy-automatic` pack installs the separate
-`gkd-task` executable, its standard-library `gkd_task` package, and strict task
-schemas. It owns canonical task state, planning and authorization gates,
-portable worktree resolution, offer/claim transactions, lifecycle doctor and
-trusted fixed-tree acceptance. The foundation `gkd-bundle` command surface
-remains unchanged.
-
-The legacy pack also includes the `gkd-main` command as a read-only
-trusted-main locator for one task context. Its inspect, planning and staging
-surfaces remain available for compatibility, but they are not part of the
-manual-first task path.
-
-From a trusted checkout, `gkd-main stage --production-root <explicit-root>`
-validates the current non-production project stage. Add `--refresh` to replace
-an owned stage from the canonical source; the command derives the bundle digest,
-target ownership and inventory, and preserves the prior stage if replacement
-fails. Optional packs remain explicit with repeated `--pack` values. The older
-`gkd-role project-stage`, `project-verify`, and `project-remove` commands remain
-available for diagnostics and compatibility.
-
-The repository verifier keeps its default invocation and core scope list.
-`scripts/gkd-verify --lane historical` is the explicit watcher/probe historical
-lane; it never runs from the default command. With an explicit `--results-dir`,
-each lane runs its scopes once and writes a versioned,
-path-free canonical result manifest plus one result per scope. Evidence runners
-may consume that directory with `--canonical-results`; they re-check the
-current fixed head, base ancestry, environment, complete scope test IDs/statuses
-and digests before selecting any contract-owned test IDs. Shared contract tests
-therefore reuse one canonical execution result while each evidence runner still
-runs its own protected-surface, temporary-root and output checks.
-The resource/scanner and review scopes likewise run only through
-`optional-ci-advice`, `optional-review-remediation`, or the combined
-`optional-packs` lane.
-
-Trusted acceptance uses the installed `gkd-github-acceptance` executable as its
-GitHub REST adapter. It returns canonical newline-delimited snapshots, maps a
-merged pull request to its immutable PR head, and issues only exact-head squash
-merge requests. An adapter exit status of `75` leaves reconciliation to the
-trusted `gkd-task accept` path; executor self-tests never perform a real merge.
-
-`gkd-task bootstrap` requires an explicit fetched full base SHA, canonical
-repository identity, independent candidate path and reviewed three-document
-planning package. Runtime attachments, one-time capabilities, envelopes, claim
-receipts, locks and journals stay outside tracked task data. A claim receipt is
-bound to the exact claim commit and committed transaction postimages before
-delivery or trusted acceptance can proceed. `gkd-task planning-refresh` is a
-planning-only CAS transition that rebinds all three reviewed document digests.
-Automatic delivery places canonical verifier results, delivery evidence, and
-the `tasks/<task>/result-manifest.json` sidecar in the implementation commit;
-the sidecar does not contain the implementation SHA. It instead binds task
-identity, base SHA, candidate bundle digest, and digests recomputed from the
-fixed-tree artifact files. The immediately following commit contains only
-`tasks/<task>/delivery.md`, and `gkd-task deliver` derives that implementation
-head from the delivery-document parent before writing the final state commit.
-Candidate-facing claim and
-activation commands, and the default library path without a trusted provider,
-remain fail-closed.
-
-The M2-A payload additionally defines three fixed custom-agent role TOMLs,
-minimal role context manifests, hard-rule subsets, five core
-progressive-disclosure workflow Skills, route and wait schemas, and a
-trusted-main workflow activation
-provider. This is not same-user process isolation and does not add signing,
-daemon, IPC, or key infrastructure.
-
-The M2-C payload promotes project staging to supported `gkd-role` surfaces and
-the runtime bridge to the main-role-only `TrustedMainRuntimeBridge` library
-interface. Public `gkd-role automatic-*` commands fail closed. `project-stage` renders the exact parent
-Skill, executor role/config and the three core executor Skills from one pinned bundle into an
-explicit non-production Git project; `project-verify` checks its byte inventory
-and digests before use. The bridge binds the six-gate automatic route decision
-to offer, envelope, one exact direct `gkd_executor` spawn acknowledgement,
-activation and claim. The acknowledgement contains only the returned exact task
-name and the direct-call contract; configured model/effort/sandbox/runtime come
-from the verified bundle and are not represented as host-effective observations.
-A trusted main may use `TrustedMainRuntimeBridge.prepare_handoff` to seal the
-execution context and spawn request before the host call. The returned
-`TrustedMainHandoff` accepts one acknowledgement and performs the bound claim;
-successful and rejected attempts are both consumed and cannot be replayed.
-A deterministic executor-attempt handle replaces raw agent/thread identity for
-new attempts. The claim retains the immutable execution bundle digest, while
-delivery requires a separately generated candidate output bundle digest.
-
-The task state v2 extension adds trusted fixed-head rejection/rework without
-rewriting a delivered attempt. `gkd-task rework` requires a clean synchronized
-main context, an exact clean candidate and live PR snapshot, an independent
-rejected review with findings, and the original claim/activation receipts. It
-revokes the consumed offer, preserves the old claim, delivery, bundle and review
-digests, increments the epoch, and returns to authorized planning. Executors
-remain stopped after delivery and cannot reject, accept, or resume themselves.
-
-Automatic spawn names are bounded to 128 ASCII characters and combine a
-sanitized task prefix with a digest of the exact offer and epoch. The same offer
-reconstructs the same name; a later automatic attempt cannot reuse it. Legacy
-attempts retain trusted terminal reclaim under their recorded host-runtime
-contract. New host-acknowledgement attempts do not reclaim from an unbound host
-terminal event: trusted main blocks them for manual recovery. Candidate and
-public CLI reclaim paths remain unavailable.
-
-Manual remains the default. Automatic routing is operational only from a
-verified project staging rooted at an accepted bundle and through the
-trusted-main bridge after the accepted M2-B one-hour wait gate. This development
-surface does not install production `~/.codex`, modify a consumer repository,
-or imply completion of M4 or M5.
-
-The M3-A payload adds a repository-neutral `gkd-ci-monitor`. It accepts only the
-versioned `.gkd/policy.json` in an explicit Git checkout, binds its GitHub
-repository and base branch to `origin`, then owns bounded read-only polling of
-one explicit pull request and full expected head. Its single terminal JSON can
-report success, required-check failure, head drift, timeout, or a stable error;
-it never changes GitHub state or treats check success as acceptance. Repository
-identity and check names remain in repository policy and workflow files, not in
-the reusable payload.
-
-The M3-C capability adds a repository-neutral review core with targeted, guided,
-and recon entry points, explicit partial approval, resume, and recovery state.
-The review adapter binds redacted facts for multiple repositories. The
-`gkd-optimize-ci` and `gkd-review-remediation` Skills stop at recommendations
-or remediation plans; they do not write runner, workflow, merge, rerun, or
-repository settings state. These two Skills and their dedicated runtime are
-available only through their declared optional packs. The five core Skills,
-optional pack inventory, project staging, manifest, lock, and digests remain
-bound to the same source declaration.
-
-The M5 release-candidate surface provides deterministic L1 property evidence,
-L2 read-only fake-GitHub subprocess evidence, and schema-bound L3 fresh-agent
-forward-eval plus L4 sandbox-canary fixtures. `gkd-release canary-plan` only
-emits the exact-SHA request for the release record's designated sandbox; it has
-no GitHub writer. Trusted main alone runs the applicable live L3/L4 pass after
-acceptance and validates the returned redacted result before promotion.
+项目的正常协作入口见 [manual workflow](../docs/manual-workflow.md)；历史 verifier、
+release lane 和旧 task 记录只作为只读证据，不构成当前任务的前置流程。

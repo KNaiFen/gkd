@@ -23,9 +23,9 @@ GKD 的新默认形态改为 manual-first：
 - 主代理拥有计划和审查结论；执行代理拥有进度报告；Git worktree 是代码事实源。
 - 中断恢复依靠 worktree、计划和进度报告，不依靠 runtime attachment、receipt、journal 或自动 reclaim。
 - 返工通过主代理修改计划或审查意见后继续执行，不创建新的 offer/claim/activation 生命周期。
-- 自动 route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证降为 legacy/optional 能力，不再进入普通任务路径。
+- 自动 route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证只读保留为历史材料，不再进入普通任务路径。
 
-`v0.1.5` 发行物、旧任务记录、生产安装和 AIO 接入保持只读兼容；新 manual-first 实现使用新的版本边界，不修改既有发布资产。
+`v0.1.5` 发行物、旧任务记录和 AIO 证据保持只读；新 manual-first 实现不提供旧生产安装、角色迁移或兼容恢复入口，也不修改既有发布资产。
 
 ## Alternatives
 
@@ -39,12 +39,12 @@ GKD 的新默认形态改为 manual-first：
 
 ### 同时保留两套默认工作流
 
-双默认会继续制造入口选择和上下文负担。manual-first 作为唯一正常入口，旧 automatic 能力只作为 legacy/optional 读取或迁移面。
+双默认会继续制造入口选择和上下文负担。manual-first 作为唯一正常入口，旧 automatic 能力只作为历史材料读取，不再作为路由或迁移面。
 
 ## Consequences
 
 正面结果：普通任务不再要求机器 JSON、CAS、digest、runtime root、PR/head 参数或专用验收脚本；主代理可直接审查 diff，执行代理可通过报告恢复；流程与人的实际工作方式一致。
 
-代价：自动化防漂移、固定证据和跨进程恢复不再是普通任务保证；旧 bundle、旧任务记录和旧发布流程需要保留一段兼容期；现有 tests、Skills、CLI 和文档需要分批退役。
+代价：自动化防漂移、固定证据和跨进程恢复不再是普通任务保证；旧 bundle、旧任务记录和旧发布流程只读保留；现有 tests、Skills、CLI 和文档按历史价值分批归档。
 
 重新评估条件：如果未来重新需要无人值守执行、跨机器自动恢复或可审计发布，必须另立 ADR，不得把这些要求偷偷塞回 manual-first 默认路径。

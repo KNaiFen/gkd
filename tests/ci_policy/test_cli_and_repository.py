@@ -113,7 +113,7 @@ class CliAndRepositoryContracts(unittest.TestCase):
 
     def test_repository_policy_workflow_verifier_and_schemas_agree(self) -> None:
         policy = json.loads((ROOT / ".gkd" / "policy.json").read_text(encoding="utf-8"))
-        workflow = (ROOT / ".github" / "workflows" / "gkd-ci.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / "legacy" / "workflows" / "gkd-ci.yml").read_text(encoding="utf-8")
         self.assertEqual(["GKD Verify"], policy["requiredChecks"])
         self.assertIn("name: GKD Verify", workflow)
         self.assertIn("runs-on: ubuntu-latest", workflow)

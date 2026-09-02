@@ -56,7 +56,6 @@ SCOPE_PATHS = {
     "task-core": "tests/task_core",
     "role-routing": "tests/role_routing",
     "runtime-bridge": "tests/runtime_bridge",
-    "p1-production-migration": "tests/production_migration",
     "foundation": "tests/foundation",
     "watcher-core-and-live-negative": "tests/watchdog",
     "release-upgrade": "tests/release_upgrade",

@@ -5,8 +5,8 @@
 ## 当前方向
 
 - 默认工作流是 manual-first：目标、工作目录和行为约束是唯一必需输入。
-- 兼容修正已完成并保留在 legacy/historical lane，不恢复 automatic watcher 或旧验收链为普通入口。
-- 当前 development bundle 为未发布的 `0.0.0-dev.1`；生产安装仅通过明确授权的 production migration 进行。
+- 兼容修正已完成并作为历史材料保留，不恢复 automatic watcher 或旧验收链为普通入口。
+- 当前 development bundle 为未发布的 `0.0.0-dev.1`；生产面只保留 `gkd-main`，不提供 production migration。
 
 ## 当前边界
 

@@ -139,8 +139,8 @@ class VerificationLaneContracts(unittest.TestCase):
             manifest["manifestDigest"] = digest_object(manifest)
             (root / "manifest.json").write_bytes(canonical_bytes(manifest))
             self._scope(root, "foundation")
-            self.assertEqual(8, len(DEFAULT_SCOPE_NAMES))
-            self.assertEqual(8, len(O6_CORE_SCOPE_NAMES))
+            self.assertEqual(7, len(DEFAULT_SCOPE_NAMES))
+            self.assertEqual(7, len(O6_CORE_SCOPE_NAMES))
             self.assertEqual(DEFAULT_SCOPE_NAMES, O6_CORE_SCOPE_NAMES)
             self.assertEqual(
                 "foundation",

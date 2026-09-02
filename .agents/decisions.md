@@ -750,3 +750,7 @@
 - [2026-09-02] 收窄 manual-first 文档的必需流程并校准项目状态记录。
   - Why: 审查发现普通任务的核心确实只有目标、工作目录和行为约束，但规则文件把完整 VISION、全部 `.agents` 状态同步以及 scope/non-goals/completion fields 变成了隐性前置；根目录交接文件和生产安装状态也已过期。
   - Impact: 普通任务只需读取适用的 `AGENTS.md`，并使用三份 Markdown 记录；`.agents` 仅在架构、流程、发布状态或授权边界变化时读取/更新；计划辅助字段按需要补充。根目录记录改为当前项目状态，生产 development bundle 安装事实与 Stage 2/3 完成状态已同步。
+
+- [2026-09-02] 删除 GKD 兼容迁移面并收敛 Skill 路由。
+  - Why: manual-first 的实际协作只需要 `gkd-main`、Git worktree 和三份 Markdown；production/temporary migration、旧角色和旧 executor/acceptor/CI Skill 会重新引入机器参数、恢复面和入口选择。
+  - Impact: `gkd-role` 不再公开 migration 或 production-migration 命令；生产 `~/.codex` 只保留 `gkd-main`，移除旧 GKD roles/Skills 和迁移注入配置。旧源码、任务记录和证据只读保留，不再提供安装、迁移或自动路由入口。

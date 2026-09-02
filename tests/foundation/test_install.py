@@ -149,7 +149,13 @@ class InstallationContracts(unittest.TestCase):
         target = self._installed()
         verified = gkd_bundle.verify(self.boundary, target)
         self.assertEqual([], verified["installedPacks"])
+        self.assertTrue((target / "gkd/skills/gkd-main/SKILL.md").is_file())
         for relative in (
+            "gkd/bin/gkd-role",
+            "gkd/skills/gkd-accept",
+            "gkd/skills/gkd-execute",
+            "gkd/skills/gkd-ci-monitor",
+            "gkd/skills/gkd-local-verify",
             "gkd/bin/gkd-resource-scanner",
             "gkd/bin/gkd-review",
             "gkd/lib/gkd_review",
@@ -211,12 +217,10 @@ class InstallationContracts(unittest.TestCase):
         self.assertEqual(0, removed.returncode, removed.stderr)
         self.assertEqual("removed", json.loads(removed.stdout)["status"])
 
-    def test_installed_gkd_main_imports_its_installed_library(self) -> None:
+    def test_default_install_exposes_gkd_main_skill_only(self) -> None:
         target = self._installed()
-        command = [str(target / "gkd/bin/gkd-main"), "--help"]
-        result = __import__("subprocess").run(command, text=True, stdout=__import__("subprocess").PIPE, stderr=__import__("subprocess").PIPE, check=False)
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("planning", result.stdout)
+        self.assertTrue((target / "gkd/skills/gkd-main/SKILL.md").is_file())
+        self.assertFalse((target / "gkd/bin/gkd-main").exists())
 
     def test_legacy_schema_v1_full_install_remains_readable(self) -> None:
         target = self._target("legacy-v1")

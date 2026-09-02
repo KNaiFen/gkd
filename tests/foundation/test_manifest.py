@@ -32,15 +32,15 @@ class ManifestContracts(unittest.TestCase):
         self.assertEqual(manifest, validated_manifest)
         declared = tomllib.loads((self.source / "source.toml").read_text(encoding="utf-8"))
         self.assertEqual(manifest["bundleVersion"], declared["bundle_version"])
-        self.assertEqual(manifest["releaseStatus"], "release-candidate")
+        self.assertEqual(manifest["releaseStatus"], "development")
         self.assertEqual(
             [item["name"] for item in manifest["components"]],
             sorted(item["name"] for item in manifest["components"]),
         )
         self.assertEqual(lock["digestInputs"], sorted(lock["digestInputs"], key=lambda item: item["path"]))
         self.assertEqual(lock["installFiles"], sorted(lock["installFiles"], key=lambda item: item["source"]))
-        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in manifest["packs"]])
-        self.assertEqual(["ci-advice", "review-remediation"], [item["name"] for item in lock["packs"]])
+        self.assertEqual(["ci-advice", "legacy-automatic", "review-remediation"], [item["name"] for item in manifest["packs"]])
+        self.assertEqual(["ci-advice", "legacy-automatic", "review-remediation"], [item["name"] for item in lock["packs"]])
         self.assertRegex(lock["coreDigest"], "^[0-9a-f]{64}$")
         self.assertEqual(5, len(lock["inputFiles"]))
         self.assertEqual(
@@ -110,7 +110,7 @@ class ManifestContracts(unittest.TestCase):
         verified = gkd_bundle.verify_input(self.source, "release-traceability")
         self.assertEqual("release-verification", verified["kind"])
         self.assertEqual("inputs/release/traceability.json", verified["source"])
-        self.assertIsNone(verified["pack"])
+        self.assertEqual("legacy-automatic", verified["pack"])
         self.assertEqual("review-remediation", gkd_bundle.verify_input(self.source, "review-multi-repository")["pack"])
         with self.assertRaisesRegex(gkd_bundle.BundleError, "INPUT_UNKNOWN"):
             gkd_bundle.verify_input(self.source, "unknown-input")

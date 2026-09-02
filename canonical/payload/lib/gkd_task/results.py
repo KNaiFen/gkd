@@ -22,7 +22,6 @@ DEFAULT_SCOPE_NAMES = (
     "task-core",
     "role-routing",
     "runtime-bridge",
-    "p1-production-migration",
     "foundation",
 )
 
@@ -35,7 +34,6 @@ O6_CORE_SCOPE_NAMES = (
     "task-core",
     "role-routing",
     "runtime-bridge",
-    "p1-production-migration",
     "foundation",
 )
 

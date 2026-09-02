@@ -9,14 +9,6 @@ import sys
 from gkd_task.canonical import canonical_bytes, read_canonical_json
 from gkd_task.errors import TaskError
 
-from .migration import apply_migration, migration_plan, verify_migration
-from .production_migration import (
-    apply_production_migration,
-    doctor_production_migration,
-    production_migration_plan,
-    recover_production_migration,
-    rollback_production_migration,
-)
 from .project import remove_project, stage_project, verify_project
 from .roles import context_manifest, locked_bundle_digest, resume_snapshot, role_action, role_catalog
 from .routing import decide_route
@@ -54,23 +46,6 @@ def _parser() -> MachineParser:
     wait_transition = commands.add_parser("wait-transition")
     wait_transition.add_argument("--state", type=Path, required=True)
     wait_transition.add_argument("--observation", type=Path, required=True)
-    for name in ("migration-plan", "migration-apply", "migration-verify"):
-        command = commands.add_parser(name)
-        command.add_argument("--bundle-root", type=Path, required=True)
-        command.add_argument("--bundle-digest", required=True)
-        command.add_argument("--home-root", type=Path, required=True)
-    for name in (
-        "production-migration-plan",
-        "production-migration-apply",
-        "production-migration-doctor",
-    ):
-        command = commands.add_parser(name)
-        command.add_argument("--bundle-root", type=Path, required=True)
-        command.add_argument("--bundle-digest", required=True)
-        command.add_argument("--home-root", type=Path, required=True)
-    for name in ("production-migration-rollback", "production-migration-recover"):
-        command = commands.add_parser(name)
-        command.add_argument("--home-root", type=Path, required=True)
     activation = commands.add_parser("activation-record")
     activation.add_argument("--runtime-root", type=Path, required=True)
     activation.add_argument("--expected", type=Path, required=True)
@@ -136,22 +111,6 @@ def _dispatch(args: argparse.Namespace) -> dict:
         return new_wait_state(_read(args.facts, "INVALID_WAIT_STATE"), args.started_at)
     if args.command == "wait-transition":
         return transition(_read(args.state, "INVALID_WAIT_STATE", validate_wait_state), _read(args.observation, "INVALID_WAIT_OBSERVATION"))
-    if args.command == "migration-plan":
-        return migration_plan(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "migration-apply":
-        return apply_migration(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "migration-verify":
-        return verify_migration(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "production-migration-plan":
-        return production_migration_plan(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "production-migration-apply":
-        return apply_production_migration(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "production-migration-doctor":
-        return doctor_production_migration(args.bundle_root, args.home_root, args.bundle_digest)
-    if args.command == "production-migration-rollback":
-        return rollback_production_migration(args.home_root)
-    if args.command == "production-migration-recover":
-        return recover_production_migration(args.home_root)
     if args.command == "activation-record":
         _read(args.expected, "INVALID_ACTIVATION_REQUEST")
         bundle_root = Path(__file__).resolve().parents[2]

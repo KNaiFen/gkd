@@ -67,4 +67,4 @@
 
 ## 边界
 
-本协议是正常人工工作流。`canonical/`、`gkd-task`、`gkd-role`、watcher、release 和旧验证材料在迁移完成前作为 legacy 保留；它们不应被新的执行代理 prompt 主动调用。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产仍不在本协议范围内。
+本协议是唯一正常人工工作流。`gkd-task`、`gkd-role`、watcher、release 和旧验证材料只读保留，不提供生产迁移或兼容恢复入口，也不应被新的执行代理 prompt 主动调用。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产不在本协议范围内。

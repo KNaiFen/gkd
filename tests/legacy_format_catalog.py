@@ -10,7 +10,6 @@ from typing import Any
 
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "canonical" / "inputs" / "release" / "legacy-format-catalog.json"
 FORMAT_NAMES = (
-    "source-v1",
     "install-v1",
     "result-manifest-v1",
     "task-path-v1",
