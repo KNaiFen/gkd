@@ -23,3 +23,7 @@
 - [2026-09-03] GitHub 长流程采用复用的只读监控脚本。
   - Why: CI、Actions 和发布等待不应让每个 session 重复临时构造 `gh` 轮询命令。
   - Impact: 监控脚本负责明确目标的查询、轮询和终态报告；它不写 GitHub 状态，实际发布和其他远程写操作仍需用户授权。
+
+- [2026-09-03] 角色配置放入项目 `.codex/agents/`。
+  - Why: 角色提示词、模型和推理强度必须由可调用预设绑定，不能只依赖 main 每次转述或泛化子代理默认值。
+  - Impact: `gkd_execute`、`gkd_ci_monitor`、`gkd_accept` 均固定为 `gpt-5.6-sol` / `xhigh`，并分别约束为 worktree 写入、只读监控、只读验收；main 只用命名 `agent_type` 调用。

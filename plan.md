@@ -2,7 +2,7 @@
 
 ## 状态
 
-进行中。本文是后续实施的唯一任务计划；本轮只落盘计划，不创建角色、脚本或用户级安装副本。
+进行中。本文是后续实施的唯一任务计划。项目级 agent 预设已先行落盘；监控脚本、需求问答与项目适配尚未实施。
 
 ## 目标
 
@@ -40,26 +40,26 @@
 
 | 角色 | 固定模型 | 权限与职责 | 不能做的事 |
 | --- | --- | --- | --- |
-| `gkd-execute` | `gpt-5.6-sol` / `xhigh` | 在 main 指定的独立 worktree 完成计划内修改、验证和交接记录 | 自行扩大需求、代替 main 验收、未经授权推送或发版 |
-| `gkd-ci-monitor` | `gpt-5.6-sol` / `xhigh` | 调用 GitHub 监控脚本跟踪 CI、Actions、等待中的发布流程，并报告固定对象的终态 | 修改代码、重跑/取消工作流、创建发布、代替验收 |
-| `gkd-accept` | `gpt-5.6-sol` / `xhigh` | 独立检查 diff、计划符合性、验证证据和未闭环风险 | 修改实现、自动合并或替 main 作授权决定 |
+| `gkd_execute` | `gpt-5.6-sol` / `xhigh` | 在 main 指定的独立 worktree 完成计划内修改、验证和交接记录 | 自行扩大需求、代替 main 验收、未经授权推送或发版 |
+| `gkd_ci_monitor` | `gpt-5.6-sol` / `xhigh` | 调用 GitHub 监控脚本跟踪 CI、Actions、等待中的发布流程，并报告固定对象的终态 | 修改代码、重跑/取消工作流、创建发布、代替验收 |
+| `gkd_accept` | `gpt-5.6-sol` / `xhigh` | 独立检查 diff、计划符合性、验证证据和未闭环风险 | 修改实现、自动合并或替 main 作授权决定 |
 
-实现前需用一个最小运行时探针确认当前 Codex 的原生角色配置位置、模型覆盖字段、隔离 worktree 传递方式和只读约束能够生效。探针只验证能力，不引入旁路配置；角色定义以项目 Skill 和可审阅配置为准。
+角色定义位于项目 `.codex/agents/`：每个预设固定角色提示词、模型、推理强度和 sandbox，main 以相应 `agent_type` 调用。仍需用最小运行时探针确认角色发现、隔离 worktree 传递方式和只读约束能够生效；探针不引入旁路配置。
 
 ## 实施阶段
 
 ### 1. 建立原生角色配置与路由边界
 
 - 调查并验证当前 Codex 原生角色配置的实际格式，确认 `gpt-5.6-sol` / `xhigh` 能对三个角色生效。
-- 在项目内定义 `gkd-execute`、`gkd-ci-monitor`、`gkd-accept` 的最小角色提示和调用约束；不复刻旧 JSON 合同或状态字段。
+- 在项目 `.codex/agents/` 定义 `gkd_execute`、`gkd_ci_monitor`、`gkd_accept` 的角色提示、模型、推理强度、sandbox 和禁止嵌套边界；不复刻旧 JSON 合同或状态字段。
 - 修改 `gkd-main`：main 先分类任务，并明确区分直接处理、手动执行、用户明确选择的自动执行、CI 监控、验收和项目适配。
 - 保持每个 worktree、每轮最多一个写入型执行角色；main 保留计划、审查、授权和最终结论。
 
-完成标准：可用显式用户选择让 main 启动 `gkd-execute`，其实际修改发生在指定 worktree；三个角色的模型均可从配置与运行证据确认。
+完成标准：可用显式用户选择让 main 启动 `gkd_execute`，其实际修改发生在指定 worktree；三个角色的模型均可从 agent 配置与运行证据确认。
 
 ### 2. 落地可复用的 GitHub 长流程监控
 
-- 新增一个小型、无状态的脚本，暂定 `scripts/gkd-github-watch`，由 `gkd-ci-monitor` Skill 调用。
+- 新增一个小型、无状态的脚本，暂定 `scripts/gkd-github-watch`，由 `gkd_ci_monitor` 调用。
 - 支持以明确的 PR、workflow run、分支提交或 release 为目标，查询 GitHub CLI/API 并输出便于 main 读取的状态、URL、结论和失败摘要。
 - 将轮询间隔、超时、目标解析和终态判断收敛在脚本中；脚本只读，不创建、取消或重跑 GitHub 资源。
 - CI、等待发布等长过程交由监控角色持续跟进；“实际发布”仍由 main 在取得用户授权后另行执行。
@@ -94,3 +94,4 @@
 ## 实施记录
 
 - 2026-09-03：根据历史调查和当前需求创建本计划。已明确三个角色统一为 Sol/xhigh，并确定 GitHub 长流程通过复用的只读脚本监控。
+- 2026-09-03：创建项目 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`，固化角色提示词、`gpt-5.6-sol`、`xhigh`、sandbox 和禁止子代理嵌套的边界；尚未做实际 role spawn 验证。
