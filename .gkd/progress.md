@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-已完成历史调查、计划落盘和三种项目级角色预设；T1-T5 已完成施工和验收，当前只剩 main 收口与归档整理。
+已完成历史调查、计划落盘和三种项目级角色预设；T1-T6 已完成施工、独立验收和主分支收口，首轮材料与最终归档均已写入项目 `.gkd/archive/`。
 
 ## 已完成
 
@@ -31,7 +31,7 @@
 
 ## 下一步
 
-T1-T5 已完成并合入主分支；下一步按 `.gkd/plan.md` 的 T6 创建归档 worktree，验证目标项目 `.gkd/archive/` 的快照与摘要规则。
+T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API 和跨项目归档体验等环境级可选验证。
 
 ## T1 主分支收尾（2026-09-03）
 
@@ -276,21 +276,27 @@ T1-T5 已完成并合入主分支；下一步按 `.gkd/plan.md` 的 T6 创建归
 
 ## T6 执行记录（2026-09-03）
 
+### T6 主分支收口
+
+- T6 独立验收首轮发现归档快照早于 main 审查；main 已将该 finding 写入 `.gkd/review.md`，并按 `2026-09-03-r9` 修订归档时序。
+- T6 文档改动和归档材料提交 `3af7c12` 已由 main 合入为 `b67f2ab`；随后 main 在独立审查结论确定后刷新六份最终快照。
+- 首轮材料保留在 `.gkd/archive/t6-archive/2026-09-03-19e7514/`；最终归档目录为 `.gkd/archive/t6-archive/2026-09-03-r9-final/`，包含 `summary.md`、`plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`；`summary.md` 和 `review.md` 均记录 T6 通过，未引入自动提交或发布。
+
 ### 本轮变更
 
 - `.agents/skills/gkd-main/SKILL.md`：补充归档时机、来源、目录结构、脱敏要求和 `direct-main` 的长期价值取舍；明确归档不反向修改活动记录，也不自动提交或发布。
 - `docs/manual-workflow.md`：写清 main 审查后从执行 worktree 与目标项目 `.gkd/` 汇总五份记录、填写摘要、脱敏检查和进度记录的顺序。
 - `README.md`：增加简洁的归档用途和授权边界说明。
 - `docs/templates/manual/archive-summary.md`：增加任务标识、来源 revision、用户可见结果和未验证风险字段，并提醒不记录本机路径、凭据或运行时状态。
-- 创建 `.gkd/archive/t6-archive/2026-09-03-19e7514/`，包含 `summary.md`、`plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md` 六份 Markdown 快照；快照中的本机路径已脱敏。
+- 创建首轮 `.gkd/archive/t6-archive/2026-09-03-19e7514/` 和最终 `.gkd/archive/t6-archive/2026-09-03-r9-final/`，各包含六份 Markdown 快照；最终快照中的实际本机路径和凭据已脱敏。
 
 ### 验证证据
 
 - `git diff --check`：通过。
-- `find .gkd/archive/t6-archive/2026-09-03-19e7514 -maxdepth 1 -type f -print | sort`：通过，六份归档文件齐全。
-- `rg -n '/Users/|/home/|~/.codex|token|secret' .gkd/archive/t6-archive/2026-09-03-19e7514`：无命中；包含历史“不恢复”边界说明的机制关键词扫描仅命中该历史说明。
+- `find .gkd/archive/t6-archive -mindepth 2 -maxdepth 2 -type f -print | sort`：通过，首轮和最终目录各有六份归档文件。
+- 归档敏感信息扫描：未发现实际本机路径、凭据或令牌；规则中的 `~/.codex`、`token`、`secret` 仅出现在不恢复/脱敏说明和扫描命令自描述中。
 - `rg -n '\.gkd/archive|execution\.md|progress\.md|summary\.md' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md README.md docs/templates/manual/archive-summary.md`：通过，规则、来源和模板字段相互引用。
-- `.git/info/exclude` 中的 `/.gkd/` 规则会忽略归档文件；本轮已创建六份快照但未暂存，是否随目标项目提交由 main 按 PLAN 和用户授权决定。
+- 首轮材料与最终快照均已按本轮 PLAN 作为目标项目文档变更纳入主分支收口，未触发自动提交、推送、合并或发布动作。
 
 ### 未验证范围与剩余风险
 

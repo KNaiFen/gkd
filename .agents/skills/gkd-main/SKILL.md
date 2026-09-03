@@ -27,7 +27,7 @@ main 从已批准的方案生成 worktree 内 `.gkd/execution.md`。执行 sessi
 
 ## 归档与长期记录
 
-一轮 delegated 施工在 main 完成审查后，或用户决定停止、保留当前成果或明确阻塞时，main 可在目标项目主工作树创建 `.gkd/archive/<task-id>/<date>-<revision>/`。归档来源是该轮目标 worktree 的 `.gkd/execution.md`、`.gkd/progress.md`，以及 main 在目标项目 `.gkd/` 维护的 `.gkd/plan.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`；main 用普通文件复制或整理加入 `summary.md`，不让执行 session 反向修改活动记录。
+一轮 delegated 施工在 main 完成审查后，main 可在目标项目主工作树创建最终 `.gkd/archive/<task-id>/<date>-<revision>/`。若用户决定停止、保留当前成果或明确阻塞，也可以在 main 写下当前审查结论后归档，但 `summary.md` 必须明确标为未验收或阻塞中的临时记录，不能宣称任务已完成。归档来源是该轮目标 worktree 的 `.gkd/execution.md`、`.gkd/progress.md`，以及 main 在目标项目 `.gkd/` 维护的 `.gkd/plan.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`；main 用普通文件复制或整理加入 `summary.md`，不让执行 session 反向修改活动记录。
 
 归档只保存脱敏后的 Markdown 事实：保留逻辑 worktree、分支和变更标识，移除本机绝对路径、令牌、账号、机密值和运行时状态。归档目录是长期可读记录，不是活动事实源、索引服务或状态机制，也不会因为归档自动提交、推送、合并或发布。简单 `direct-main` 任务只有在确实产生值得后续复用的项目知识时才归档；是否随目标项目提交仍由 PLAN 和用户授权决定。
 

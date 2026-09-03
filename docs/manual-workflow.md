@@ -52,7 +52,7 @@ CI 监控角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入�
 
 ## 项目归档
 
-一轮 delegated 施工完成、用户决定停止、明确保留当前成果或确认阻塞后，main 在审查当前 diff 和 `.gkd/progress.md` 后，按以下顺序归档：
+一轮 delegated 施工完成后，main 在独立审查结论确定后按以下顺序创建最终归档。用户决定停止、明确保留当前成果或确认阻塞时，也可先写下当前审查结论并创建临时归档，但 `summary.md` 必须标注“未验收”或“阻塞中”，不能把临时材料当成最终完成记录：
 
 1. 确认目标项目主工作树、任务逻辑 ID、日期和来源 revision；不把本机绝对路径当作归档标识。
 2. 从该轮执行 worktree 读取 `.gkd/execution.md`、`.gkd/progress.md`，从目标项目 `.gkd/` 读取 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`。
