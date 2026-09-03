@@ -46,6 +46,10 @@ GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和�
 
 由 main 在查看 diff 后记录审查结论。通过时写明通过；不通过时先写问题、优先级和下一步，再修改 `plan.md`、追加 `plan-changes.md`，并更新 worktree 内 `execution.md` 的 revision 和具体修改建议。机器事实不需要抄写到这里，直接引用 Git diff、测试输出或文件路径即可。
 
+## 项目归档
+
+一轮 delegated 施工完成、用户决定停止或明确保留当前成果时，main 可在目标项目创建 `.gkd/archive/<task-id>/<date>-<revision>/`。其中保存该轮 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md` 和 `summary.md`，让后续工作能理解目标、实现思路、实际结果和遗留风险。归档是普通 Markdown 与 Git 内容：不写本机绝对路径、令牌或运行时状态；不建立索引服务；简单 `direct-main` 任务只在确实有长期价值时归档。是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
+
 ## 标准顺序
 
 ```text

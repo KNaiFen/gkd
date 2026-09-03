@@ -28,9 +28,13 @@
   - Why: 角色提示词、模型和推理强度必须由可调用预设绑定，不能只依赖 main 每次转述或泛化子代理默认值。
   - Impact: `gkd_execute`、`gkd_accept` 固定为 `gpt-5.6-sol` / `xhigh`，`gkd_ci_monitor` 固定为 `gpt-5.6-terra` / `high`，并分别约束为 worktree 写入、只读监控、只读验收；main 只用命名 `agent_type` 调用。
 
-- [2026-09-03] 施工前 PLAN 必须达到实现就绪。
-  - Why: 原计划只有阶段目标，执行 session 仍需现场补设计，导致实际施工偏离用户需求。
-  - Impact: 启动前必须有现状证据、文件/符号级变更、接口、关键路径伪代码、失败/停止条件、授权边界和验证矩阵；材料性偏差先停工，更新计划并重新确认。
+- [2026-09-03] PLAN 以具体实现方案指导 main，而非充当执行状态门禁。
+  - Why: 原计划只有阶段目标，执行 session 仍需现场补设计；但固定 checklist、错误码和状态转换又会把 Markdown 工作流重新做成旧式合同。
+  - Impact: PLAN 应写清技术栈、实现思路、文件/符号、验证和授权边界；复杂分支才写伪代码。main 根据事实灵活调整 PLAN，执行 session 只读取 worktree 的 `execution.md`。
+
+- [2026-09-03] 分离 main 方案、执行交接和项目归档。
+  - Why: 验收后的 PLAN 调整不应改变正在工作的 session，也需要让目标项目能回看自己做过什么。
+  - Impact: main 维护 `plan.md`、追加 `plan-changes.md`、写 `review.md`；worktree 内 `execution.md` 是执行指令，`progress.md` 记录执行事实。任务结束可将这些材料和摘要归档至目标项目 `.gkd/archive/`，不新增运行时状态。
 
 - [2026-09-03] GKD 的主旨是完整的项目开发工作流。
   - Why: 用户需要把需求澄清、方案确认、角色执行、CI/验收和按授权交付组织成一条连续流程；辅助 Skills 不能成为彼此割裂的工具箱。

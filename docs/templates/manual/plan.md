@@ -8,9 +8,9 @@
 
 <!-- 写明 worktree、分支和 delegated/manual 或用户明确选择的 delegated/automatic。简单任务默认 direct-main；用户明确要求子代理时，以用户选择覆盖复杂度判断。 -->
 
-## 3. Scope, non-goals, authorization and stop conditions
+## 3. Scope, non-goals, authorization and open questions
 
-<!-- 分别写允许修改、明确不改、需要用户授权的外部动作，以及何种情况必须停止。 -->
+<!-- 分别写允许修改、明确不改、需要用户授权的外部动作，以及仍需 main 或用户判断的事项。 -->
 
 ## 4. Current evidence
 
@@ -32,7 +32,7 @@
 
 ## 8. Key-path pseudocode (when needed)
 
-<!-- 仅在确有复杂分支时填写；覆盖该分支的正常、拒绝、配置缺失、外部命令失败、超时、用户介入和停止动作。 -->
+<!-- 仅在确有复杂分支时填写；写清该分支的关键输入、调用、结果和需要交回 main 判断的情形。 -->
 
 ```text
 input = ...

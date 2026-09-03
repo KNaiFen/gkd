@@ -27,9 +27,9 @@
 # 只运行与本轮变更直接相关的检查
 ```
 
-## Constraints and stop conditions
+## Constraints and questions for main
 
-<!-- 不得修改的范围、不得执行的外部动作、发现偏差时更新 progress.md 并停止。 -->
+<!-- 不得修改的范围、不得执行的外部动作；发现会改变用户意图的偏差时更新 progress.md 并交回 main 判断。 -->
 
 ## Latest change suggestions
 
