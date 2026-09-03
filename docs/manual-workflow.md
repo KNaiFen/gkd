@@ -1,12 +1,12 @@
 # Manual-first 工作流
 
-GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和授权交付串成一套完整工作流。本文规定其中默认的 manual-first 协作方式；它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。执行 session 默认由用户手动启动；用户明确选择后，main 可以用当前 Codex 已配置的角色启动一个普通子代理。
+GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和授权交付串成一套完整工作流。本文规定其中默认的 manual-first 协作方式；它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。目标项目的活动交接文档统一放在 `.gkd/`；执行 session 默认由用户手动启动，用户明确选择后，main 可以用当前 Codex 已配置的角色启动一个普通子代理。
 
 ## 路径选择
 
 1. `direct-main`：简单、低风险且用户未指定子代理的任务由 main 直接完成，不创建执行 session；用户明确要求子代理时，以用户选择覆盖复杂度判断。
-2. `delegated/manual`：需要执行 session 时的默认路径。main 创建 worktree、维护 `plan.md` 并生成 worktree 内的 `execution.md`，向用户发送启动提示；用户在声明 worktree 中手动启动执行 session。
-3. `delegated/automatic`：仅在用户明确选择自动模式时使用。main 先生成或更新 worktree 内的 `execution.md`，再读取当前 Codex 已配置且可用的命名执行角色，通过原生 `spawn_agent` 启动一个执行子代理，并传入 `fork_turns=none`。
+2. `delegated/manual`：需要执行 session 时的默认路径。main 在目标项目 `.gkd/` 维护 `plan.md` 并在 worktree 生成 `.gkd/execution.md`，向用户发送启动提示；用户在声明 worktree 中手动启动执行 session。
+3. `delegated/automatic`：仅在用户明确选择自动模式时使用。main 先生成或更新 worktree 内 `.gkd/execution.md`，再读取当前 Codex 已配置且可用的命名执行角色，通过原生 `spawn_agent` 启动一个执行子代理，并传入 `fork_turns=none`。
 
 自动启动只替代“用户打开一个新 session”这个动作。它不恢复旧 GKD automatic route、机器生命周期或自动验收，也不改变用户对路径选择和审查结论的控制。
 
@@ -26,7 +26,7 @@ GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和�
 
 ### `plan.md`
 
-由 main 创建和维护，是主方案、技术选型、实现思路、授权和审查依据。施工前计划应写出现状证据、目标行为、采用的技术栈/现有工具、关键实现步骤、范围/非目标、文件与符号级变更表、接口和配置、角色写入边界、逐项验证命令及预期结果、`progress.md` 更新点和仍需决定的事项。只有存在非显然分支、状态转换或外部命令编排时才写针对性伪代码。
+由 main 在目标项目 `.gkd/` 创建和维护，是主方案、技术选型、实现思路、授权和审查依据。施工前计划应写出现状证据、目标行为、采用的技术栈/现有工具、关键实现步骤、范围/非目标、文件与符号级变更表、接口和配置、角色写入边界、逐项验证命令及预期结果、`progress.md` 更新点和仍需决定的事项。只有存在非显然分支、状态转换或外部命令编排时才写针对性伪代码。
 
 `plan.md` 不是执行 session 的施工指令。施工中若目标行为、文件边界、角色职责、授权范围或主流程发生变化，执行代理先更新 `progress.md` 并停止，main 修改计划并重新取得必要确认。
 
@@ -48,18 +48,18 @@ GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和�
 
 ## 项目归档
 
-一轮 delegated 施工完成、用户决定停止或明确保留当前成果时，main 可在目标项目创建 `.gkd/archive/<task-id>/<date>-<revision>/`。其中保存该轮 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md` 和 `summary.md`，让后续工作能理解目标、实现思路、实际结果和遗留风险。归档是普通 Markdown 与 Git 内容：不写本机绝对路径、令牌或运行时状态；不建立索引服务；简单 `direct-main` 任务只在确实有长期价值时归档。是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
+一轮 delegated 施工完成、用户决定停止或明确保留当前成果时，main 可在目标项目创建 `.gkd/archive/<task-id>/<date>-<revision>/`。其中保存该轮 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/execution.md`、`.gkd/progress.md`、`.gkd/review.md` 和 `summary.md`，让后续工作能理解目标、实现思路、实际结果和遗留风险。归档是普通 Markdown 与 Git 内容：不写本机绝对路径、令牌或运行时状态；不建立索引服务；简单 `direct-main` 任务只在确实有长期价值时归档。是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
 
 ## 标准顺序
 
 ```text
-main 选择 direct-main，或为 delegated 路径写 plan.md 并创建独立 Git worktree
-delegated 路径：main 在 worktree 写 execution.md；manual 交接给用户，automatic 在明确授权后启动一个命名执行角色
-执行 session 读取 execution.md 并开始工作
-执行代理持续更新 progress.md
+main 选择 direct-main，或在目标项目 `.gkd/` 写 plan.md 并创建独立 Git worktree
+delegated 路径：main 在 worktree 的 `.gkd/` 写 execution.md；manual 交接给用户，automatic 在明确授权后启动一个命名执行角色
+执行 session 读取 `.gkd/execution.md` 并开始工作
+执行代理持续更新 `.gkd/progress.md`
 执行代理完成后通知主代理
-主代理查看 diff、plan.md、execution.md、progress.md
-主代理通过，或先写 review.md，再修改 plan.md/plan-changes.md 和 execution.md，并在同一 worktree 开始下一轮
+主代理查看 diff、`.gkd/plan.md`、`.gkd/execution.md`、`.gkd/progress.md`
+主代理通过，或先写 `.gkd/review.md`，再修改 `.gkd/plan.md`/`.gkd/plan-changes.md` 和 `.gkd/execution.md`，并在同一 worktree 开始下一轮
 主代理仅按 PLAN 中已获授权的动作提交、推送、合并或发版；未授权则停在交付前
 ```
 
@@ -68,9 +68,9 @@ delegated 路径：main 在 worktree 写 execution.md；manual 交接给用户�
 ## 用户手动启动提示
 
 ```text
-读取当前 worktree 中的 execution.md 和适用的 AGENTS.md；不要把 plan.md 当作施工指令。
+读取当前 worktree 中的 .gkd/execution.md 和适用的 AGENTS.md；不要把 .gkd/plan.md 当作施工指令。
 只阅读完成 execution.md 所需的代码，并在声明的 worktree 中工作。
-把重要进展、判断、阻塞和实际运行的验证结果写入 progress.md。
+把重要进展、判断、阻塞和实际运行的验证结果写入 .gkd/progress.md。
 不要修改计划中声明的非目标范围。
 完成后停止并通知主代理，由主代理审查 diff。
 ```
@@ -82,9 +82,9 @@ main 将以上提示与声明的 worktree 交给用户；未获用户明确选�
 用户明确选择自动模式后，main 先读取当前 Codex 配置中可用的执行角色或 agent type。main 使用当前原生 agents API 的对应配置字段调用一次 `spawn_agent`，传入已读取的角色、`fork_turns=none`、声明的 worktree 和下列提示。角色、模型与权限由当前配置决定，不在本协议中写死。
 
 ```text
-读取声明 worktree 中的 execution.md 和适用的 AGENTS.md；不要把 plan.md 当作施工指令。
+读取声明 worktree 中的 .gkd/execution.md 和适用的 AGENTS.md；不要把 .gkd/plan.md 当作施工指令。
 只在该 worktree 中施工；不要修改声明的非目标。
-在重要判断、里程碑、阻塞和验证结果影响交接时更新 progress.md。
+在重要判断、里程碑、阻塞和验证结果影响交接时更新 .gkd/progress.md。
 完成后停止并通知 main。不要验收、合并、发布、清理 worktree 或启动其他施工代理。
 ```
 
@@ -104,7 +104,7 @@ main 将以上提示与声明的 worktree 交给用户；未获用户明确选�
 
 ## 中断与恢复
 
-新的执行 session 先读取同一个 worktree 的 `execution.md` 和 `progress.md`，再查看未提交 diff 与最近提交。需要理解计划为何变化时，由 main 提供 `plan-changes.md`；报告不完整时以代码和 Git 历史为准，并把新的判断补回 `progress.md`；不依赖旧对话线程。
+新的执行 session 先读取同一个 worktree 的 `.gkd/execution.md` 和 `.gkd/progress.md`，再查看未提交 diff 与最近提交。需要理解计划为何变化时，由 main 提供 `.gkd/plan-changes.md`；报告不完整时以代码和 Git 历史为准，并把新的判断补回 `.gkd/progress.md`；不依赖旧对话线程。
 
 ## 边界
 

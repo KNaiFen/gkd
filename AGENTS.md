@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-- 本仓库采用 manual-first Agent 工作流：main 维护 `plan.md`、`plan-changes.md`、`review.md`，worktree 内执行 session 使用 `execution.md` 并更新 `progress.md`；任务完成后可将这些人类可读记录归档到目标项目的 `.gkd/archive/` 子目录。
+- 本仓库采用 manual-first Agent 工作流：目标项目的 `.gkd/` 目录保存当前 `plan.md`、`plan-changes.md`、`review.md`，以及 worktree 内执行 session 使用的 `execution.md`、`progress.md`；任务完成后可归档到 `.gkd/archive/`。
 - 旧 bundle、automatic route、固定 head 验收和发布验证已从当前工作树移除；需要追溯时查看 Git 历史，不恢复迁移流程。用户明确选择时，main 可用当前 Codex 已配置的角色启动普通执行 session；这不是旧自动化流程的恢复。
 
 ## 工作规则

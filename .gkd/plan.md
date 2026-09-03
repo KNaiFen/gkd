@@ -2,7 +2,7 @@
 
 ## 状态
 
-进行中。本文件是当前施工的唯一总计划，由 main 维护和审查。它只定义 GKD 本体如何补齐能力；每个 delegated 任务另生成 worktree 内的 `execution.md` 作为执行 session 的唯一任务交接文档，并用 `plan-changes.md` 记录计划调整思路。
+进行中。本文件是当前施工的唯一总计划，由 main 维护和审查，位于项目 `.gkd/` 目录。每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
 
 ## 目标与边界
 
@@ -34,10 +34,10 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 
 ### 计划与执行文档分工
 
-- `plan.md`：main 的权威方案和授权记录。它描述为什么做、如何实现、用什么技术、改哪些文件、如何验证，以及用户确认和后续审查依据；执行 session 不以它作为施工指令。
-- `execution.md`：main 根据已批准 PLAN 生成的 worktree 内执行交接。它只包含当前轮次可执行的文件/符号清单、实现步骤、命令、约束和变更建议，并标明对应 PLAN 修订号；执行 session 读取它和适用的 `AGENTS.md`，完成后更新 `progress.md`。
-- `plan-changes.md`：main 维护的追加式变更记录。每次 PLAN 因用户决定、验收发现或事实变化而调整，都记录原因、影响、授权变化、PLAN 修订号和 `execution.md` 更新内容；不得覆盖旧思路。
-- `review.md`：main 记录独立验收结论。验收发现问题时，main 先写 review，再修改 PLAN，追加 `plan-changes.md`，更新 worktree 的 `execution.md`，然后才启动下一轮执行；旧 execution session 不会因 PLAN 修改而隐式改变。
+- `.gkd/plan.md`：main 的权威方案和授权记录。它描述为什么做、如何实现、用什么技术、改哪些文件、如何验证，以及用户确认和后续审查依据；执行 session 不以它作为施工指令。
+- `.gkd/execution.md`：main 根据已批准 PLAN 生成的 worktree 内执行交接。它只包含当前轮次可执行的文件/符号清单、实现步骤、命令、约束和变更建议，并标明对应 PLAN 修订号；执行 session 读取它和适用的 `AGENTS.md`，完成后更新 `.gkd/progress.md`。
+- `.gkd/plan-changes.md`：main 维护的追加式变更记录。每次 PLAN 因用户决定、验收发现或事实变化而调整，都记录原因、影响、授权变化、PLAN 修订号和 `execution.md` 更新内容；不得覆盖旧思路。
+- `.gkd/review.md`：main 记录独立验收结论。验收发现问题时，main 先写 review，再修改 PLAN，追加 `plan-changes.md`，更新 worktree 的 `execution.md`，然后才启动下一轮执行；旧 execution session 不会因 PLAN 修改而隐式改变。
 
 ### 任务 PLAN 的建议结构
 
