@@ -18,7 +18,7 @@
 
 - [2026-09-03] 以原生角色和 Skills 补齐工作流，而非恢复旧运行时。
   - Why: 需要 main 自动路由、执行/CI 监控/验收角色、需求问答和项目适配能力，但不需要合同、状态机、断点恢复或 watcher 平台。
-  - Impact: 三个子代理角色统一固定为 `gpt-5.6-sol` / `xhigh`；先验证原生角色配置，再以项目 Skills 和 Git/Markdown 交接实现能力。
+  - Impact: 当时草案曾统一设为 `gpt-5.6-sol` / `xhigh`；该模型分配已由本文件后续决定修订为执行/验收 Sol-xhigh、CI 监控 Terra-high。
 
 - [2026-09-03] GitHub 长流程采用复用的只读监控脚本。
   - Why: CI、Actions 和发布等待不应让每个 session 重复临时构造 `gh` 轮询命令。
@@ -26,4 +26,8 @@
 
 - [2026-09-03] 角色配置放入项目 `.codex/agents/`。
   - Why: 角色提示词、模型和推理强度必须由可调用预设绑定，不能只依赖 main 每次转述或泛化子代理默认值。
-  - Impact: `gkd_execute`、`gkd_ci_monitor`、`gkd_accept` 均固定为 `gpt-5.6-sol` / `xhigh`，并分别约束为 worktree 写入、只读监控、只读验收；main 只用命名 `agent_type` 调用。
+  - Impact: `gkd_execute`、`gkd_accept` 固定为 `gpt-5.6-sol` / `xhigh`，`gkd_ci_monitor` 固定为 `gpt-5.6-terra` / `high`，并分别约束为 worktree 写入、只读监控、只读验收；main 只用命名 `agent_type` 调用。
+
+- [2026-09-03] 施工前 PLAN 必须达到实现就绪。
+  - Why: 原计划只有阶段目标，执行 session 仍需现场补设计，导致实际施工偏离用户需求。
+  - Impact: 启动前必须有现状证据、文件/符号级变更、接口、关键路径伪代码、失败/停止条件、授权边界和验证矩阵；材料性偏差先停工，更新计划并重新确认。
