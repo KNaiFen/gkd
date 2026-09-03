@@ -34,7 +34,7 @@
 
 - [2026-09-03] 分离 main 方案、执行交接和项目归档。
   - Why: 验收后的 PLAN 调整不应改变正在工作的 session，也需要让目标项目能回看自己做过什么。
-  - Impact: main 维护 `plan.md`、追加 `plan-changes.md`、写 `review.md`；worktree 内 `execution.md` 是执行指令，`progress.md` 记录执行事实。任务结束可将这些材料和摘要归档至目标项目 `.gkd/archive/`，不新增运行时状态。
+  - Impact: main 维护目标项目 `.gkd/plan.md`、追加 `.gkd/plan-changes.md`、写 `.gkd/review.md`；worktree 内 `.gkd/execution.md` 是执行指令，`.gkd/progress.md` 记录执行事实。任务结束可将这些材料和摘要归档至目标项目 `.gkd/archive/`，不新增运行时状态。
 
 - [2026-09-03] GKD 的主旨是完整的项目开发工作流。
   - Why: 用户需要把需求澄清、方案确认、角色执行、CI/验收和按授权交付组织成一条连续流程；辅助 Skills 不能成为彼此割裂的工具箱。

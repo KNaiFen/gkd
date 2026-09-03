@@ -3,9 +3,9 @@
 ## Current state
 
 - GKD 将需求澄清、方案确认、隔离执行、持续验证、独立验收和授权交付组织成完整项目开发工作流；需求问答、项目适配和 CI 优化是服务主流程的附属能力。
-- GKD 保留 Git、独立 worktree 与 Markdown 交接：main 维护 `plan.md`、`plan-changes.md`、`review.md`，执行 session 使用 worktree 内 `execution.md` 并更新 `progress.md`；完成后可归档到目标项目 `.gkd/archive/`。写入型执行 session 默认由用户手动启动，用户明确选择后 main 才可自动启动。
+- GKD 保留 Git、独立 worktree 与 Markdown 交接：main 维护目标项目 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`，执行 session 使用 worktree 内 `.gkd/execution.md` 并更新 `.gkd/progress.md`；完成后可归档到目标项目 `.gkd/archive/`。写入型执行 session 默认由用户手动启动，用户明确选择后 main 才可自动启动。
 - 项目 `.codex/agents/` 已定义 `gkd_execute`、`gkd_ci_monitor`、`gkd_accept` 三个角色；执行/验收固定为 `gpt-5.6-sol` / `xhigh`，CI 监控固定为 `gpt-5.6-terra` / `high`，并固定 sandbox、提示词和禁止嵌套边界。main 必须以命名 `agent_type` 调用它们，不能退回泛化默认子代理。
-- PLAN 由 main 写清实现思路、技术栈、文件/符号和验证方式；伪代码只在复杂分支确有帮助时使用。施工发现材料性偏差时，执行 session 在 `progress.md` 说明，main 结合判断更新计划与 execution 交接，不建立形式化状态机或门禁。
+- PLAN 由 main 写清实现思路、技术栈、文件/符号和验证方式；伪代码只在复杂分支确有帮助时使用。施工发现材料性偏差时，执行 session 在 `.gkd/progress.md` 说明，main 结合判断更新计划与 execution 交接，不建立形式化状态机或门禁。
 - GitHub CI、Actions 和等待中的发布流程将使用项目内只读、无状态的复用脚本监控；它不创建、取消、重跑或发布 GitHub 资源。
 - 旧 automatic route、机器生命周期实现、合同、测试和证据已从当前工作树删除，Git 历史是唯一追溯方式；新能力不是这些运行时的兼容入口。
 
