@@ -1,6 +1,6 @@
 # Manual-first 工作流
 
-GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和授权交付串成一套完整工作流。本文规定其中默认的 manual-first 协作方式；它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。目标项目的活动记录统一放在 `.gkd/`：main 维护 `plan.md`、`plan-changes.md` 和 `review.md`，执行 session 使用 worktree 内的 `execution.md` 并更新 `progress.md`。执行 session 默认由用户手动启动，用户明确选择后，main 可以用当前 Codex 已配置的角色启动一个普通子代理。
+GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和授权交付串成一套完整工作流。本文规定其中默认的 manual-first 协作方式；它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。目标项目的活动记录统一放在 `.gkd/`：main 维护 `.gkd/plan.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`，执行 session 使用 worktree 内的 `.gkd/execution.md` 并更新 `.gkd/progress.md`。执行 session 默认由用户手动启动，用户明确选择后，main 可以用当前 Codex 已配置的角色启动一个普通子代理。
 
 ## 路径选择
 
@@ -30,9 +30,9 @@ CI 监控角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入�
 
 ### `plan.md`
 
-由 main 在目标项目 `.gkd/` 创建和维护，是主方案、技术选型、实现思路、授权和审查依据。施工前计划应写出现状证据、目标行为、采用的技术栈/现有工具、关键实现步骤、范围/非目标、文件与符号级变更表、接口和配置、角色写入边界、逐项验证命令及预期结果、`progress.md` 更新点、停止条件和仍需决定的事项。只有存在非显然分支、状态转换或外部命令编排时才写针对性伪代码。
+由 main 在目标项目 `.gkd/` 创建和维护，是主方案、技术选型、实现思路、授权和审查依据。施工前计划应写出现状证据、目标行为、采用的技术栈/现有工具、关键实现步骤、范围/非目标、文件与符号级变更表、接口和配置、角色写入边界、逐项验证命令及预期结果、`.gkd/progress.md` 更新点、停止条件和仍需决定的事项。只有存在非显然分支、状态转换或外部命令编排时才写针对性伪代码。
 
-`plan.md` 不是执行 session 的施工指令。施工中若目标行为、文件边界、角色职责、授权范围或主流程发生变化，执行代理先更新 `progress.md` 并停止，main 修改计划并重新取得必要确认。
+`.gkd/plan.md` 不是执行 session 的施工指令。施工中若目标行为、文件边界、角色职责、授权范围或主流程发生变化，执行代理先更新 `.gkd/progress.md` 并停止，main 修改计划并重新取得必要确认。
 
 ### `execution.md`
 
@@ -40,7 +40,7 @@ CI 监控角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入�
 
 ### `plan-changes.md`
 
-由 main 在 `.gkd/` 追加维护，记录每次 PLAN 修订的原因、验收依据、影响、授权变化、旧思路与新思路，以及对应的 `execution.md` revision；不覆盖旧条目。
+由 main 在 `.gkd/` 追加维护，记录每次 PLAN 修订的原因、验收依据、影响、授权变化、旧思路与新思路，以及对应的 `.gkd/execution.md` revision；不覆盖旧条目。
 
 ### `progress.md`
 
@@ -73,7 +73,7 @@ delegated 路径：main 在 worktree 写 `.gkd/execution.md`；manual 交接给�
 
 ```text
 读取当前 worktree 中的 .gkd/execution.md 和适用的 AGENTS.md；不要把 .gkd/plan.md 当作施工指令。
-只阅读完成 execution.md 所需的代码，并在声明的 worktree 中工作。
+只阅读完成 `.gkd/execution.md` 所需的代码，并在声明的 worktree 中工作。
 把重要进展、判断、阻塞和实际运行的验证结果写入 .gkd/progress.md。
 不要修改计划中声明的非目标范围。
 完成后停止并通知主代理，由主代理审查 diff。
@@ -101,7 +101,7 @@ main 将以上提示与声明的 worktree 交给用户；未获用户明确选�
 - diff 是否完成目标并保持在范围内；
 - 施工前 PLAN 是否达到实现就绪，伪代码和文件级边界是否覆盖实际改动；
 - 是否违反行为约束或项目规则；
-- progress.md 是否说明了实际完成情况和剩余风险；
+- `.gkd/progress.md` 是否说明了实际完成情况和剩余风险；
 - 必要的局部测试或手工验证是否足够。
 
 通过后按 PLAN 中已经获授权的普通 Git 流程提交、推送、合并或发版；未授权的动作停在交付前，不临时追加确认来替代计划。通过后也可以只保留分支。不通过时先记录 `.gkd/review.md`，再修改 main 的 `.gkd/plan.md`，追加 `.gkd/plan-changes.md`，更新 worktree `.gkd/execution.md` 并明确通知下一轮 session；旧 execution session 不受 PLAN 修改的隐式影响。后一轮可以是用户手动启动或用户再次明确选择的自动启动，但不得与前一轮并行写入。

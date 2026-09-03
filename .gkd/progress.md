@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-已完成历史调查、计划落盘和三种项目级角色预设；本轮已补齐施工前 PLAN 合同和 T1-T5 任务边界，并明确 GKD 是完整的项目开发工作流。监控脚本、需求问答与项目适配尚未开始。
+已完成历史调查、计划落盘和三种项目级角色预设；T1-T5 已完成施工和验收，当前只剩 main 收口与归档整理。
 
 ## 已完成
 
@@ -233,3 +233,37 @@ T1 已完成并合入主分支；下一步按更新后的 `.gkd/plan.md` 创建 
 ### 交接
 
 本轮修正已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T5 执行记录（2026-09-03）
+
+### 本轮同步
+
+- README、手工工作流和 ADR-002 中面向用户的协作记录引用统一为 `.gkd/plan.md`、`.gkd/execution.md`、`.gkd/progress.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`，明确执行交接与进度报告均位于目标 worktree 的 `.gkd/`。
+- 保持 manual-first 默认、用户明确选择才可自动启动、CI 监控与验收只读、活动记录使用 Markdown、归档位于目标项目 `.gkd/archive/`；未新增状态机、门禁、机器合同或运行时状态。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过，覆盖四类目标 endpoint、只读调用、运行中到成功、失败摘要、认证/目标错误、仓库不一致和超时。
+- `python3 scripts/gkd-github-watch --help`：通过，显示 `--pr`、`--run`、`--commit`、`--release` 互斥目标及轮询参数。
+- `git diff --check`：通过。
+- `rg -n '\.gkd/(plan|execution|progress|plan-changes|review)|\.gkd/archive|direct-main|delegated/manual|delegated/automatic|gkd-intake|gkd-project-adapt|gkd-optimize-ci|gkd_accept|gkd_ci_monitor' README.md AGENTS.md VISION.md docs .agents .codex`：关键路径、路由、附属 Skill 和角色引用均命中；旧门禁/状态机仅保留明确的“不恢复”边界说明。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。逐文件静态核对 `.codex/agents/*.toml`：`gkd_execute` 为 Sol/xhigh、workspace-write；`gkd_accept` 为 Sol/xhigh、read-only；`gkd_ci_monitor` 为 Terra/high、read-only。
+- `git worktree list --porcelain`：确认 `t5-final` worktree 与 `task/t5-final` 分支存在，未产生额外 worktree 或状态文件。
+
+### 手工流程演练
+
+- 简单、低风险且未指定子代理的请求走 `direct-main`，不创建执行 session；用户明确要求子代理时，按用户选择进入 delegated 路径。
+- 委派任务默认走 `delegated/manual`：main 在目标项目 `.gkd/` 写计划并在 worktree 生成 `.gkd/execution.md`，用户手动启动后由执行 session 更新 `.gkd/progress.md`。只有用户明确选择自动模式时，才读取 `gkd_execute` 预设并以命名 `agent_type` 启动；失败保留 worktree，不降级为其他角色或 `direct-main`。
+- 目标、范围、验收、行为约束、工作目录或授权缺失时，先由 `gkd-intake` 按顺序一次提一个问题；完整请求返回“无需问答”，拒答或矛盾答案交回 main，不开始施工。
+- `gkd-project-adapt` 与 `gkd-optimize-ci` 仅读取项目事实并输出带证据的适配/优化建议；资料不足时询问会改变方向的少量事实，其余列为证据缺口，用户确认前不编辑目标项目或 CI。
+- delegated 轮次经 main 审查后，可将五份记录和摘要保存到目标项目 `.gkd/archive/<task-id>/<date>-<revision>/`；本轮没有独立示例项目和归档授权，因此未创建归档目录。
+
+### 未验证范围与剩余风险
+
+- 未实际调用 `agent_type` 角色或验证跨进程 worktree 隔离；按执行角色边界仅完成配置与文档静态核对，实际 spawn 由 main 在验收/端到端环境决定。
+- 未使用真实 GitHub 凭据执行 API 轮询；监控脚本行为由 fake `gh` 单测覆盖。真实远程状态、分支保护和发布设置仍需有权限环境验证。
+- `.agents/` 持久记录中的部分文件名保留上下文内的相对简称；它们不在本轮 execution 允许修改范围内，且不改变 `.gkd/` 事实源语义。
+
+### 交接
+
+本轮文档同步、静态检查和文档级手工演练已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
