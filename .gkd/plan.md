@@ -144,28 +144,35 @@ handle_request(request):
 
 **文件范围**：
 
-- 新增 `scripts/gkd-github-watch` 及其最小测试/fixture。
-- 修改 `.codex/agents/gkd_ci_monitor.toml` 和 `docs/manual-workflow.md` 的调用约束。
-- 脚本只从参数和当前 Git remote 获取目标，不写死仓库、路径或 check 名称。
+- 新增可执行入口 `scripts/gkd-github-watch`，实现目标解析、只读查询、轮询和终态报告。
+- 新增 `scripts/tests/test_gkd_github_watch.py` 及 fake `gh` fixture，覆盖正常、错误和超时。
+- 修改 `.codex/agents/gkd_ci_monitor.toml` 和 `docs/manual-workflow.md` 的调用约束，明确只调用该入口。
+- 脚本只从参数和当前 Git remote 获取目标，不写死仓库、路径或 check 名称，不写本地状态文件。
 
-**实现伪代码**：
+**实现方案与技术栈**：
+
+- Python 3 标准库（`argparse`、`json`、`subprocess`、`time`、`urllib.parse`）；外部依赖只使用 GitHub 官方 `gh` CLI 的只读 `api` 子命令。
+- 目标参数采用显式形式：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`，可选 `--repo owner/name`、`--interval seconds`、`--timeout seconds`；未指定 repo 时从 `git remote get-url origin` 解析。
+- 查询层把 GitHub JSON 正规化为统一报告字段：目标类型、仓库、编号/标识、URL、当前状态、失败检查摘要、查询时间；未知 JSON、认证失败和仓库不一致都直接形成可读错误报告。
+- 轮询只在进程内保留最近一次结果，不落盘、不重跑、不取消、不修改 GitHub；脚本退出码区分成功终态、失败终态、超时和调用错误，供 CI 监控角色报告。
+
+**关键外部命令编排伪代码**：
 
 ```text
-watch(target, interval, deadline):
-  identity = resolve_explicit_target(target)
-  require identity.repo matches current remote when a worktree is supplied
-  repeat until deadline:
-    result = run gh/API with per-command timeout
-    if auth_error or target_missing or unsupported_response:
-      return blocked(reason, target, url)
-    state = classify(result)  # queued, in_progress, success, failure, cancelled, timeout
-    if state is terminal:
-      return report(identity, state, failed_checks, url)
-    sleep(interval)
-  return report(identity, timeout, last_state, url)
+watch(args):
+  identity = resolve_target(args, git_remote_origin())
+  while elapsed < args.timeout:
+    payload = run_gh_api(identity, command_timeout=min(args.interval, 30))
+    if command_failed(payload):
+      return report_error(auth_or_target_reason(payload), identity)
+    state = normalize_state(payload)
+    if state in {success, failure, cancelled}:
+      return report(identity, state, failed_checks(payload), url(payload))
+    sleep(args.interval)
+  return report(identity, timeout, last_state, last_url)
 ```
 
-**验收**：使用 fake GitHub 响应覆盖目标解析、运行中、成功、失败、认证失败、仓库不一致和超时；确认脚本没有写文件、重跑、取消或修改 GitHub 资源。
+**验收**：使用 fake `gh` 响应覆盖四种目标解析、运行中、成功、失败、认证失败、目标不存在、仓库不一致和超时；用临时目录快照确认脚本没有写文件；检查命令参数只包含只读 `gh api`，没有重跑、取消或修改 GitHub 资源。
 
 ### T3：需求问答 Skill
 
