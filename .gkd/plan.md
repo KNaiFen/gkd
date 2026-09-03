@@ -152,17 +152,18 @@ handle_request(request):
 **实现方案与技术栈**：
 
 - Python 3 标准库（`argparse`、`json`、`subprocess`、`time`、`urllib.parse`）；外部依赖只使用 GitHub 官方 `gh` CLI 的只读 `api` 子命令。
-- 目标参数采用显式形式：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`，可选 `--repo owner/name`、`--interval seconds`、`--timeout seconds`；未指定 repo 时从 `git remote get-url origin` 解析。
+- 目标参数采用显式形式：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`，可选 `--repo owner/name`、`--interval seconds`、`--timeout seconds`；未指定 repo 时从 `git remote get-url origin` 解析，显式 repo 在无 origin 的环境也可独立使用。
 - 查询层把 GitHub JSON 正规化为统一报告字段：目标类型、仓库、编号/标识、URL、当前状态、失败检查摘要、查询时间；未知 JSON、认证失败和仓库不一致都直接形成可读错误报告。
-- 轮询只在进程内保留最近一次结果，不落盘、不重跑、不取消、不修改 GitHub；脚本退出码区分成功终态、失败终态、超时和调用错误，供 CI 监控角色报告。
+- 轮询只在进程内保留最近一次结果，不落盘、不重跑、不取消、不修改 GitHub；interval/timeout 必须为有限非负数，单次 API 调用 timeout 不超过全局剩余时间。脚本退出码区分成功终态、失败终态、超时和调用错误，供 CI 监控角色报告。
 
 **关键外部命令编排伪代码**：
 
 ```text
 watch(args):
-  identity = resolve_target(args, git_remote_origin())
+  identity = resolve_target(args, git_remote_origin() if args.repo is empty else None)
   while elapsed < args.timeout:
-    payload = run_gh_api(identity, command_timeout=min(args.interval, 30))
+    remaining = args.timeout - elapsed
+    payload = run_gh_api(identity, command_timeout=min(max(remaining, 0.1), 30))
     if command_failed(payload):
       return report_error(auth_or_target_reason(payload), identity)
     state = normalize_state(payload)
