@@ -6,7 +6,7 @@
 
 ## 2. Worktree and route
 
-<!-- 写明 worktree、分支和 delegated/manual 或用户明确选择的 delegated/automatic。 -->
+<!-- 写明 worktree、分支和 delegated/manual 或用户明确选择的 delegated/automatic。简单任务默认 direct-main；用户明确要求子代理时，以用户选择覆盖复杂度判断。 -->
 
 ## 3. Scope, non-goals, authorization and stop conditions
 
@@ -18,7 +18,7 @@
 
 ## 5. Target design and flow
 
-<!-- 描述组件边界、数据流、控制流，以及与现有行为的差异。 -->
+<!-- 写清需求如何实现：技术栈/现有工具、组件边界、数据流、控制流、关键步骤，以及与现有行为的差异。只有非显然分支、状态转换或外部命令编排才写针对性伪代码。 -->
 
 ## 6. File-level change table
 
@@ -30,9 +30,9 @@
 
 <!-- 写明输入来源、输出格式、错误分类、配置键、兼容性和默认值。 -->
 
-## 8. Key-path pseudocode
+## 8. Key-path pseudocode (when needed)
 
-<!-- 伪代码必须覆盖正常、拒绝、配置缺失、外部命令失败、超时、用户介入和停止动作。 -->
+<!-- 仅在确有复杂分支时填写；覆盖该分支的正常、拒绝、配置缺失、外部命令失败、超时、用户介入和停止动作。 -->
 
 ```text
 input = ...
@@ -54,7 +54,7 @@ else:
 
 ## 11. Handoff and progress updates
 
-<!-- 说明何时更新 progress.md、完成时报告什么、阻塞时停在哪里。 -->
+<!-- 说明 main 如何从本计划生成 worktree 内 execution.md，何时更新 progress.md，以及如何在验收返工时追加 plan-changes.md、更新 execution.md 并通知下一轮 session。 -->
 
 ## 12. Risks, trade-offs and open decisions
 

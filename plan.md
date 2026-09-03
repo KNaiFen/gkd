@@ -2,7 +2,7 @@
 
 ## 状态
 
-进行中。本文件是当前施工的唯一总计划。它只定义 GKD 本体如何补齐能力；本轮先完善计划和施工合同，不开始实现脚本、Skill 或生产安装。
+进行中。本文件是当前施工的唯一总计划，由 main 维护和审查。它只定义 GKD 本体如何补齐能力；每个 delegated 任务另生成 worktree 内的 `execution.md` 作为执行 session 的唯一任务交接文档，并用 `plan-changes.md` 记录计划调整思路。
 
 ## 目标与边界
 
@@ -15,27 +15,33 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 3. 手动启动执行 session 是默认；只有用户明确选择自动执行时，main 才能用命名角色启动一个执行代理，并让其在指定 worktree 中修改。
 4. GitHub 长流程由可复用的只读监控脚本处理，CI 监控代理不临时拼装轮询命令。
 5. 提供需求问答、项目 GKD 适配和 CI 优化能力。
-6. 不恢复旧的机器合同、状态机、断点恢复、watcher、固定 head 验收、bundle 安装器或自动发布平台。
+6. 每轮施工完成后，把该项目的关键 Markdown 记录和简短摘要归档到项目自己的 `.gkd/archive/` 子目录，保留可读的长期上下文。
+7. 不恢复旧的机器合同、状态机、断点恢复、watcher、固定 head 验收、bundle 安装器或自动发布平台。
 
 提交、推送、合并、创建 release 和实际发布不因路由自动获得授权；它们必须在计划中明确列为允许动作，并由用户授权。
 
-## 施工前 PLAN 硬性合同
+## 施工前 PLAN 编写要求
 
-任何 delegated 任务在创建 worktree 或启动执行角色前，main 必须先生成该任务自己的 `plan.md`。只有满足以下“实现就绪”检查，才能进入施工：
+任何 delegated 任务在创建 worktree 或启动执行角色前，main 都应先写一份足够具体的 `plan.md`。它是给 main 自己和用户审阅的方案，不是机器门禁。计划至少应让读者知道：
 
-- 目标、成功标准、非目标和工作目录已确定；没有“后续再决定”的材料性事项。
-- 已列出受影响的文件、目录、符号或配置键，并说明每项是新增、修改还是删除。
-- 已写出现状证据（文件路径、符号名、必要时行号）以及目标行为；不能只写“补齐”“优化”“接入”。
-- 已给出控制流/数据流和关键接口的伪代码，至少覆盖正常路径、权限拒绝、配置缺失、外部命令失败、超时和用户介入。
-- 已明确每个角色、脚本和 Skill 的输入、输出、可写范围、禁止动作及停止条件。
-- 已把用户可见行为、外部副作用和需要用户决定的事项单独列出，并标明授权时点。
-- 已列出逐项验证命令、预期结果、不能运行的检查及原因；验证对象必须对应实际改动。
-- 已定义交接材料如何更新：何时写 `progress.md`，完成时报告什么，阻塞时停止在哪里。
-- 计划中的每条验收标准都能通过 diff、文件内容、命令结果或手工操作复现；不存在仅凭“看起来正确”的标准。
+- 要解决什么问题、成功后看到什么，以及哪些内容明确不做；
+- 现状证据在哪里，准备采用什么技术栈或现有工具，需求如何落地，关键步骤如何衔接；
+- 会改哪些文件、符号或配置，输入输出如何组织，如何验证结果；
+- 哪些动作需要用户授权，执行、CI 监控和验收角色各自负责什么；
+- 还有哪些真正需要用户决定的事项。
 
-### 任务 PLAN 的固定结构
+只有复杂分支、状态转换或外部命令编排难以用自然语言说清时，才补充针对性伪代码。计划可以根据新事实和验收意见随时调整，调整理由追加到 `plan-changes.md`，不把文档变成固定状态机。
 
-每个施工任务的 `plan.md` 必须按下列顺序写，不得省略章节；不适用时写明“不适用及原因”：
+### 计划与执行文档分工
+
+- `plan.md`：main 的权威方案和授权记录。它描述为什么做、如何实现、用什么技术、改哪些文件、如何验证，以及用户确认和后续审查依据；执行 session 不以它作为施工指令。
+- `execution.md`：main 根据已批准 PLAN 生成的 worktree 内执行交接。它只包含当前轮次可执行的文件/符号清单、实现步骤、命令、约束和变更建议，并标明对应 PLAN 修订号；执行 session 读取它和适用的 `AGENTS.md`，完成后更新 `progress.md`。
+- `plan-changes.md`：main 维护的追加式变更记录。每次 PLAN 因用户决定、验收发现或事实变化而调整，都记录原因、影响、授权变化、PLAN 修订号和 `execution.md` 更新内容；不得覆盖旧思路。
+- `review.md`：main 记录独立验收结论。验收发现问题时，main 先写 review，再修改 PLAN，追加 `plan-changes.md`，更新 worktree 的 `execution.md`，然后才启动下一轮执行；旧 execution session 不会因 PLAN 修改而隐式改变。
+
+### 任务 PLAN 的建议结构
+
+为了让施工前的实现思路足够清楚，建议按下列顺序组织 `plan.md`；可根据任务删减不相关章节：
 
 ```text
 1. 任务目标与用户可见结果
@@ -44,16 +50,14 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 4. 目标设计（组件、数据流、控制流）
 5. 文件级变更表（新增/修改/删除、责任和原因）
 6. 接口与配置（输入、输出、错误、兼容性）
-7. 关键路径伪代码（正常、失败、超时、拒绝、恢复）
+7. 实现方案与关键路径伪代码（技术栈、实现步骤；仅对需要精确分支/编排的部分）
 8. 角色协作与 worktree 写入边界
 9. 验证矩阵（命令、夹具、预期结果、未验证项）
 10. 交接格式与 progress.md 更新点
 11. 风险、取舍和仍需用户确认的事项
 ```
 
-伪代码要求达到“施工代理无需重新设计”的程度：变量和输入来源明确，分支条件可判断，调用的角色/脚本名称明确，错误结果和停止动作明确。伪代码不是实现代码，但不能用抽象句替代，例如“调用 CI 脚本”“处理异常”必须展开为目标解析、命令调用、终态分类和返回内容。
-
-施工期间若发现必须改变目标行为、文件边界、角色职责、授权范围或伪代码主流程，执行代理必须停止修改，先在 `progress.md` 记录偏差；main 更新 `plan.md` 并重新取得用户确认后才能继续。纯内部实现细节可以由执行代理选择，但必须写入 `progress.md`。
+实现方案要达到施工代理无需重新设计的程度：说明需求如何落地、使用什么技术或现有工具、改动哪些文件/符号、关键步骤和验证方式。伪代码不是实现方案本身，只用于表达非显然分支、状态转换或外部命令编排；变量、调用对象和停止动作在确有需要时写清。施工期间若发现目标、范围或授权需要变化，执行代理在 `progress.md` 说明事实，main 结合判断更新 `plan.md` 和 `execution.md`；只有会改变用户意图或造成明显冲突时才暂停并重新对齐。
 
 ## 目标工作流
 
@@ -63,14 +67,15 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
   -> 不足：gkd-intake 逐项提问并更新计划草案
   -> 足够：展示实现就绪的 PLAN，等待用户批准
   -> 路由：direct-main / delegated-manual / delegated-automatic / project-adapt
-  -> 执行角色在指定 worktree 修改并更新 progress.md
+  -> delegated 路径：main 生成 worktree/execution.md，执行角色只读 execution.md 并更新 progress.md
   -> 长 GitHub 流程：gkd_ci_monitor 调用复用脚本并报告终态
   -> gkd_accept 独立检查 diff、计划和 progress.md
   -> main 写 review.md，决定通过或返工
   -> 按 PLAN 中已获授权的交付动作提交、推送、合并或发版；未授权则停在交付前
+  -> 施工结束：main 将本轮记录摘要归档到目标项目 `.gkd/archive/<task>/`
 ```
 
-默认路由是 `delegated-manual`。`delegated-automatic` 只有用户明确说出自动执行意图时可用，且只能调用 `gkd_execute`；角色不存在、配置不符或 spawn 失败时报告阻塞，不降级为默认 worker。
+默认路由是 `delegated-manual`。简单、低风险且无需执行 session 的任务使用 `direct-main`；如果用户明确要求使用子代理，即使任务本身简单，也按用户指定的 delegated 路径执行。`delegated-automatic` 只有用户明确说出自动执行意图时可用，且只能调用 `gkd_execute`；角色不存在、配置不符或 spawn 失败时报告阻塞，不降级为默认 worker。
 
 ## 角色预设
 
@@ -86,16 +91,23 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 
 ### T1：main 路由与角色启动
 
-**目标**：实现需求分类、方案确认和手动/自动执行分流，不改变 Git/Markdown 事实源。
+**目标**：实现需求分类、方案确认和手动/自动执行分流，不改变 Git/Markdown 事实源；让执行 session 通过独立 `execution.md` 获得施工指令。
 
 **文件范围**：
 
-- 修改 `.agents/skills/gkd-main/SKILL.md`：增加路由判定、PLAN readiness gate、自动启动约束和偏差处理。
+- 修改 `.agents/skills/gkd-main/SKILL.md`：增加路由判定、计划与执行文档交接、自动启动约束和灵活偏差处理。
 - 修改 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`：固化本计划中的模型和职责。
 - 修改 `docs/manual-workflow.md`：同步用户手动和 main 自动路径。
+- 修改 `docs/templates/manual/plan.md`、`progress.md`、`review.md`，新增 `execution.md`、`plan-changes.md` 模板：明确 main 计划、执行交接和变更追溯的分工。
 - 不修改 `~/.codex` 生产安装，不新增运行时状态文件。
 
-**实现伪代码**：
+**实现方案与技术栈**：
+
+- 技术栈：Markdown 规范、Git worktree、项目 `.codex/agents/*.toml` 角色预设和 Codex 原生 agents API；不新增运行时状态机或机器合同。
+- main 在确认 PLAN 后生成 `execution.md`，内容来自 PLAN 的已批准实现步骤；执行角色提示词改为只读取 `execution.md` 和适用规则。main 的 `plan-changes.md` 采用追加式 Markdown 表格/条目，记录 revision、原因、影响和 execution 更新。
+- 验收返工时，`review.md` 先记录 finding，main 增加 PLAN revision 并同步 execution 文档；下一轮 session 只按最新 execution 文档施工，从而隔离 PLAN 调整与旧 session。
+
+**关键路由控制流伪代码**（仅描述需要精确分支的部分）：
 
 ```text
 handle_request(request):
@@ -103,24 +115,25 @@ handle_request(request):
   if facts.missing_material_input:
     invoke gkd-intake
     return waiting_for_answers
-  draft = build_plan(facts)
-  require plan_readiness(draft) == ready
+  draft = build_plan(facts)  # 包含技术栈、文件/符号、实现步骤和验证方案
+  if plan_missing_material_implementation_detail(draft):
+    clarify_with_user_or_investigate(draft)
   present draft and await user approval
   if approval != implementation_authorized:
     return plan_approved_only
   route = explicit_auto_requested(request) ? delegated-automatic : delegated-manual
   if route == delegated-manual:
-    create worktree and write task plan
+    create worktree and write execution.md from approved draft
     return handoff prompt
   role = load_named_agent("gkd_execute")
   require role.model == sol and role.effort == xhigh
-  spawn exactly one role with fork_turns=none and declared worktree
+  spawn exactly one role with fork_turns=none and declared worktree/execution.md
   if spawn fails or role check fails:
     report blocked; preserve worktree; do not fallback
   otherwise remain within the waiting contract and await completion
 ```
 
-**验收**：用四组输入分别复现信息不足、普通实施、明确自动实施和直接回答；确认自动路径只启动 `gkd_execute`，手动路径不启动子代理，PLAN 未 ready 时不能 spawn。
+**验收**：简单直接回答不启动子代理；用户明确要求子代理时即使任务简单也遵循指定 delegated 路径；另用信息不足、普通实施、明确自动实施复现路由；确认执行角色读取 `execution.md` 而非把 `plan.md` 当施工指令，计划缺少关键实现信息时 main 会先补充或与用户对齐。
 
 ### T2：GitHub 长流程只读监控
 
@@ -213,12 +226,22 @@ optimize_ci(repo):
 
 **验收顺序**：
 
-1. 静态检查角色配置、文档交叉引用和 PLAN readiness 清单。
+1. 静态检查角色配置、文档交叉引用和计划/执行文档分工。
 2. 手动执行路径演练：worktree、plan、progress、review。
 3. 明确自动路径演练：只启动命名执行角色，验证 worktree 隔离和失败不降级。
 4. CI 监控路径演练：脚本覆盖运行中、终态和错误。
 5. 项目适配/需求问答路径演练：确认先问答/规划，批准前不修改目标项目。
 6. 消融审查：删除没有调用方的旧描述、重复约束和不必要抽象。
+
+### T6：项目级施工记录归档
+
+**目标**：每轮施工结束后，让目标项目保留“做过什么、为什么做、结果如何”的可读记录，便于后续 GKD 或人工继续工作。
+
+**技术栈与实现思路**：只使用目标项目内的 Git 和 Markdown。main 在验收结论确定后，按任务逻辑 ID 创建 `.gkd/archive/<task-id>/<date>-<short-revision>/`，复制或整理 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md` 及一份 `summary.md`。归档内容只保留逻辑 worktree、分支和变更摘要，不写入本机绝对路径、令牌或机器状态。目录命名和内容由 main 依据项目约定灵活选择，不新增常驻服务或索引数据库。
+
+**触发与边界**：正常完成、用户决定停止或明确阻塞时都可以归档一次当前材料；简单 `direct-main` 任务只有在确实产生值得保留的项目知识时才归档。归档属于目标项目的普通文档改动，是否随功能提交由 PLAN 和用户授权决定；未授权时 main 只生成归档内容并停在交付前。
+
+**验收**：在一个示例项目中完成一轮 delegated 任务后，确认 `.gkd/archive/` 下能独立读懂目标、思路、实际变更、验收结论和后续建议；重复归档不会覆盖旧目录；内容无绝对机器路径和敏感值；没有额外状态文件或后台进程。
 
 ## 统一停止条件
 
@@ -239,4 +262,4 @@ optimize_ci(repo):
 ## 实施记录
 
 - 2026-09-03：根据历史会话和当前需求建立初版计划与项目角色预设。
-- 2026-09-03：按用户修订 CI reviewer 为 `gpt-5.6-terra / high`；新增 PLAN 实现就绪合同、固定章节、伪代码要求、偏差停工规则和 T1-T5 具体任务边界。
+- 2026-09-03：按用户修订 CI reviewer 为 `gpt-5.6-terra / high`；补充 PLAN 的实现思路要求、execution 交接、计划变更记录和项目级归档，并移除机器化门禁/状态机倾向。

@@ -19,11 +19,11 @@ GKD 曾把人工协作、自动路由、固定验收、发布自验证和历史�
 GKD 的新默认形态改为 manual-first：
 
 - 人类只向正常工作流提供工作目标、工作目录和行为约束。
-- 每个任务使用 `plan.md`、`progress.md` 和 `review.md` 三类 Markdown 文件。
-- 主代理拥有计划和审查结论；执行代理拥有进度报告；Git worktree 是代码事实源。
+- 每个 delegated 任务使用 main 维护的 `plan.md`、`plan-changes.md`、`review.md`，以及 worktree 内执行代理使用的 `execution.md`、`progress.md` 五类 Markdown 文件。
+- main 拥有计划、计划变更历史和审查结论；执行代理拥有 execution 交接和进度报告；Git worktree 是代码事实源。执行 session 不把 `plan.md` 当作施工指令。
 - 中断恢复依靠 worktree、计划和进度报告，不依靠 runtime attachment、receipt、journal 或自动 reclaim。
-- 返工通过主代理修改计划或审查意见后继续执行，不创建新的 offer/claim/activation 生命周期。
-- 需要执行 session 的委派任务默认由用户手动启动；用户明确选择自动模式时，main 可以读取当前 Codex 已配置角色并通过原生 agents API 启动一个普通执行子代理。两种入口都使用同一 worktree 和三份 Markdown，完成后仍由 main 审查。
+- 返工通过主代理先记录 `review.md`，再修改计划、追加 `plan-changes.md` 并更新 execution 交接后继续执行，不创建新的 offer/claim/activation 生命周期；旧 execution session 不受计划修改的隐式影响。
+- 需要执行 session 的委派任务默认由用户手动启动；用户明确选择自动模式时，main 可以读取当前 Codex 已配置角色并通过原生 agents API 启动一个普通执行子代理。两种入口都使用同一 worktree 的 execution/progress 交接，完成后仍由 main 审查。
 - 旧 automatic route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证不再位于当前工作树；需要追溯时使用 Git 历史。原生子代理启动不提供旧路由、状态机或验收兼容入口。
 
 `v0.1.5` 发行物和既有发布资产保持不变；新 manual-first 实现不提供旧生产安装、角色迁移或兼容恢复入口。
@@ -36,7 +36,7 @@ GKD 的新默认形态改为 manual-first：
 
 ### 完全删除 Git 和持久报告
 
-这会让中断后的恢复依赖对话上下文，无法审查代码变更，也无法把返工要求交给新的 session。保留 Git worktree 和三份 Markdown 是人工流程的最低必要记录，因此拒绝。
+这会让中断后的恢复依赖对话上下文，无法审查代码变更，也无法把返工要求交给新的 session。保留 Git worktree、main 计划和 worktree 执行交接及报告，是人工流程的最低必要记录，因此拒绝。
 
 ### 同时保留两套默认工作流
 

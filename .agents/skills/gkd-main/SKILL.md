@@ -5,24 +5,39 @@ description: 通过计划、Git worktree、进度报告和主代理审查协调 
 
 # GKD Main
 
-这是普通任务唯一的 GKD 工作流 Skill。
+这是普通任务的主流程 Skill，强调清晰交接和主代理判断，不把协作材料变成机器状态机。
 
-1. 先判断路径。简单、低风险且无需执行 session 的任务使用 `direct-main`。修改代码使用 `delegated/manual` 或用户明确选择的 `delegated/automatic`；有明确 GitHub 目标的等待任务使用 `gkd_ci_monitor`；需要独立审查时使用 `gkd_accept`。写入型路径开始前，必须创建独立 sibling worktree，并在 `plan.md` 写明具体目标、worktree 和行为约束；三项任一缺失或仍是模板占位时，不得开始执行。
-2. `plan.md` 必须先达到“实现就绪”再启动执行。至少包含：现状证据、目标行为、范围/非目标、文件与符号级变更表、接口和配置、角色写入边界、正常与失败路径伪代码、逐项验证命令及预期结果、progress 更新点、停止条件和剩余用户决策。伪代码必须明确输入来源、分支条件、调用对象、错误分类和停止动作；“补齐”“处理异常”“调用脚本”等抽象描述不算完成。任何材料性事项仍写成 TBD、缺少可复现验收标准或无法说明具体改哪些文件时，主代理必须停在规划阶段并向用户确认。
-3. 对需要执行 session 的任务，默认使用 `delegated/manual`：main 向用户发送下面的启动提示，保留 worktree 并等待用户手动打开执行 session。没有用户明确选择自动模式时，不得调用 `spawn_agent`。
+## 路径选择
 
-   ```text
-   读取 plan.md 和适用的 AGENTS.md，只在声明的 worktree 中工作。
-   只读取完成计划目标所需的代码；不要检查无关历史或工作流材料。
-   在判断、里程碑、阻塞或验证结果会影响交接时更新 progress.md。
-   不修改声明的非目标。完成请求的工作后停止并通知主代理。
-   ```
+1. 简单、低风险且用户未指定子代理时，main 直接处理，不启动执行 session。
+2. 用户明确要求使用子代理时，按用户选择进入 delegated 路径，即使任务本身简单。
+3. 需求信息不足时使用 `gkd-intake`；它不可用时直接向用户说明缺口并继续沟通，不临时伪造能力。
+4. 需要执行 session 时默认 `delegated/manual`：main 创建 sibling worktree，维护 `plan.md`，并在 worktree 生成 `execution.md` 后交给用户手动启动。
+5. 用户明确选择自动执行时使用 `delegated/automatic`：main 读取 `.codex/agents/gkd_execute.toml`，以 `agent_type=gkd_execute` 启动一个普通执行 session。角色不可用或配置不符时说明原因并停在当前 worktree，不悄悄换成其他角色。
+6. 有明确 GitHub 目标的等待任务可启动 `gkd_ci_monitor`；需要独立审查时可启动 `gkd_accept`。两者只读，main 可以自动衔接；提交、推送、合并和发版仍按用户授权执行。
 
-4. 只有用户明确选择自动模式时，使用 `delegated/automatic`：main 以 `agent_type=gkd_execute` 调用一次原生 `spawn_agent`，并传入声明的 worktree、上面的执行提示和 `fork_turns=none`。`gkd_execute` 的提示词、`gpt-5.6-sol`、`xhigh` 与 sandbox 只在 `.codex/agents/gkd_execute.toml` 定义；不得用泛化默认子代理替代它。
-5. `gkd_ci_monitor` 只在父代理提供明确 GitHub 目标时启动；其模型和强度由 `.codex/agents/gkd_ci_monitor.toml` 固定为 `gpt-5.6-terra / high`。`gkd_accept` 只在已有 worktree、计划和交接材料时启动，固定为 `gpt-5.6-sol / xhigh`。两者均为只读角色，可由 main 自动衔接，但不得取代用户对代码修改、提交、推送、合并或发版的授权。
-6. 自动启动只允许同一 worktree、同一施工轮次的一名实现写者。main 等待该执行 session 停止后才读取结果并审查；执行期间 main 不修改该 worktree 的实现文件。角色配置、`agent_type` 调用或启动结果不可用时，main 明确向用户报告阻塞并保留 worktree；不得悄悄切为 `direct-main` 或泛化子代理。
-7. 手动或自动启动的执行 session 都不得验收、合并、发布、清理 worktree 或启动其他施工任务。只运行与变更行为直接相关的检查；将实际运行的检查、结果和有意未验证范围写入 `progress.md`，完成后停止并通知 main。
-8. main 审查 diff、`plan.md`、`progress.md` 和必要验证，在 `review.md` 记录通过或具体返工要求及剩余风险。通过后只按 PLAN 中已获授权的动作使用普通 Git 流程提交、推送、合并或发版；未授权动作停在交付前。返工时更新计划或审查意见，并在同一 worktree 启动新的执行轮次，仍不得并行写入。
-9. 恢复 session 时读取 `plan.md`、`progress.md`、当前 diff 和最近提交。报告不完整时以 Git 事实为准，并把新的判断补回 `progress.md`。
+## 计划和交接
 
-自动启动只是由 main 替代用户打开普通执行 session，不是旧 GKD automatic route。不得引入任务状态、JSON 合同、生命周期命令、fixed-head 验收或旧 watcher；`gkd_ci_monitor` 是项目内按需调用的只读角色，而非旧自动化平台。施工代理发现材料性偏差时必须先更新 `progress.md` 并停止，主代理更新 `plan.md`、重新取得必要确认后才能继续。
+`plan.md` 是 main 的方案文件。施工前应写清目标、成功标准、现状证据、技术栈或现有工具、实现思路、文件/符号范围、验证方式、授权边界和仍需决定的事项。伪代码只在复杂分支、状态转换或外部命令编排确实能帮助理解时使用，不为形式完整而堆砌。
+
+main 从批准的 `plan.md` 生成 worktree 内的 `execution.md`。执行 session 只读取 `execution.md` 和适用的 `AGENTS.md`，按其中的具体文件、步骤和验证要求工作，并更新 `progress.md`；它不把 `plan.md` 当施工指令。
+
+`plan-changes.md` 由 main 追加记录每次计划调整的原因、依据、思路变化和对 execution 文档的影响。验收发现问题时，main 先写 `review.md`，再改 `plan.md`、追加 `plan-changes.md`、更新 `execution.md`，明确通知下一轮 session；旧 session 不会因计划文件变化而隐式改向。
+
+## 角色边界
+
+- `gkd_execute`（Sol/xhigh，workspace-write）：只在声明 worktree 内按 `execution.md` 实现和验证，更新 `progress.md`；不验收、不交付、不启动其他代理。
+- `gkd_ci_monitor`（Terra/high，read-only）：调用复用的监控工具并报告，不修改代码或 GitHub。
+- `gkd_accept`（Sol/xhigh，read-only）：独立检查计划、execution、diff、progress 和验证结果，向 main 提出通过或返工意见。
+
+同一 worktree 的同一轮只安排一个写入型执行 session，避免相互覆盖；这是协作约定，不是状态机。发现事实与计划不符时，执行 session 在 `progress.md` 留下说明并暂停，main 依据判断调整计划和 execution 文档。
+
+## 默认提示
+
+```text
+读取 worktree 内的 execution.md 和适用的 AGENTS.md；不要把 plan.md 当作施工指令。
+只在声明范围内完成 execution.md 的任务，按其中的技术方案和验证命令工作。
+把重要进展、判断、阻塞和验证结果写入 progress.md；完成后停止并通知 main。
+```
+
+自动启动只是替代用户打开普通执行 session，不是旧 automatic route。不要引入旧状态机、JSON 合同、固定 head 验收或常驻 watcher。
