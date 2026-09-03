@@ -11,3 +11,7 @@
 - [2026-09-02] 验证遵循最少必要原则。
   - Why: 为无关变更运行完整旧合同会增加时间和上下文成本。
   - Impact: 只运行与计划目标和改动直接相关的局部检查，并把实际结果或未验证范围写入交接记录。
+
+- [2026-09-03] 恢复执行 session 的双启动入口。
+  - Why: 用户仍需要保留手动交接作为默认，同时可明确选择由 main 启动已配置角色，减少新开 session 的操作。
+  - Impact: `delegated/manual` 保持默认；`delegated/automatic` 只以原生 `spawn_agent` 打开一个普通执行 session，继续使用 worktree 和 Markdown 交接，不恢复旧 automatic route 或机器生命周期。

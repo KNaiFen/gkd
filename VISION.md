@@ -34,7 +34,7 @@ GKD 服务于需要把复杂编码工作交给 Agent、又不愿失去决定权�
 
 - 不替代用户作出材料性产品或外部动作决定。
 - 不把 GKD 建成通用安全运营、威胁检测或 Cyber 平台。
-- 不把 automatic route、fixed-head acceptance 或机器合同作为普通任务前置。
+- 不把旧 automatic route、fixed-head acceptance 或机器合同作为普通任务前置；用户明确选择的原生执行 session 启动仍受 manual-first 的计划、进度和主审查约束。
 - 不要求普通任务承担旧发行物、历史 watcher 或发布矩阵的成本。
 - 不用更多流程、更多上下文或更多并发本身衡量成功。
 

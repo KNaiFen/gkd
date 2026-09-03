@@ -8,6 +8,10 @@
 
 <!-- Path to the Git worktree used by the execution agent. -->
 
+## Execution session (optional)
+
+<!-- `direct-main` for a simple low-risk task. Otherwise default to `delegated/manual`; use `delegated/automatic` only when the user explicitly chooses it. For automatic, main reads the current configured execution role or agent type; do not write a role, model, or permission into this template. -->
+
 ## Behavior constraints
 
 <!-- Rules the execution agent must follow. -->

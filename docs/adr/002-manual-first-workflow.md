@@ -23,7 +23,8 @@ GKD 的新默认形态改为 manual-first：
 - 主代理拥有计划和审查结论；执行代理拥有进度报告；Git worktree 是代码事实源。
 - 中断恢复依靠 worktree、计划和进度报告，不依靠 runtime attachment、receipt、journal 或自动 reclaim。
 - 返工通过主代理修改计划或审查意见后继续执行，不创建新的 offer/claim/activation 生命周期。
-- 自动 route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证不再位于当前工作树；需要追溯时使用 Git 历史。
+- 需要执行 session 的委派任务默认由用户手动启动；用户明确选择自动模式时，main 可以读取当前 Codex 已配置角色并通过原生 agents API 启动一个普通执行子代理。两种入口都使用同一 worktree 和三份 Markdown，完成后仍由 main 审查。
+- 旧 automatic route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证不再位于当前工作树；需要追溯时使用 Git 历史。原生子代理启动不提供旧路由、状态机或验收兼容入口。
 
 `v0.1.5` 发行物和既有发布资产保持不变；新 manual-first 实现不提供旧生产安装、角色迁移或兼容恢复入口。
 
@@ -39,11 +40,11 @@ GKD 的新默认形态改为 manual-first：
 
 ### 同时保留两套默认工作流
 
-双默认会继续制造入口选择和上下文负担。manual-first 是唯一正常入口；已移除的旧能力只能从 Git 历史追溯。
+双默认会继续制造入口选择和上下文负担。manual-first 是唯一正常入口，`delegated/manual` 是默认委派入口；用户明确选择的原生自动启动只是同一入口的可选启动方式。已移除的旧能力只能从 Git 历史追溯。
 
 ## Consequences
 
-正面结果：普通任务不再要求机器 JSON、CAS、digest、runtime root、PR/head 参数或专用验收脚本；主代理可直接审查 diff，执行代理可通过报告恢复；流程与人的实际工作方式一致。
+正面结果：普通任务不再要求机器 JSON、CAS、digest、runtime root、PR/head 参数或专用验收脚本；主代理可直接审查 diff，执行代理可通过报告恢复；当用户明确选择时，无需用户手动新开 session 也能保持同一交接边界。
 
 代价：自动化防漂移、固定证据和跨进程恢复不再是普通任务保证；旧流程由 Git 历史保存。
 

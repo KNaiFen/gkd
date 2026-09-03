@@ -2,9 +2,9 @@
 
 ## Current state
 
-- GKD 只保留 manual-first 协作：目标、Git worktree、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
+- GKD 保留 manual-first 协作：目标、Git worktree、行为约束，以及 `plan.md`、`progress.md`、`review.md`。委派默认由用户手动启动执行 session；用户明确选择后，main 可用当前 Codex 已配置角色启动一个普通执行子代理。
 - 唯一项目 Skill 是 `.agents/skills/gkd-main/SKILL.md`；执行 session 不加载其他 GKD Skill。
-- 旧自动化实现、合同、测试、证据和路由已从当前工作树删除，Git 历史是唯一追溯方式。
+- 旧 automatic route、机器生命周期实现、合同、测试和证据已从当前工作树删除，Git 历史是唯一追溯方式；可选原生子代理启动不是这些能力的兼容入口。
 
 ## Boundaries
 

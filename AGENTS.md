@@ -3,7 +3,7 @@
 ## 项目定位
 
 - 本仓库采用 manual-first Agent 工作流：目标、工作目录、行为约束，以及 `plan.md`、`progress.md`、`review.md`。
-- 旧 bundle、自动路由、固定 head 验收和发布验证已从当前工作树移除；需要追溯时查看 Git 历史，不恢复迁移流程。
+- 旧 bundle、automatic route、固定 head 验收和发布验证已从当前工作树移除；需要追溯时查看 Git 历史，不恢复迁移流程。用户明确选择时，main 可用当前 Codex 已配置的角色启动普通执行 session；这不是旧自动化流程的恢复。
 
 ## 工作规则
 

@@ -1,6 +1,14 @@
 # Manual-first 工作流
 
-这是 GKD 唯一的人工协作方式。它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。
+这是 GKD 唯一的 manual-first 协作方式。它只约定协作材料和工作顺序，不是机器状态机，也不要求填写 JSON、digest、CAS 或专用命令参数。执行 session 默认由用户手动启动；用户明确选择后，main 可以用当前 Codex 已配置的角色启动一个普通子代理。
+
+## 路径选择
+
+1. `direct-main`：简单、低风险任务由 main 直接完成，不创建执行 session。
+2. `delegated/manual`：需要执行 session 时的默认路径。main 创建 worktree 和计划，向用户发送启动提示；用户在声明 worktree 中手动启动执行 session。
+3. `delegated/automatic`：仅在用户明确选择自动模式时使用。main 读取当前 Codex 已配置且可用的执行角色或 agent type，再通过原生 `spawn_agent` 启动一个执行子代理，并传入 `fork_turns=none`。
+
+自动启动只替代“用户打开一个新 session”这个动作。它不恢复旧 GKD automatic route、机器生命周期或自动验收，也不改变用户对路径选择和审查结论的控制。
 
 ## 三个输入
 
@@ -31,16 +39,16 @@
 ## 标准顺序
 
 ```text
-主代理写 plan.md
-主代理创建独立 Git worktree
-执行代理读取 plan.md 并开始工作
+main 选择 direct-main，或为 delegated 路径写 plan.md 并创建独立 Git worktree
+delegated/manual：main 交接给用户；delegated/automatic：main 读取已配置角色并启动一个子代理
+执行 session 读取 plan.md 并开始工作
 执行代理持续更新 progress.md
 执行代理完成后通知主代理
 主代理查看 diff、plan.md、progress.md
-主代理通过，或修改 plan.md/review.md 要求返工
+主代理通过，或修改 plan.md/review.md 并在同一 worktree 开始下一轮
 ```
 
-## 执行代理启动提示词
+## 用户手动启动提示
 
 ```text
 读取当前 worktree 中的 plan.md 和适用的 AGENTS.md。
@@ -49,6 +57,21 @@
 不要修改计划中声明的非目标范围。
 完成后停止并通知主代理，由主代理审查 diff。
 ```
+
+main 将以上提示与声明的 worktree 交给用户；未获用户明确选择自动模式时，main 到此为止，不启动子代理。
+
+## main 自动启动提示
+
+用户明确选择自动模式后，main 先读取当前 Codex 配置中可用的执行角色或 agent type。main 使用当前原生 agents API 的对应配置字段调用一次 `spawn_agent`，传入已读取的角色、`fork_turns=none`、声明的 worktree 和下列提示。角色、模型与权限由当前配置决定，不在本协议中写死。
+
+```text
+读取声明 worktree 中的 plan.md 和适用的 AGENTS.md。
+只在该 worktree 中施工；不要修改声明的非目标。
+在重要判断、里程碑、阻塞和验证结果影响交接时更新 progress.md。
+完成后停止并通知 main。不要验收、合并、发布、清理 worktree 或启动其他施工代理。
+```
+
+同一 worktree 的同一施工轮次只允许这个子代理写实现文件。main 在其停止前不修改实现文件；若角色配置、spawn 调用或启动结果不可用，main 明确报告阻塞并保留 worktree，等待用户选择下一条路径。
 
 ## 主代理审查
 
@@ -59,7 +82,7 @@
 - progress.md 是否说明了实际完成情况和剩余风险；
 - 必要的局部测试或手工验证是否足够。
 
-通过后按普通 Git 流程合并或保留分支；不通过时修改计划并让执行代理继续。
+通过后按普通 Git 流程合并或保留分支；不通过时修改计划或审查意见，并在同一 worktree 启动下一轮执行 session。后一轮可以是用户手动启动或用户再次明确选择的自动启动，但不得与前一轮并行写入。
 
 ## 中断与恢复
 
@@ -67,4 +90,4 @@
 
 ## 边界
 
-本协议是唯一正常人工工作流。执行代理不读取无关历史材料，也不调用其他 GKD 自动化入口。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产不在本协议范围内。
+本协议是唯一正常人工工作流。执行代理不读取无关历史材料，也不调用其他 GKD 自动化入口。自动启动失败不会隐式降级为 `direct-main` 或伪装成手动交接成功。生产 `~/.codex`、AIO、GitHub settings、Secrets、付费 runner 和既有 release 资产不在本协议范围内。
