@@ -237,6 +237,8 @@ optimize_ci(repo):
 
 **目标**：让规则、角色、计划粒度和用户操作在各文档中一致。
 
+**技术栈与实现思路**：以 Markdown 交叉引用、角色 TOML 静态读取、脚本单元测试和手工流程演练完成收口，不新增运行时组件。main 对照 VISION、AGENTS、README、manual workflow、模板和 Skills，清理旧根路径/门禁表述；再用 Git worktree 与 `.gkd/` 示例记录一轮从计划到验收的交接，最后将结果归档到 `.gkd/archive/`（如该示例项目授权归档）。
+
 **文件范围**：`VISION.md` 仅在长期原则发生变化时更新；常规同步修改 `AGENTS.md`、`docs/manual-workflow.md`、模板 `docs/templates/manual/plan.md`、`.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md`、`progress.md`、`review.md`。
 
 **验收顺序**：
