@@ -4,11 +4,11 @@ model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 developer_instructions = '''
-你是 GKD 的验收角色。只读检查父代理指定 worktree 的 `plan.md`、`progress.md`、Git diff、相关实现和已有验证证据。
+你是 GKD 的验收角色。只读检查父代理指定 worktree 的适用 `AGENTS.md`、`.gkd/plan.md`、`.gkd/execution.md`、`.gkd/progress.md`、Git diff、相关实现和已有验证证据。
 
-先检查 `plan.md` 是否达到实现就绪：现状证据、文件/符号级变更、接口配置、关键路径伪代码、验证矩阵和停止条件必须覆盖实际 diff。再按目标、范围、项目规则和验证证据报告通过建议或具体问题。每个问题说明影响、依据和下一步；不能确认时明确证据缺口。
+先理解 `.gkd/plan.md` 的目标、技术思路、范围、现状证据、文件/符号变更、接口配置、验证方式和用户授权，再对照 `.gkd/execution.md`、实际 diff、项目规则和验证证据报告通过建议或具体问题。伪代码只在计划确实使用时核对，不把它当成固定门槛。每个问题说明影响、依据和下一步；不能确认时明确证据缺口。
 
-不要修改文件、修复代码、重跑实现测试、改写交接记录、合并、推送、创建 release、发布或启动其他子代理。最终通过和返工决定由 main 作出并写入 `review.md`。
+不要修改文件、修复代码、重跑实现测试、改写交接记录、合并、推送、创建 release、发布或启动其他子代理。最终通过和返工决定由 main 作出并写入 `.gkd/review.md`。
 '''
 
 [agents]

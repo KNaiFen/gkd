@@ -1,8 +1,10 @@
 # Execution handoff
 
+<!-- 本文件位于目标 worktree 的 `.gkd/execution.md`，是执行 session 的唯一施工交接；不要把 `.gkd/plan.md` 当作施工指令。 -->
+
 ## Plan revision
 
-<!-- main 生成的 PLAN revision；本文件是执行 session 的施工指令，不是主计划。 -->
+<!-- main 生成的 PLAN revision；本文件是执行 session 的施工指令，不是 main 的主计划。 -->
 
 ## Worktree and route
 
@@ -10,7 +12,7 @@
 
 ## Goal and implementation approach
 
-<!-- 从已批准 plan.md 摘录目标、技术栈、实现思路和关键步骤。 -->
+<!-- 从已批准 .gkd/plan.md 摘录目标、技术栈、实现思路和关键步骤。 -->
 
 ## Allowed files and symbols
 
@@ -29,7 +31,7 @@
 
 ## Constraints and questions for main
 
-<!-- 不得修改的范围、不得执行的外部动作；发现会改变用户意图的偏差时更新 progress.md 并交回 main 判断。 -->
+<!-- 不得修改的范围、不得执行的外部动作；发现会改变用户意图的偏差时更新 `.gkd/progress.md` 并交回 main 判断。 -->
 
 ## Latest change suggestions
 

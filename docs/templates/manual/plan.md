@@ -1,5 +1,7 @@
 # Task plan
 
+<!-- main 在目标项目 `.gkd/plan.md` 维护本文件；它是方案和授权记录，不是执行 session 的施工指令。 -->
+
 ## 1. Goal and user-visible result
 
 <!-- 写明完成后用户能看到或使用什么，不要只写“优化/补齐”。 -->
@@ -10,7 +12,7 @@
 
 ## 3. Scope, non-goals, authorization and open questions
 
-<!-- 分别写允许修改、明确不改、需要用户授权的外部动作，以及仍需 main 或用户判断的事项。 -->
+<!-- 分别写允许修改、明确不改、需要用户授权的外部动作、停止条件，以及仍需 main 或用户判断的事项。 -->
 
 ## 4. Current evidence
 
@@ -54,7 +56,7 @@ else:
 
 ## 11. Handoff and progress updates
 
-<!-- 说明 main 如何从本计划生成 worktree 内 execution.md，何时更新 progress.md，以及如何在验收返工时追加 plan-changes.md、更新 execution.md 并通知下一轮 session。 -->
+<!-- 说明 main 如何从本计划生成 worktree 内 `.gkd/execution.md`，执行 session 何时更新 `.gkd/progress.md`，以及如何在验收返工时追加 `.gkd/plan-changes.md`、更新 execution 并通知下一轮 session。 -->
 
 ## 12. Risks, trade-offs and open decisions
 

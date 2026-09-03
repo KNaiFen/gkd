@@ -18,4 +18,4 @@
 
 ## Related records
 
-<!-- 同目录下 plan / plan-changes / execution / progress / review 文件。 -->
+<!-- 关联目标项目 `.gkd/` 中的 plan.md、plan-changes.md、execution.md、progress.md 和 review.md。不要写本机绝对路径。 -->

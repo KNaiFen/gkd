@@ -31,4 +31,59 @@
 
 ## 下一步
 
-根据用户指示在此停止；下次先按 T1 的实现就绪 PLAN 验证 role spawn，再实施路由或监控脚本。任何新施工任务都必须先填写完整任务级 `plan.md`。
+T1 等待 main 独立验收；通过后合入主分支，再开始 T2。用户已明确要求本轮采用自动分阶段委派，因此本轮 `execution.md` 路由为 `delegated/automatic`。
+
+## T1 执行记录（2026-09-03）
+
+### 已完成
+
+- 收敛 `.agents/skills/gkd-main/SKILL.md`：明确 `direct-main`、`delegated/manual`、用户明确选择的 `delegated/automatic`、CI 监控和独立验收路径；明确用户指定子代理可覆盖简单任务判断，并将自动启动约束为命名 `agent_type=gkd_execute` 与 `fork_turns=none`。
+- 明确 main 维护目标项目 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`，执行 session 只读取 worktree `.gkd/execution.md` 并更新 `.gkd/progress.md`；验收返工由 main 先记录 review，再同步计划、变更记录和 execution revision。
+- 同步 `docs/manual-workflow.md` 及 manual 模板的 `.gkd/` 路径、执行交接和归档记录说明。
+- 在 `.agents/open-items.md` 记录当前路由和交接约定；同步 `.codex/agents/gkd_execute.toml`、`.codex/agents/gkd_accept.toml` 的角色提示词，CI 监控预设保持原配置。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `rg -n 'direct-main|delegated/manual|delegated/automatic|gkd_execute|gkd_ci_monitor|gkd_accept|execution\\.md|plan-changes|\\.gkd/archive' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md docs/templates/manual`：通过，关键路径和角色/记录引用均存在。
+- `rg -n 'readiness gate|JSON contract|CAS|fixed-head|状态机' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md .codex/agents/*.toml`：仅命中“不得恢复旧机制”的边界说明；未发现旧门禁、合同或状态机流程。
+- 静态核对 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`：模型/推理强度分别为 Sol/xhigh、Terra/high、Sol/xhigh，sandbox 分别为 workspace-write、read-only、read-only。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+
+### 未验证范围与风险
+
+- 尚未实际调用 `agent_type` 启动角色，也未执行 worktree 隔离演练；这些需要 main 在验收或端到端演练阶段完成。
+- 本轮只修改声明式 Markdown/Skill 文档，未新增运行时代码或测试夹具。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T1 执行记录（重做，2026-09-03）
+
+### 本轮变更
+
+- `.agents/skills/gkd-main/SKILL.md`：将计划变更、审查、execution 和 progress 的记录路径统一写成 `.gkd/` 前缀。
+- `docs/manual-workflow.md`：自动 delegated 路径明确读取 `.codex/agents/gkd_execute.toml`，以 `agent_type=gkd_execute` 启动，并同步自动启动提示。
+- `.codex/agents/gkd_accept.toml`：验收角色读取父代理 worktree 内适用的 `AGENTS.md` 与 `.gkd/` 记录，保持只读和按实际 diff 检查。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- 按 execution 要求执行路由/路径关键词 `rg`：通过，`direct-main`、`delegated/manual`、`delegated/automatic`、`gkd_execute`、`gkd_ci_monitor`、`gkd_accept`、`.gkd/execution.md`、`.gkd/plan-changes.md` 和 `.gkd/archive` 均有对应说明。
+- 按 execution 要求执行旧机制关键词 `rg`：未发现旧门禁或状态机文案；仅保留“不得恢复旧机制”的边界说明。
+- 额外检查 `.codex/agents/*.toml`：未发现裸 `plan.md`/`progress.md`/`review.md` 路径或 readiness gate、JSON contract、CAS、fixed-head、状态机要求。
+
+### 未验证范围与剩余风险
+
+- 未实际调用 `agent_type` 启动角色，也未执行 worktree 隔离演练；需由 main 在验收或端到端演练阶段完成。
+- 本轮仍只修改声明式 Markdown 与角色提示词，未新增运行时代码或测试夹具。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T1 main 方案修订（2026-09-03-r4）
+
+- 独立验收指出 T1 文件范围与实际 diff 不一致。main 已修改 `.gkd/plan.md`，并在 `.gkd/plan-changes.md` 追加 r4：execute/accept 角色预设、归档模板、open-items 和本进度记录属于 T1，CI 预设只核对。
+- `.gkd/execution.md` 已同步 r4；执行目标和允许修改内容不变。
