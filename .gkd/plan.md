@@ -98,9 +98,9 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 - 修改 `.agents/skills/gkd-main/SKILL.md`：增加路由判定、计划与执行文档交接、自动启动约束和灵活偏差处理。
 - 修改 `.codex/agents/gkd_execute.toml`、`gkd_accept.toml`：将角色提示词同步到 `.gkd/` 交接；核对 `gkd_ci_monitor.toml` 保持 Terra/high。
 - 修改 `docs/manual-workflow.md`：同步用户手动和 main 自动路径。
-- 修改 `docs/templates/manual/plan.md`、新增 `execution.md`、`plan-changes.md`、`archive-summary.md` 模板：明确 main 计划、执行交接、变更追溯和归档摘要的分工。
+- 修改 `docs/templates/manual/plan.md`、`execution.md`、`plan-changes.md`、`archive-summary.md` 模板：明确 main 计划、执行交接、变更追溯和归档摘要的分工。
 - 修改 `.agents/open-items.md` 和 `.gkd/progress.md`：同步本轮路由、角色和交接事实。
-- 本轮不改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`；它们由 main 维护。
+- `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 由 main 维护；执行代理不修改它们。main 因验收修订这些记录时，必须在 `plan-changes.md` 追加原因并同步 execution revision。
 - 不修改 `~/.codex` 生产安装，不新增运行时状态文件。
 
 **实现方案与技术栈**：
@@ -136,7 +136,7 @@ handle_request(request):
   otherwise remain within the waiting contract and await completion
 ```
 
-**验收**：简单直接回答不启动子代理；用户明确要求子代理时即使任务简单也遵循指定 delegated 路径；另用信息不足、普通实施、明确自动实施复现路由；确认执行角色读取 `execution.md` 而非把 `plan.md` 当施工指令，计划缺少关键实现信息时 main 会先补充或与用户对齐。
+**验收**：简单直接回答不启动子代理；用户明确要求子代理时即使任务简单也遵循指定 delegated 路径；另用信息不足、普通实施、明确自动实施复现路由；确认执行角色读取 `.gkd/execution.md` 而非把 `.gkd/plan.md` 当施工指令，计划缺少关键实现信息时 main 会先补充或与用户对齐。静态验证至少运行 `git diff --check`、路由/路径关键词 `rg`、旧门禁关键词 `rg`（含 `.codex/agents/*.toml`）和 `codex --strict-config --version`，逐项记录实际结果。
 
 ### T2：GitHub 长流程只读监控
 
