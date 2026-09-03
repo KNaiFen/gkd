@@ -52,7 +52,15 @@ CI 监控角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入�
 
 ## 项目归档
 
-一轮 delegated 施工完成、用户决定停止或明确保留当前成果时，main 可在目标项目创建 `.gkd/archive/<task-id>/<date>-<revision>/`。其中保存该轮 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/execution.md`、`.gkd/progress.md`、`.gkd/review.md` 和 `summary.md`，让后续工作能理解目标、实现思路、实际结果和遗留风险。归档是普通 Markdown 与 Git 内容：不写本机绝对路径、令牌或运行时状态；不建立索引服务；简单 `direct-main` 任务只在确实有长期价值时归档。是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
+一轮 delegated 施工完成、用户决定停止、明确保留当前成果或确认阻塞后，main 在审查当前 diff 和 `.gkd/progress.md` 后，按以下顺序归档：
+
+1. 确认目标项目主工作树、任务逻辑 ID、日期和来源 revision；不把本机绝对路径当作归档标识。
+2. 从该轮执行 worktree 读取 `.gkd/execution.md`、`.gkd/progress.md`，从目标项目 `.gkd/` 读取 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`。
+3. 创建 `.gkd/archive/<task-id>/<date>-<revision>/`，用普通文件复制或整理保存上述五份快照和按 `docs/templates/manual/archive-summary.md` 填写的 `summary.md`。
+4. 删除或改写快照中的本机绝对路径、令牌、账号、机密值和运行时状态；只保留逻辑 worktree、分支和变更标识，并检查归档内容可独立读懂目标、取舍、结果和风险。
+5. 在 `.gkd/progress.md` 记录归档目录、文件清单和实际验证；归档不反向修改活动记录，也不自动提交、推送、合并或发布。
+
+归档是目标项目自己的普通 Markdown 长期记录，不是运行时事实源、索引服务或状态机制。简单 `direct-main` 任务只在确实有长期价值时归档；是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
 
 ## 标准顺序
 

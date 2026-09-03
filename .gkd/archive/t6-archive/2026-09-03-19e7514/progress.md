@@ -203,7 +203,7 @@ T1-T5 已完成并合入主分支；下一步按 `.gkd/plan.md` 的 T6 创建归
 
 - `git diff --check`：通过。
 - 静态 `rg`：确认 `project-adapt`、`optimize-ci`、工作流/CI、job DAG、required checks、AIO、不直接修改和用户确认等关键词出现在预期 Skill、`gkd-main` 与本进度文件中。
-- 新增 Skill 逐文件尾随空白与固定路径扫描：通过；未发现 `/Users/`、`/home/`、`~/.codex`、`/tmp/` 或 AIO 固定路径引用。
+- 新增 Skill 逐文件尾随空白与固定路径扫描：通过；未发现本机绝对路径或 AIO 固定路径引用。
 - 未修改任何目标项目代码、脚本、角色 TOML 或生产用户目录；未执行 CI 写操作、发布或外部 API 轮询。
 
 ### 未验证范围与剩余风险
@@ -288,7 +288,7 @@ T1-T5 已完成并合入主分支；下一步按 `.gkd/plan.md` 的 T6 创建归
 
 - `git diff --check`：通过。
 - `find .gkd/archive/t6-archive/2026-09-03-19e7514 -maxdepth 1 -type f -print | sort`：通过，六份归档文件齐全。
-- `rg -n '/Users/|/home/|~/.codex|token|secret' .gkd/archive/t6-archive/2026-09-03-19e7514`：无命中；包含历史“不恢复”边界说明的机制关键词扫描仅命中该历史说明。
+- 归档敏感路径和凭据扫描：无命中；包含历史“不恢复”边界说明的机制关键词扫描仅命中该历史说明。
 - `rg -n '\.gkd/archive|execution\.md|progress\.md|summary\.md' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md README.md docs/templates/manual/archive-summary.md`：通过，规则、来源和模板字段相互引用。
 - `.git/info/exclude` 中的 `/.gkd/` 规则会忽略归档文件；本轮已创建六份快照但未暂存，是否随目标项目提交由 main 按 PLAN 和用户授权决定。
 

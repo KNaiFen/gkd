@@ -14,7 +14,7 @@ GKD 先调查项目和需求；信息不足时通过问答补齐，信息充分�
 - `.gkd/plan-changes.md`：main 对方案调整的追加式思路记录；
 - `.gkd/review.md`：main 的独立验收结论和返工意见。
 
-标准顺序是：main 选择 direct-main，或在目标项目 `.gkd/` 创建计划和 worktree；委派任务默认由用户手动启动执行 session，只有用户明确选择才由 main 自动启动；main 生成 `.gkd/execution.md`，执行 session 按它工作并更新 `.gkd/progress.md`，完成后通知 main；main 检查 diff、五份记录和必要的局部验证，随后通过，或记录 `.gkd/review.md`、修改 `.gkd/plan.md`、追加 `.gkd/plan-changes.md`、更新 `.gkd/execution.md` 后继续执行。任务完成后可把记录摘要归档到 `.gkd/archive/`。详见 [Manual-first 工作流](docs/manual-workflow.md) 及 [VISION](VISION.md)。
+标准顺序是：main 选择 direct-main，或在目标项目 `.gkd/` 创建计划和 worktree；委派任务默认由用户手动启动执行 session，只有用户明确选择才由 main 自动启动；main 生成 `.gkd/execution.md`，执行 session 按它工作并更新 `.gkd/progress.md`，完成后通知 main；main 检查 diff、五份记录和必要的局部验证，随后通过，或记录 `.gkd/review.md`、修改 `.gkd/plan.md`、追加 `.gkd/plan-changes.md`、更新 `.gkd/execution.md` 后继续执行。审查完成、停止或明确阻塞时，main 可将五份记录和 `summary.md` 脱敏归档到目标项目 `.gkd/archive/<task-id>/`；归档用于长期理解，不会自动提交或发布。详见 [Manual-first 工作流](docs/manual-workflow.md) 及 [VISION](VISION.md)。
 
 ## 当前边界
 
