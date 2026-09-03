@@ -10,6 +10,10 @@ GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和�
 
 自动启动只替代“用户打开一个新 session”这个动作。它不恢复旧 GKD automatic route、机器生命周期或自动验收，也不改变用户对路径选择和审查结论的控制。
 
+## CI 监控入口
+
+CI 监控角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入口，并传入一个目标参数：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`。可选 `--repo owner/name`、`--interval seconds` 和 `--timeout seconds`。入口只执行 `gh api` 只读查询，返回成功、失败、超时或调用错误退出码；角色应原样报告目标、URL、状态、失败检查摘要和后续建议，不得临时拼接轮询或调用重跑/取消命令。
+
 ## 三个输入
 
 每个任务开始时，主代理只需要确定：

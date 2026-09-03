@@ -92,3 +92,45 @@ T1 已完成并合入主分支；下一步按更新后的 `.gkd/plan.md` 创建 
 
 - 独立验收指出 T1 文件范围与实际 diff 不一致。main 已修改 `.gkd/plan.md`，并在 `.gkd/plan-changes.md` 追加 r4：execute/accept 角色预设、归档模板、open-items 和本进度记录属于 T1，CI 预设只核对。
 - `.gkd/execution.md` 已同步 r4；执行目标和允许修改内容不变。
+
+## T2 执行记录（2026-09-03）
+
+### 本轮变更
+
+- 新增 `scripts/gkd-github-watch`，使用 Python 3 标准库和 `gh api` 只读查询 PR、workflow run、commit status、release tag。
+- 支持 `--pr`、`--run`、`--commit`、`--release` 互斥目标，以及 `--repo`、`--interval`、`--timeout`；未显式提供仓库时解析 `git remote get-url origin`，并校验显式仓库一致性。
+- 统一输出目标、仓库、URL、状态、失败检查摘要和 UTC 查询时间；退出码 `0` 成功、`1` 失败/取消、`2` 超时、`3` 调用/认证/目标错误。
+- 新增标准库 fake `git`/`gh` 测试，验证只调用 `gh api`、四类目标 endpoint、SSH remote 规范化、运行中到成功、失败摘要、未知结构、认证/目标不存在、仓库不一致、超时和工作目录无新增文件。
+- 更新 `gkd_ci_monitor` 角色提示和 `docs/manual-workflow.md`，要求只调用该入口。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：通过（9 项）。
+- `python3 scripts/gkd-github-watch --help`：通过，显示四种互斥目标及轮询参数。
+- `git diff --check`：通过。
+
+### 未验证范围与剩余风险
+
+当前环境未使用真实 GitHub 凭据，未执行实际 API 轮询；fake `gh` 已证明脚本不调用重跑、取消或写 API。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T2 修正记录（2026-09-03）
+
+### 本轮变更
+
+- `scripts/gkd-github-watch`：显式 `--repo` 时允许当前 worktree 没有 `origin`；若 origin 可读则继续校验仓库一致性，未显式 repo 时仍要求解析 origin。
+- `scripts/gkd-github-watch`：`--interval` 和 `--timeout` 拒绝 NaN、Infinity 及负数；每次 `gh api` 的 subprocess timeout 取轮询上限与全局 deadline 剩余时间的较小值，达到该 deadline 时输出 timeout 报告。
+- `scripts/tests/test_gkd_github_watch.py`：fake `git` 覆盖无 origin，fake `gh` 支持延迟响应；新增显式仓库无 origin、全局 timeout 和非有限/负数参数测试。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：通过（11 项）。
+- `python3 scripts/gkd-github-watch --help`：通过。
+- `git diff --check`：通过。
+
+### 未验证范围与剩余风险
+
+当前环境未使用真实 GitHub 凭据，未执行实际 API 轮询；fake `gh` 仅验证 `api` 只读调用、deadline 超时和错误退出路径。

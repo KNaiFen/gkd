@@ -1,0 +1,374 @@
+#!/usr/bin/env python3
+"""Read-only polling of GitHub targets through the official ``gh api`` CLI."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import re
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Sequence
+from urllib.parse import quote, urlparse
+
+
+SUCCESS = 0
+FAILURE = 1
+TIMEOUT = 2
+CALL_ERROR = 3
+
+
+class WatchError(Exception):
+    """A user-visible monitoring error."""
+
+    def __init__(self, message: str, kind: str = "error") -> None:
+        super().__init__(message)
+        self.kind = kind
+
+
+@dataclass(frozen=True)
+class Target:
+    kind: str
+    value: str
+    repo: str
+    endpoint: str
+    fallback_url: str
+    label: str
+
+
+@dataclass
+class Result:
+    status: str
+    url: str
+    failed_checks: List[str] = field(default_factory=list)
+    detail: str = ""
+
+
+def normalize_repo(value: str) -> str:
+    repo = value.strip().rstrip("/")
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    if not re.fullmatch(r"[^/\\\s]+/[^/\\\s]+", repo):
+        raise WatchError("仓库必须是 owner/name 格式", "usage")
+    return repo
+
+
+def parse_remote(value: str) -> str:
+    remote = value.strip()
+    ssh_match = re.fullmatch(r"git@([^:]+):(.+)", remote)
+    if ssh_match:
+        host, path = ssh_match.groups()
+        if host.lower() != "github.com":
+            raise WatchError("origin remote 不是 GitHub 仓库", "usage")
+        return normalize_repo(path)
+    parsed = urlparse(remote)
+    if parsed.scheme in ("http", "https", "ssh") and parsed.hostname:
+        if parsed.hostname.lower() != "github.com":
+            raise WatchError("origin remote 不是 GitHub 仓库", "usage")
+        return normalize_repo(parsed.path.lstrip("/"))
+    raise WatchError("无法从 origin remote 解析 GitHub owner/name", "usage")
+
+
+def current_origin(required: bool = True) -> Optional[str]:
+    try:
+        completed = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        if not required:
+            return None
+        raise WatchError("无法读取 origin remote", "usage") from exc
+    if completed.returncode != 0 or not completed.stdout.strip():
+        if not required:
+            return None
+        raise WatchError("当前 worktree 没有可用的 origin remote", "usage")
+    return parse_remote(completed.stdout)
+
+
+def resolve_target(args: argparse.Namespace) -> Target:
+    explicit_repo = normalize_repo(args.repo) if args.repo else None
+    if explicit_repo:
+        remote_repo = current_origin(required=False)
+        if remote_repo and explicit_repo.lower() != remote_repo.lower():
+            raise WatchError(
+                "显式 --repo 与当前 origin 不一致: "
+                f"{explicit_repo} != {remote_repo}",
+                "usage",
+            )
+        repo = explicit_repo
+    else:
+        repo = current_origin()
+        assert repo is not None
+
+    if args.pr is not None:
+        value = str(args.pr)
+        return Target(
+            "pr", value, repo, f"/repos/{repo}/pulls/{value}",
+            f"https://github.com/{repo}/pull/{value}", f"PR #{value}",
+        )
+    if args.run is not None:
+        value = str(args.run)
+        return Target(
+            "run", value, repo, f"/repos/{repo}/actions/runs/{value}",
+            f"https://github.com/{repo}/actions/runs/{value}", f"run {value}",
+        )
+    if args.commit is not None:
+        value = args.commit
+        encoded = quote(value, safe="")
+        return Target(
+            "commit", value, repo, f"/repos/{repo}/commits/{encoded}/status",
+            f"https://github.com/{repo}/commit/{value}", f"commit {value}",
+        )
+    if args.release is not None:
+        value = args.release
+        encoded = quote(value, safe="")
+        return Target(
+            "release", value, repo, f"/repos/{repo}/releases/tags/{encoded}",
+            f"https://github.com/{repo}/releases/tag/{value}", f"release {value}",
+        )
+    raise WatchError("必须指定一个监控目标", "usage")
+
+
+def gh_api(target: Target, timeout: float) -> Dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            ["gh", "api", target.endpoint],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError as exc:
+        raise WatchError("找不到 gh CLI，请先安装并登录 GitHub CLI", "authentication") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise WatchError("gh api 查询超时", "timeout") from exc
+    except OSError as exc:
+        raise WatchError(f"无法执行 gh api: {exc}", "error") from exc
+
+    if completed.returncode != 0:
+        message = (completed.stderr or completed.stdout).strip() or "gh api 返回错误"
+        lowered = message.lower()
+        if any(token in lowered for token in ("authentication", "bad credentials", "auth login", "401")):
+            raise WatchError(f"GitHub 认证失败: {message}", "authentication")
+        if completed.returncode == 1 and any(token in lowered for token in ("not found", "404")):
+            raise WatchError(f"监控目标不存在: {message}", "target")
+        raise WatchError(f"gh api 查询失败: {message}", "error")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise WatchError("gh api 返回了无效 JSON", "error") from exc
+    if not isinstance(payload, dict):
+        raise WatchError("gh api 返回结构未知（需要 JSON 对象）", "error")
+    return payload
+
+
+def url_for(payload: Dict[str, Any], fallback: str) -> str:
+    value = payload.get("html_url")
+    return value if isinstance(value, str) and value else fallback
+
+
+def check_summary(payload: Dict[str, Any]) -> List[str]:
+    failures: List[str] = []
+    checks = payload.get("check_runs")
+    if isinstance(checks, list):
+        for check in checks:
+            if not isinstance(check, dict):
+                continue
+            conclusion = str(check.get("conclusion") or "").lower()
+            if conclusion in {"failure", "cancelled", "timed_out", "action_required"}:
+                name = check.get("name") or check.get("id") or "unknown check"
+                failures.append(f"{name}: {conclusion}")
+    statuses = payload.get("statuses")
+    if isinstance(statuses, list):
+        for status in statuses:
+            if not isinstance(status, dict):
+                continue
+            state = str(status.get("state") or "").lower()
+            if state in {"failure", "error"}:
+                name = status.get("context") or "unknown status"
+                failures.append(f"{name}: {state}")
+    return failures
+
+
+def normalize(target: Target, payload: Dict[str, Any]) -> Result:
+    url = url_for(payload, target.fallback_url)
+    failures = check_summary(payload)
+
+    if target.kind == "run":
+        status = payload.get("status")
+        if not isinstance(status, str):
+            raise WatchError("workflow run 响应缺少 status", "error")
+        status = status.lower()
+        if status in {"queued", "in_progress", "requested", "waiting", "pending"}:
+            return Result("running", url, failures, status)
+        if status != "completed":
+            raise WatchError(f"workflow run 状态未知: {status}", "error")
+        conclusion = payload.get("conclusion")
+        if not isinstance(conclusion, str):
+            raise WatchError("workflow run 响应缺少 conclusion", "error")
+        conclusion = conclusion.lower()
+        if conclusion in {"success", "neutral", "skipped"}:
+            return Result("success", url, failures, conclusion)
+        if conclusion in {"cancelled", "timed_out", "action_required"}:
+            return Result("cancelled", url, failures, conclusion)
+        if conclusion in {"failure", "startup_failure"}:
+            return Result("failure", url, failures, conclusion)
+        raise WatchError(f"workflow run 结论未知: {conclusion}", "error")
+
+    if target.kind == "commit":
+        state = payload.get("state")
+        if not isinstance(state, str):
+            raise WatchError("commit status 响应缺少 state", "error")
+        state = state.lower()
+        if state in {"pending", "expected"}:
+            return Result("running", url, failures, state)
+        if state == "success":
+            return Result("success", url, failures, state)
+        if state in {"failure", "error"}:
+            return Result("failure", url, failures, state)
+        raise WatchError(f"commit 状态未知: {state}", "error")
+
+    if target.kind == "pr":
+        state = payload.get("state")
+        if not isinstance(state, str):
+            raise WatchError("pull request 响应缺少 state", "error")
+        state = state.lower()
+        merged = payload.get("merged")
+        if merged is True:
+            return Result("success", url, failures, "merged")
+        if state == "open":
+            return Result("running", url, failures, "open")
+        if state == "closed":
+            return Result("cancelled", url, failures, "closed")
+        raise WatchError(f"pull request 状态未知: {state}", "error")
+
+    if target.kind == "release":
+        if not isinstance(payload.get("tag_name"), str):
+            raise WatchError("release 响应缺少 tag_name", "error")
+        if payload.get("draft") is True:
+            return Result("running", url, failures, "draft")
+        if payload.get("published_at"):
+            return Result("success", url, failures, "published")
+        raise WatchError("release 响应结构未知（缺少 published_at）", "error")
+
+    raise WatchError("未知监控目标类型", "error")
+
+
+def print_report(target: Target, result: Result, checked_at: Optional[str] = None) -> None:
+    checked_at = checked_at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    print(f"target: {target.kind} {target.label}")
+    print(f"repository: {target.repo}")
+    print(f"url: {result.url}")
+    print(f"status: {result.status}")
+    if result.detail:
+        print(f"detail: {result.detail}")
+    if result.failed_checks:
+        print("failed_checks: " + "; ".join(result.failed_checks))
+    else:
+        print("failed_checks: none")
+    print(f"checked_at: {checked_at}")
+
+
+def print_error(target: Optional[Target], error: WatchError) -> None:
+    if target is not None:
+        print(f"target: {target.kind} {target.label}")
+        print(f"repository: {target.repo}")
+        print(f"url: {target.fallback_url}")
+    print("status: error")
+    print(f"error: {error}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="只读轮询 GitHub PR、workflow run、commit 或 release 的状态。"
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--pr", type=int, help="pull request 编号")
+    group.add_argument("--run", type=int, help="workflow run 编号")
+    group.add_argument("--commit", help="commit SHA 或 ref")
+    group.add_argument("--release", help="release tag")
+    parser.add_argument("--repo", help="GitHub 仓库，格式为 owner/name")
+    parser.add_argument("--interval", type=float, default=10.0, help="轮询间隔秒数（默认 10）")
+    parser.add_argument("--timeout", type=float, default=300.0, help="最长等待秒数（默认 300）")
+    return parser
+
+
+def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.pr is not None and args.pr <= 0:
+        parser.error("--pr 必须是正整数")
+    if args.run is not None and args.run <= 0:
+        parser.error("--run 必须是正整数")
+    if not math.isfinite(args.interval) or args.interval < 0:
+        parser.error("--interval 必须是有限的非负数")
+    if not math.isfinite(args.timeout) or args.timeout < 0:
+        parser.error("--timeout 必须是有限的非负数")
+
+
+def watch(args: argparse.Namespace) -> int:
+    target: Optional[Target] = None
+    try:
+        target = resolve_target(args)
+        deadline = time.monotonic() + args.timeout
+        last: Optional[Result] = None
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timeout_result = Result(
+                    "timeout",
+                    last.url if last is not None else target.fallback_url,
+                    last.failed_checks if last is not None else [],
+                    last.detail if last is not None else "",
+                )
+                print_report(target, timeout_result)
+                return TIMEOUT
+            api_timeout = min(max(args.interval, 1.0), 30.0, remaining)
+            deadline_limited = api_timeout >= remaining
+            try:
+                last = normalize(target, gh_api(target, api_timeout))
+            except WatchError as error:
+                if error.kind != "timeout" or not deadline_limited:
+                    raise
+                timeout_result = Result(
+                    "timeout",
+                    last.url if last is not None else target.fallback_url,
+                    last.failed_checks if last is not None else [],
+                    last.detail if last is not None else "",
+                )
+                print_report(target, timeout_result)
+                return TIMEOUT
+            if last.status in {"success", "failure", "cancelled"}:
+                print_report(target, last)
+                return SUCCESS if last.status == "success" else FAILURE
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timeout_result = Result("timeout", last.url, last.failed_checks, last.detail)
+                print_report(target, timeout_result)
+                return TIMEOUT
+            sleep_for = min(args.interval, remaining)
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+    except WatchError as error:
+        print_error(target, error)
+        return CALL_ERROR
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = build_parser()
+    try:
+        args = parser.parse_args(argv)
+        validate_args(parser, args)
+    except SystemExit as error:
+        return int(error.code)
+    return watch(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
