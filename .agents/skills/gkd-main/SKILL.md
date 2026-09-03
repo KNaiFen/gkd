@@ -11,7 +11,7 @@ description: 通过计划、Git worktree、进度报告和主代理审查协调 
 
 1. 简单、低风险且用户未指定子代理时，main 直接处理，使用 `direct-main`。
 2. 用户明确要求使用子代理时，用户选择覆盖复杂度判断，进入 delegated 路径。
-3. 需求缺少会改变范围、行为、风险或授权的事实时，使用 `gkd-intake`；该 Skill 不可用则向用户说明缺口并继续沟通。
+3. 需求缺少会改变目标、范围、验收、行为约束、工作目录或授权的材料性事实时，先使用 `gkd-intake` 逐项对齐；该 Skill 不可用则向用户说明缺口并继续沟通。
 4. 需要执行 session 时默认使用 `delegated/manual`：main 创建 sibling worktree，在目标项目 `.gkd/` 维护方案并生成 worktree 内的 `.gkd/execution.md`，然后交给用户手动启动。
 5. 只有用户明确选择自动执行时才使用 `delegated/automatic`：main 读取 `.codex/agents/gkd_execute.toml`，通过原生 `spawn_agent` 以 `agent_type=gkd_execute` 和 `fork_turns=none` 启动一个执行 session。角色不可用或配置不符时报告阻塞并保留 worktree，不切换到其他角色或 `direct-main`。
 6. 父代理提供明确 GitHub 目标时可启动 `gkd_ci_monitor`；已有 worktree 和交接材料时可启动 `gkd_accept`。两者只读，提交、推送、合并和发版仍须按计划和用户授权执行。
