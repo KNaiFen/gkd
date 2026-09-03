@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-已完成历史调查、计划落盘和三种项目级角色预设；本轮已补齐施工前 PLAN 合同和 T1-T5 任务边界。监控脚本、需求问答与项目适配尚未开始。
+已完成历史调查、计划落盘和三种项目级角色预设；本轮已补齐施工前 PLAN 合同和 T1-T5 任务边界，并明确 GKD 是用户使用 Codex 修改项目的统一入口。监控脚本、需求问答与项目适配尚未开始。
 
 ## 已完成
 
@@ -13,6 +13,7 @@
 - 新增 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`，将角色提示词、模型、推理强度和 sandbox 绑定到项目预设；三个角色均禁止再启动子代理。
 - 更新 `gkd-main`：自动执行只可用 `agent_type=gkd_execute` 启动，监控和验收只可调用各自命名预设；不再读取或退回到泛化默认子代理。
 - 更新 `gkd-main`、`docs/manual-workflow.md`：施工前必须通过 PLAN readiness gate，计划需包含文件/符号级变更、接口、伪代码、验证矩阵、停止条件和偏差停工规则。
+- 更新 `VISION.md`、`README.md` 和工作流说明：明确“需求对齐 → PLAN → 角色执行 → CI/验收 → 按授权交付”是主流程，辅助 Skills 只服务于该流程。
 
 ## 当前边界
 

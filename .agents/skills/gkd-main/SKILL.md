@@ -22,7 +22,7 @@ description: 通过计划、Git worktree、进度报告和主代理审查协调 
 5. `gkd_ci_monitor` 只在父代理提供明确 GitHub 目标时启动；其模型和强度由 `.codex/agents/gkd_ci_monitor.toml` 固定为 `gpt-5.6-terra / high`。`gkd_accept` 只在已有 worktree、计划和交接材料时启动，固定为 `gpt-5.6-sol / xhigh`。两者均为只读角色，可由 main 自动衔接，但不得取代用户对代码修改、提交、推送、合并或发版的授权。
 6. 自动启动只允许同一 worktree、同一施工轮次的一名实现写者。main 等待该执行 session 停止后才读取结果并审查；执行期间 main 不修改该 worktree 的实现文件。角色配置、`agent_type` 调用或启动结果不可用时，main 明确向用户报告阻塞并保留 worktree；不得悄悄切为 `direct-main` 或泛化子代理。
 7. 手动或自动启动的执行 session 都不得验收、合并、发布、清理 worktree 或启动其他施工任务。只运行与变更行为直接相关的检查；将实际运行的检查、结果和有意未验证范围写入 `progress.md`，完成后停止并通知 main。
-8. main 审查 diff、`plan.md`、`progress.md` 和必要验证，在 `review.md` 记录通过或具体返工要求及剩余风险。通过后使用普通 Git 操作保留或合并工作；返工时更新计划或审查意见，并在同一 worktree 启动新的执行轮次，仍不得并行写入。
+8. main 审查 diff、`plan.md`、`progress.md` 和必要验证，在 `review.md` 记录通过或具体返工要求及剩余风险。通过后只按 PLAN 中已获授权的动作使用普通 Git 流程提交、推送、合并或发版；未授权动作停在交付前。返工时更新计划或审查意见，并在同一 worktree 启动新的执行轮次，仍不得并行写入。
 9. 恢复 session 时读取 `plan.md`、`progress.md`、当前 diff 和最近提交。报告不完整时以 Git 事实为准，并把新的判断补回 `progress.md`。
 
 自动启动只是由 main 替代用户打开普通执行 session，不是旧 GKD automatic route。不得引入任务状态、JSON 合同、生命周期命令、fixed-head 验收或旧 watcher；`gkd_ci_monitor` 是项目内按需调用的只读角色，而非旧自动化平台。施工代理发现材料性偏差时必须先更新 `progress.md` 并停止，主代理更新 `plan.md`、重新取得必要确认后才能继续。

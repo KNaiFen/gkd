@@ -6,6 +6,8 @@
 
 ## 目标与边界
 
+GKD 的产品主旨是成为用户使用 Codex 修改项目的统一入口：用户提出需求，GKD 调查并补齐需求，写出实现就绪的 PLAN；用户确认后，GKD 调用合适的执行角色在 worktree 中施工，衔接 CI 监控和验收，最后按授权完成提交、发版或停在边界。CI 优化、项目适配和逐项问答都是服务这条主流程的附属能力。
+
 在 Git、Markdown、Git worktree 和 Skills 这一简洁架构上，补齐：
 
 1. main 入口先澄清需求，再根据需求选择直接处理、手动执行、明确自动执行、CI 监控、验收或项目适配路径。
@@ -65,6 +67,7 @@
   -> 长 GitHub 流程：gkd_ci_monitor 调用复用脚本并报告终态
   -> gkd_accept 独立检查 diff、计划和 progress.md
   -> main 写 review.md，决定通过或返工
+  -> 按 PLAN 中已获授权的交付动作提交、推送、合并或发版；未授权则停在交付前
 ```
 
 默认路由是 `delegated-manual`。`delegated-automatic` 只有用户明确说出自动执行意图时可用，且只能调用 `gkd_execute`；角色不存在、配置不符或 spawn 失败时报告阻塞，不降级为默认 worker。
