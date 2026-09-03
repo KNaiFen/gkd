@@ -96,9 +96,11 @@ GKD 的产品主旨是把复杂项目开发组织成完整工作流：调查并�
 **文件范围**：
 
 - 修改 `.agents/skills/gkd-main/SKILL.md`：增加路由判定、计划与执行文档交接、自动启动约束和灵活偏差处理。
-- 修改 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`：固化本计划中的模型和职责。
+- 修改 `.codex/agents/gkd_execute.toml`、`gkd_accept.toml`：将角色提示词同步到 `.gkd/` 交接；核对 `gkd_ci_monitor.toml` 保持 Terra/high。
 - 修改 `docs/manual-workflow.md`：同步用户手动和 main 自动路径。
-- 修改 `docs/templates/manual/plan.md`、`progress.md`、`review.md`，新增 `execution.md`、`plan-changes.md` 模板：明确 main 计划、执行交接和变更追溯的分工。
+- 修改 `docs/templates/manual/plan.md`、新增 `execution.md`、`plan-changes.md`、`archive-summary.md` 模板：明确 main 计划、执行交接、变更追溯和归档摘要的分工。
+- 修改 `.agents/open-items.md` 和 `.gkd/progress.md`：同步本轮路由、角色和交接事实。
+- 本轮不改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`；它们由 main 维护。
 - 不修改 `~/.codex` 生产安装，不新增运行时状态文件。
 
 **实现方案与技术栈**：
@@ -126,7 +128,8 @@ handle_request(request):
     create worktree and write execution.md from approved draft
     return handoff prompt
   role = load_named_agent("gkd_execute")
-  require role.model == sol and role.effort == xhigh
+  if role.model != sol or role.effort != xhigh:
+    explain_role_mismatch_and_wait_for_main_decision()
   spawn exactly one role with fork_turns=none and declared worktree/execution.md
   if spawn fails or role check fails:
     report blocked; preserve worktree; do not fallback
