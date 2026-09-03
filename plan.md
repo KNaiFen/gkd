@@ -9,6 +9,10 @@
 
 同时保留旧流程中的 `direct-main`：简单、低风险任务可以由 main 连续完成，不创建执行 session。
 
+## Worktree
+
+实现 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/subagent-session-capability`。main 已从当前 `main` 创建该 sibling Git worktree；执行 session 只能在此路径中工作。
+
 ## Historical alignment
 
 Git 历史中的实际流程是：main 规划并创建 worktree -> 交接 `plan.md` -> 执行 session 施工并更新进度 -> 执行 session 停止 -> main 查看 diff 和报告 -> 通过或写返工意见 -> 在同一 worktree 开始下一轮。2026-09-01 的真实试运行还验证了自动入口：main 调用 `agents.spawn_agent`，传入 `agent_type=worker` 和 `fork_turns=none`，等待子代理结束后再审查；返工时重新启动下一轮。
