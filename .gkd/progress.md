@@ -175,3 +175,52 @@ T1 已完成并合入主分支；下一步按更新后的 `.gkd/plan.md` 创建 
 ### 交接
 
 本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T4 执行记录（2026-09-03）
+
+### 本轮变更
+
+- 新增 `.agents/skills/gkd-project-adapt/SKILL.md`：定义项目根目录、工作流约束和本机限制等输入；按技术栈、包管理器、测试/构建命令、CI、发布、runner 和资源清单调查；要求以 `path:line`、命令摘要或运行链接引用证据，并输出适配选项、推荐方案、实现就绪 PLAN 草案和停止条件。
+- 新增 `.agents/skills/gkd-optimize-ci/SKILL.md`：定义 workflow YAML、复用 workflow、运行事实、required checks、runner 和约束输入；分析 job DAG、矩阵与 fail-fast、缓存、重复构建、并发和排队/执行时间；按 P0/P1/P2 排序建议并报告未知结构和证据缺口。
+- 更新 `.agents/skills/gkd-main/SKILL.md`：增加两个 Skill 的触发关系和只读边界，明确建议必须回到 PLAN、用户确认与 main 审查，不复制附属 Skill 的完整指令。
+- 两个 Skill 均明确不直接修改目标项目、不执行 CI 写操作、不恢复旧 AIO、状态机、机器合同、固定 head 验收或常驻 watcher。
+
+### 静态示例核对
+
+- Rust 示例：假设 Cargo workspace 有 `Cargo.toml`、测试与 Actions workflow。适配 Skill 可从实际 `cargo test`/`cargo clippy`/构建命令和 runner 资源形成建议；CI Skill 可沿 `needs` 识别重复编译与缓存 key，并要求用运行样本确认时延，不把 Cargo 或 Actions 默认行为写死。
+- 非 Rust/Actions 示例：假设 Python 项目使用 `pyproject.toml` 与 GitLab CI。适配 Skill 仍能调查包管理器、测试和发布约束；CI Skill 在没有 `.github/workflows` 或 GitHub required-check 事实时只报告 CI 平台证据缺口并询问影响排序的问题，不猜测 DAG 或分支保护。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- 静态 `rg`：确认 `project-adapt`、`optimize-ci`、工作流/CI、job DAG、required checks、AIO、不直接修改和用户确认等关键词出现在预期 Skill、`gkd-main` 与本进度文件中。
+- 新增 Skill 逐文件尾随空白与固定路径扫描：通过；未发现 `/Users/`、`/home/`、`~/.codex`、`/tmp/` 或 AIO 固定路径引用。
+- 未修改任何目标项目代码、脚本、角色 TOML 或生产用户目录；未执行 CI 写操作、发布或外部 API 轮询。
+
+### 未验证范围与剩余风险
+
+- 本轮仅修改声明式 Markdown，未在真实 Rust、Python/GitLab 或其他项目上运行 Skill；实际项目资料、runner 设置和分支保护仍需由 main 或用户提供并核对。
+- 两个 Skill 的建议质量依赖可读取的 workflow 与运行事实；缺失时会停在证据缺口和用户确认前，不自动补全。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T4 修正记录（2026-09-03-r7）
+
+### 本轮修正
+
+- `.agents/skills/gkd-optimize-ci/SKILL.md`：明确资料不足时只询问会改变优化方向的少量事实，其余不确定性列为证据缺口；输出章节同步保留同一停止规则。
+
+### 静态验证
+
+- `git diff --check`：通过。
+- `rg -n '资料不足|改变优化方向|证据缺口|用户确认|不直接编辑目标项目' .agents/skills/gkd-optimize-ci/SKILL.md .gkd/progress.md`：通过，命中修正措辞及既有停止边界。
+
+### 未验证范围与剩余风险
+
+- 仅完成 Markdown 静态修正，未在真实项目 workflow 或运行事实环境中执行 Skill；建议排序仍依赖用户提供的 CI 证据。
+
+### 交接
+
+本轮修正已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。

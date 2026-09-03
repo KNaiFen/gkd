@@ -12,9 +12,10 @@ description: 通过计划、Git worktree、进度报告和主代理审查协调 
 1. 简单、低风险且用户未指定子代理时，main 直接处理，使用 `direct-main`。
 2. 用户明确要求使用子代理时，用户选择覆盖复杂度判断，进入 delegated 路径。
 3. 需求缺少会改变目标、范围、验收、行为约束、工作目录或授权的材料性事实时，先使用 `gkd-intake` 逐项对齐；该 Skill 不可用则向用户说明缺口并继续沟通。
-4. 需要执行 session 时默认使用 `delegated/manual`：main 创建 sibling worktree，在目标项目 `.gkd/` 维护方案并生成 worktree 内的 `.gkd/execution.md`，然后交给用户手动启动。
-5. 只有用户明确选择自动执行时才使用 `delegated/automatic`：main 读取 `.codex/agents/gkd_execute.toml`，通过原生 `spawn_agent` 以 `agent_type=gkd_execute` 和 `fork_turns=none` 启动一个执行 session。角色不可用或配置不符时报告阻塞并保留 worktree，不切换到其他角色或 `direct-main`。
-6. 父代理提供明确 GitHub 目标时可启动 `gkd_ci_monitor`；已有 worktree 和交接材料时可启动 `gkd_accept`。两者只读，提交、推送、合并和发版仍须按计划和用户授权执行。
+4. 项目工作流不合适、过慢或受本机限制时，先调用 `gkd-project-adapt` 调查技术栈、测试、CI、发布和资源约束；CI 瓶颈明确时可调用 `gkd-optimize-ci` 分析 workflow、job DAG、required checks、缓存和重复构建。两者只读并返回建议或实现就绪 PLAN，不能绕过用户确认和 main 审查。
+5. 需要执行 session 时默认使用 `delegated/manual`：main 创建 sibling worktree，在目标项目 `.gkd/` 维护方案并生成 worktree 内的 `.gkd/execution.md`，然后交给用户手动启动。
+6. 只有用户明确选择自动执行时才使用 `delegated/automatic`：main 读取 `.codex/agents/gkd_execute.toml`，通过原生 `spawn_agent` 以 `agent_type=gkd_execute` 和 `fork_turns=none` 启动一个执行 session。角色不可用或配置不符时报告阻塞并保留 worktree，不切换到其他角色或 `direct-main`。
+7. 父代理提供明确 GitHub 目标时可启动 `gkd_ci_monitor`；已有 worktree 和交接材料时可启动 `gkd_accept`。两者只读，提交、推送、合并和发版仍须按计划和用户授权执行。
 
 ## 计划和交接
 
@@ -31,6 +32,8 @@ main 从已批准的方案生成 worktree 内 `.gkd/execution.md`。执行 sessi
 - `gkd_accept`（Sol/xhigh，read-only）：独立检查计划、execution、diff、progress 和验证证据，向 main 提出通过或返工意见。
 
 同一 worktree 的同一轮只安排一个写入型执行 session。执行中发现事实与方案不符时，执行 session 在 `.gkd/progress.md` 说明并暂停，交回 main 判断是否需要调整计划和 execution。
+
+项目适配和 CI 优化属于施工前的调查能力；它们的建议必须回到 `.gkd/plan.md`，不能直接编辑目标项目或替代 `gkd-intake`、执行、监控和验收角色。
 
 ## 执行提示
 
