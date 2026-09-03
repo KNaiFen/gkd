@@ -208,6 +208,8 @@ intake(request, current_plan):
 - 新增或恢复 `.agents/skills/gkd-optimize-ci/SKILL.md`。
 - references 只记录通用原则；项目差异写入目标项目自己的 policy 或 PLAN，不写进全局 Skill。
 
+**技术栈与实现思路**：两个 Skill 都使用 Markdown 指令、Git/CI 文件阅读和自然语言报告，不直接修改目标项目。`gkd-project-adapt` 先识别语言、包管理器、测试命令、workflow、发布步骤和本机限制，再输出适配建议；`gkd-optimize-ci` 结构化阅读 Actions YAML，整理 job DAG、required checks、缓存和重复构建，输出排序后的优化方案。只有用户确认后，main 才把建议转成目标项目的 PLAN。
+
 **实现伪代码**：
 
 ```text
