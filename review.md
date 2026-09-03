@@ -1,24 +1,19 @@
-# Main-agent review
+# 主代理审查
 
-## Decision
+## 决定
 
-Approved.
+计划已通过内部一致性审查，待按阶段实施。
 
-## Findings
+## 审查结论
 
-- `gkd-main` 现在区分 `direct-main`、默认的 `delegated/manual` 和用户明确选择后的 `delegated/automatic`。
-- 自动入口要求 main 读取当前可用配置角色并真实调用 `spawn_agent`，同时保留 `fork_turns=none` 和单一 worktree 写者边界。
-- 手动入口、自动入口和返工轮次都继续使用 `plan.md`、`progress.md`、`review.md` 与 Git diff；没有恢复旧任务状态机或机器合同。
-- 文档明确禁止自动失败时静默改由 main 施工，也没有把角色、模型或权限写死在 Skill 中。
+- 当前计划保留 manual-first 和 worktree 交接，不把“自动路由”误解为无授权的自动写入或自动发布。
+- 角色统一使用 `gpt-5.6-sol` / `xhigh` 是明确的目标配置，不再沿用旧 CI reviewer 的 Terra/high 配置。
+- GitHub 长流程监控收敛为一个只读、无状态、可复用的脚本，避免恢复旧 watcher 或让每次 session 临时构造轮询。
+- 需求问答与项目适配作为新 Skills 设计；历史没有可直接恢复的对应实现，计划已如实标注。
 
-## Verification
+## 尚未验证
 
-- 执行 session 提交前后的 `git diff --check`：通过。
-- 自动入口角色探针：main 真实调用 `spawn_agent`，传入 `agent_type=worker` 和 `fork_turns=none`；子代理 `/root/gkd_role_probe` 正常返回并未修改文件。
-- 自动执行施工 session：main 真实启动 `/root/gkd_execution`，子代理在声明 worktree 中完成文档修改并提交 `6b0d178`；main 等待其终止后审查 diff。
-- 旧入口检索：旧 automatic route、`gkd-task`、`gkd-role`、runtime bridge 和 fixed-head 仅作为边界说明出现，没有新增可执行入口。
-
-## Remaining risk
-
-- 用户级 `/Users/knaifen/.codex/skills/gkd-main` 尚未同步；仓库改动完成后需要单独执行安装同步。
-- 自动角色配置由当前 Codex 运行时提供，仓库不维护角色定义；不同安装环境的角色可用性仍需在启动时报告。
+- 当前 Codex 原生角色配置是否支持项目级命名角色、模型和推理强度覆盖。
+- `gkd-execute` 是否能以目标角色配置在 main 指定的 sibling worktree 中实际执行。
+- GitHub 监控脚本的目标解析、轮询和终态报告。
+- 新路由、问答、项目适配、监控和验收的端到端协作。

@@ -15,3 +15,11 @@
 - [2026-09-03] 恢复执行 session 的双启动入口。
   - Why: 用户仍需要保留手动交接作为默认，同时可明确选择由 main 启动已配置角色，减少新开 session 的操作。
   - Impact: `delegated/manual` 保持默认；`delegated/automatic` 只以原生 `spawn_agent` 打开一个普通执行 session，继续使用 worktree 和 Markdown 交接，不恢复旧 automatic route 或机器生命周期。
+
+- [2026-09-03] 以原生角色和 Skills 补齐工作流，而非恢复旧运行时。
+  - Why: 需要 main 自动路由、执行/CI 监控/验收角色、需求问答和项目适配能力，但不需要合同、状态机、断点恢复或 watcher 平台。
+  - Impact: 三个子代理角色统一固定为 `gpt-5.6-sol` / `xhigh`；先验证原生角色配置，再以项目 Skills 和 Git/Markdown 交接实现能力。
+
+- [2026-09-03] GitHub 长流程采用复用的只读监控脚本。
+  - Why: CI、Actions 和发布等待不应让每个 session 重复临时构造 `gh` 轮询命令。
+  - Impact: 监控脚本负责明确目标的查询、轮询和终态报告；它不写 GitHub 状态，实际发布和其他远程写操作仍需用户授权。

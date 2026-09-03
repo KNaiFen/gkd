@@ -1,66 +1,96 @@
-# Task plan
+# GKD 原生角色工作流补齐计划
 
-## Goal
+## 状态
 
-在当前 manual-first、Markdown 交接和单一 `gkd-main` Skill 架构上，补回旧工作流的执行 session 启动能力。执行 session 仍只在独立 sibling worktree 中施工，由 main 审查结果；启动方式分为两种：
+进行中。本文是后续实施的唯一任务计划；本轮只落盘计划，不创建角色、脚本或用户级安装副本。
 
-1. **手动启动（默认）**：main 写好 `plan.md` 并创建 worktree，向用户提供交接提示；用户手动打开执行 session。
-2. **自动启动（可选）**：用户明确选择自动模式后，main 使用 Codex 中已配置的角色启动子代理执行 session。
+## 目标
 
-同时保留旧流程中的 `direct-main`：简单、低风险任务可以由 main 连续完成，不创建执行 session。
+在保持 Git、Markdown 交接和 Skills 约束这一简洁架构的前提下，补齐以下能力：
 
-## Worktree
+1. main 入口先澄清需求，再根据任务自动路由到适当流程。
+2. 执行、CI 监控、验收三个子代理角色都固定使用 `gpt-5.6-sol` 与 `xhigh`。
+3. 用户手动启动执行 session 仍是默认；只有用户明确选择自动执行时，main 才自动启动执行角色，并让其在独立 worktree 修改。
+4. CI 监控、发布等待和其他长 GitHub 流程使用仓库内复用的监控脚本，不在每个 session 中临时拼装监控命令。
+5. 提供需求问答 Skill，以及面向单个项目的 GKD 流程适配与 CI 优化 Skill。
+6. 不恢复旧的合同、状态机、断点恢复、watcher MCP、bundle 安装器或自动发布平台；Git 和 Markdown 仍是唯一持久交接。
 
-实现 worktree：`/Users/knaifen/Documents/Codex/gkd-worktrees/subagent-session-capability`。main 已从当前 `main` 创建该 sibling Git worktree；执行 session 只能在此路径中工作。
+## 已确认的历史事实
 
-## Historical alignment
+- 旧工作流确实曾由 main 创建 worktree、写入 `plan.md` 后启动 `worker` session，再由 main 审查和决定是否返工。该能力在当前文档式架构中可以直接复用，不需要恢复旧运行时。
+- 旧自动路由曾依赖 `gkd_task`、角色桥接、状态机和固定 head 等大量运行时部件。它们超出了本任务所需的范围，不能整体恢复。
+- 历史角色配置中的 executor 和 acceptor 已使用 Sol/xhigh，CI reviewer 曾使用 Terra/high。本计划按当前要求将三种角色统一为 Sol/xhigh。
+- Git 历史中没有找到独立的“需求问答 Skill”，也没有完整的“项目总体适配 Skill”。旧 `gkd-optimize-ci` 只做基于事实的 CI 优化建议，不改项目；这两个能力应以当前架构重新设计，而不是声称恢复原实现。
 
-Git 历史中的实际流程是：main 规划并创建 worktree -> 交接 `plan.md` -> 执行 session 施工并更新进度 -> 执行 session 停止 -> main 查看 diff 和报告 -> 通过或写返工意见 -> 在同一 worktree 开始下一轮。2026-09-01 的真实试运行还验证了自动入口：main 调用 `agents.spawn_agent`，传入 `agent_type=worker` 和 `fork_turns=none`，等待子代理结束后再审查；返工时重新启动下一轮。
+## 目标工作流
 
-旧 AIO 规则同时规定：简单低风险任务可由 main 直接做；委派、并行、长流程、范围较大或风险较高的任务才使用 sibling worktree。这个路由判断和当前 Markdown 交接应保留。
+```text
+用户需求
+  -> main 入口判定是否需要需求问答
+  -> 路由：直接回答 / 手动执行 / 明确要求自动执行 / 项目适配
+  -> 执行角色在独立 worktree 修改（手动默认，自动执行须用户明确选择）
+  -> CI 监控角色用复用脚本等待并汇报 GitHub 长流程
+  -> 验收角色独立检查 worktree、diff、验证结果
+  -> main 汇总结论；提交、推送、合并、发版仍须相应的用户授权
+```
 
-## Target behavior
+自动路由指的是 main 自动选择流程和给出下一步，不等于擅自修改代码、提交、推送、合并或发版。只读的监控与验收可由流程自动衔接；会写入项目的执行 session 保持 manual-first。
 
-| 路径 | 启动者 | 默认 | main 的动作 | 执行 session |
-|---|---|---:|---|---|
-| `direct-main` | main | 仅简单低风险任务 | 直接在允许的 checkout/分支施工 | 不存在 |
-| `delegated/manual` | 用户 | 是 | 创建 sibling worktree，写 `plan.md`，发送启动提示并等待 | 用户在声明 worktree 手动启动，按计划施工 |
-| `delegated/automatic` | main | 否 | 创建 sibling worktree，读取已配置角色并调用 `spawn_agent`，传入 worktree 和执行提示 | 被启动的角色只施工并更新 `progress.md` |
+## 角色边界
 
-三条路径都使用同一套 `plan.md`、`progress.md`、`review.md` 和 Git diff。自动启动不是旧的 GKD automatic route；它只是把“用户新开执行 session”替换成“main 通过原生 agents 工具新开执行 session”。
+| 角色 | 固定模型 | 权限与职责 | 不能做的事 |
+| --- | --- | --- | --- |
+| `gkd-execute` | `gpt-5.6-sol` / `xhigh` | 在 main 指定的独立 worktree 完成计划内修改、验证和交接记录 | 自行扩大需求、代替 main 验收、未经授权推送或发版 |
+| `gkd-ci-monitor` | `gpt-5.6-sol` / `xhigh` | 调用 GitHub 监控脚本跟踪 CI、Actions、等待中的发布流程，并报告固定对象的终态 | 修改代码、重跑/取消工作流、创建发布、代替验收 |
+| `gkd-accept` | `gpt-5.6-sol` / `xhigh` | 独立检查 diff、计划符合性、验证证据和未闭环风险 | 修改实现、自动合并或替 main 作授权决定 |
 
-## Behavior constraints
+实现前需用一个最小运行时探针确认当前 Codex 的原生角色配置位置、模型覆盖字段、隔离 worktree 传递方式和只读约束能够生效。探针只验证能力，不引入旁路配置；角色定义以项目 Skill 和可审阅配置为准。
 
-- `delegated/manual` 是默认执行 session 入口；没有明确的自动选择时，main 只交接，不调用 `spawn_agent`。
-- `delegated/automatic` 只有在用户选择自动模式后才启用。main 必须读取并使用当前 Codex 已配置的角色/agent type；不可把未配置的角色名、模型或权限写死在 GKD 文档里。
-- 自动入口保持历史调用语义：启动一个直接执行子代理并使用 `fork_turns=none`。这里的“一个”是同一 worktree、同一施工轮次的唯一实现写者；下一轮返工可以重新启动，验收阶段的只读审查代理不受此限制。
-- 无论手动还是自动，执行 session 都是普通 Codex session：只读计划和适用规则，在声明 worktree 中修改，更新 `progress.md`，完成后停止；不得验收、合并、发布、清理或启动其他施工代理。
-- 执行 session 活动期间，main 不修改该 worktree 的实现文件。session 停止后，main 读取 diff、计划和进度，写 `review.md`，通过则按普通 Git 操作合并，不通过则修改计划/审查意见后启动下一轮。
-- 自动 spawn 不可用、角色配置缺失或调用返回不完整时，main 报告阻塞并保留 worktree；不得悄悄改成 direct-main 或伪装成手动交接成功。是否切换路径由用户明确决定。
-- 不新增任务状态 JSON、offer/claim/receipt、CAS、runtime bridge、固定 head 验收、专用生命周期 CLI、CI watcher 或第二个通用 GKD Skill。
+## 实施阶段
 
-## Scope
+### 1. 建立原生角色配置与路由边界
 
-1. 更新 `.agents/skills/gkd-main/SKILL.md`：加入三条路径的判定、默认手动入口、自动入口的角色读取和 `spawn_agent` 交接、执行 session 边界、等待、返工和失败处理。
-2. 更新 `docs/manual-workflow.md` 和 `docs/templates/manual/plan.md`：恢复旧版的规划、worktree、交接、执行、暂停、审查顺序，并分别提供用户手动启动提示和 main 自动启动提示。
-3. 更新 `README.md`、`AGENTS.md`、`VISION.md`、`docs/adr/002-manual-first-workflow.md` 及 `.agents/` 持久记录：说明“可自动启动执行 session”与已删除的旧 automatic route/机器生命周期不是同一件事。
-4. 检查用户级 `gkd-main` 安装副本和已知项目级重复 skill，消除冲突描述；仓库改动完成后，另行执行明确授权的用户级安装同步。
-5. 不新增重量级单元测试；用低风险临时任务做手工验证，保存 main/child session 事件、worktree、diff 和 Markdown 记录作为证据。
+- 调查并验证当前 Codex 原生角色配置的实际格式，确认 `gpt-5.6-sol` / `xhigh` 能对三个角色生效。
+- 在项目内定义 `gkd-execute`、`gkd-ci-monitor`、`gkd-accept` 的最小角色提示和调用约束；不复刻旧 JSON 合同或状态字段。
+- 修改 `gkd-main`：main 先分类任务，并明确区分直接处理、手动执行、用户明确选择的自动执行、CI 监控、验收和项目适配。
+- 保持每个 worktree、每轮最多一个写入型执行角色；main 保留计划、审查、授权和最终结论。
 
-## Non-goals
+完成标准：可用显式用户选择让 main 启动 `gkd-execute`，其实际修改发生在指定 worktree；三个角色的模型均可从配置与运行证据确认。
 
-- 不恢复 `gkd-task`、`gkd-role`、`TrustedMainRuntimeBridge` 或历史 canonical bundle。
-- 不恢复旧的 route 门禁、activation/claim/receipt 状态机、fixed-head acceptance、自动 CI 监控或发布流程。
-- 不把所有任务强制派发；`direct-main` 和默认 `delegated/manual` 都必须继续可用。
-- 不允许两个施工 session 同时写同一 worktree；这不限制后续返工轮次或只读审查代理。
-- 不修改目标项目业务代码。
+### 2. 落地可复用的 GitHub 长流程监控
 
-## Completion conditions
+- 新增一个小型、无状态的脚本，暂定 `scripts/gkd-github-watch`，由 `gkd-ci-monitor` Skill 调用。
+- 支持以明确的 PR、workflow run、分支提交或 release 为目标，查询 GitHub CLI/API 并输出便于 main 读取的状态、URL、结论和失败摘要。
+- 将轮询间隔、超时、目标解析和终态判断收敛在脚本中；脚本只读，不创建、取消或重跑 GitHub 资源。
+- CI、等待发布等长过程交由监控角色持续跟进；“实际发布”仍由 main 在取得用户授权后另行执行。
 
-- `gkd-main` 能根据任务形态和用户选择，明确落到 `direct-main`、`delegated/manual` 或 `delegated/automatic`；未选择自动时默认是手动启动。
-- 手动验收能证明：main 创建并记录 worktree/plan，用户启动执行 session，执行 session 修改正确 worktree 并更新 `progress.md`。
-- 自动验收能证明：main 使用实际配置的角色调用 `spawn_agent`，事件中存在子代理 session，子代理在相同声明 worktree 中施工并更新 `progress.md`。
-- 两种执行 session 都能在完成后回到 main 审查；返工在原 worktree 通过新轮次继续，不发生并行写入。
-- 自动入口失败时能看到明确阻塞，且没有隐藏的 direct-main 兜底或假交接。
-- 文档、用户级安装副本和已知项目入口一致；旧机器生命周期入口没有重新出现。
-- `progress.md` 记录真实手工验收，`review.md` 记录 main 的通过/返工结论和剩余风险。
+完成标准：对一个已知 GitHub Actions 或 PR CI 目标，监控角色不需要临时构造 `gh` 轮询命令即可给出终态报告。
+
+### 3. 补齐需求问答与项目适配 Skills
+
+- 新增 `gkd-intake`：main 在需求、约束、验收标准或授权边界不足时调用，以少量、按依赖排序的问题对齐任务；信息充分时不得机械提问。
+- 新增 `gkd-project-adapt`：读取一个项目现有的开发、测试、CI、发布方式，产出项目级 GKD 工作流与 CI 改进建议，以及最小的待确认改动清单。
+- 恢复 `gkd-optimize-ci` 的有用边界：基于可见事实给出速度、可靠性或成本建议；信息不完整时明确证据缺口，不猜测，不直接改 CI。
+- 项目适配和 CI 优化建议本身不写入目标项目；用户确认后才转为普通执行任务。
+
+完成标准：main 能根据任务选择问答、项目适配或执行路径；适配输出能说明项目事实、建议、风险和需用户确认的动作。
+
+### 4. 文档、安装与验收
+
+- 更新 `VISION.md`、项目 `AGENTS.md`、`docs/manual-workflow.md`、ADR 与 `.agents/` 持久记录，使文档不再宣称“只有手动执行”或“没有监控工具”。
+- 给出项目 Skill 与用户级 Skill 的安装/同步边界，避免项目内规则和用户级规则悄然分叉。
+- 用最小端到端演练验证四条路径：需求问答、手动执行、明确自动执行、CI 监控加验收。
+- 做消融审查：删除为旧状态机兼容而产生的抽象、重复记录或无调用代码。
+
+完成标准：新用户能按文档使用四条路径；所有自动写入和 GitHub 写操作都保留明确授权边界；工作树干净且变更按任务提交。
+
+## 非目标
+
+- 不恢复 `gkd_task` 状态机、CAS、offer/claim、断点恢复、队列、watcher MCP、bundle/manifest/lock 安装系统或生产迁移工具。
+- 不把 GitHub CI 轮询演变成常驻服务；监控仅在有明确目标的 session 中按需运行。
+- 不让 main 代替用户选择代码修改、提交、推送、合并、创建 release 或发布。
+- 不以“旧版存在”作为恢复任何未被本计划列出的能力的理由。
+
+## 实施记录
+
+- 2026-09-03：根据历史调查和当前需求创建本计划。已明确三个角色统一为 Sol/xhigh，并确定 GitHub 长流程通过复用的只读脚本监控。

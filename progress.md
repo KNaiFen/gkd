@@ -1,40 +1,28 @@
-# Progress report
+# 进度报告
 
-## Current state
+## 当前状态
 
-执行 session 双启动入口的文档、模板、规则和持久记录已完成，等待 main 审查。
+已完成历史调查并将新的 GKD 原生角色工作流计划落盘，尚未开始实施角色、脚本或 Skills。
 
-## Completed
+## 已完成
 
-- 删除 canonical bundle、旧 CLI/runtime、JSON schemas、合同测试、任务/证据、watcher/probe、legacy workflow 和历史方案文档。
-- 新建受跟踪的 `.agents/skills/gkd-main/SKILL.md`，内联执行提示、最小验证、审查与恢复边界。
-- README、协议、模板和持久记录已改为只描述 manual-first；历史追溯改由 Git 历史承担。
-- 消融后仅保留 16 个当前流程所需文件，删除未参与执行或交接的通用模板和治理说明。
-- 已读取 `VISION.md`、计划、现有 Skill、流程文档、模板和持久记录。判定为仅补充原生 session 启动，不恢复旧 automatic route、JSON 合同或机器生命周期。
-- 已检查目标 worktree：开始前工作树干净，当前分支为 `feat/execution-session-routing`。
-- 已检查用户级 `~/.codex/skills/gkd-main`：仍为 manual-only 文案；已知项目目录中未发现第二份项目级 `gkd-main`。本轮只修改声明 worktree，用户级安装同步留给 main 的另行明确授权步骤。
-- 已更新唯一项目 Skill、工作流文档、计划模板、README、AGENTS、VISION、ADR 与 `.agents/` 持久记录：保留 `direct-main`，将 `delegated/manual` 设为默认，并把 `delegated/automatic` 限制为用户明确选择后的原生子代理启动。
+- 对比当前工作树、旧发布版本、移除提交和真实历史 session，确认旧执行 session 的 worktree 交接模式可在当前 Markdown 架构中保留。
+- 确认旧自动路由依赖的状态机、合同与 watcher 不属于本次恢复范围。
+- 确认 Git 历史没有独立的需求问答或项目总体适配 Skill；旧 CI 优化能力仅为建议型分析。
+- 根据当前要求重写 `plan.md`：执行、CI 监控、验收三个角色统一固定为 `gpt-5.6-sol` / `xhigh`，并规划可复用的 GitHub 长流程监控脚本。
 
-## Verification evidence
+## 当前边界
 
-- `git diff --check`：通过。
-- `rg` 检查目标文档：`direct-main`、默认 `delegated/manual`、用户明确选择后的 `delegated/automatic`、`spawn_agent`、`fork_turns=none` 和失败不降级边界均有明确表述。
-- `rg` 检查角色配置：目标 Skill、文档和模板未写死角色名、模型或权限；均要求 main 读取当前 Codex 配置。
-- `rg` 检查旧术语：仅在 ADR、规则和持久记录中作为已删除或拒绝恢复的边界出现，未新增 `gkd-task`、`gkd-role`、runtime bridge、offer/claim/receipt、CAS 或 fixed-head 的可执行入口。
-- 自动入口的真实子代理事件尚未执行：本执行 session 的任务约束禁止启动其他代理，该验收由 main 在后续独立轮次完成。
-- 构建、类型检查、lint 和业务测试未运行：变更仅为 Markdown 规则与模板，仓库未提供适用于此表面的专用检查。
+- 默认仍由用户手动启动写入型执行 session；main 自动启动执行角色必须由用户明确选择。
+- CI 监控和验收保持只读；提交、推送、合并、创建 release 和实际发布均不因路由自动发生。
+- 本轮只变更任务交接文档和持久记录，未修改 Skill、运行时配置、脚本或用户级安装副本。
 
-## Decisions
+## 验证证据
 
-- 不用新的 executor Skill 替代旧合同；执行 session 使用简短启动提示词和任务计划。
-- 不保留可执行的旧 pack、CLI、schema 或合同测试；历史由 Git 历史保留。
-- 自动启动仅在用户明确选择后发生，且由当前 Codex 配置决定执行角色；Skill 不写死角色、模型或权限。
+- 已完整阅读 `VISION.md`，并以其 Git/Markdown/用户控制边界约束计划。
+- 计划中的历史结论来自 Git 历史、旧真实 session 和现有工作树，不依赖对已删除运行时的臆测。
+- 实施性验证尚未开始；下一阶段首先验证原生角色配置的实际格式与 Sol/xhigh 覆盖是否生效。
 
-## Blockers and risks
+## 下一步
 
-- 自动入口尚未在本执行 session 中手工调用：本任务约束禁止启动其他代理，自动事件验证由 main 在后续独立验收轮次完成。
-- 用户级 `gkd-main` 安装副本尚未同步：计划要求仓库改动完成后另行执行明确授权的同步，当前执行 session 无该授权。
-
-## Next step
-
-main 审查本 worktree 的 diff、`plan.md` 与本报告；随后按用户授权决定用户级安装同步和自动入口手工验收。
+按 `plan.md` 第一阶段调查并最小验证原生角色配置，然后实施角色定义与 `gkd-main` 路由。
