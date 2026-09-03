@@ -2,7 +2,7 @@
 
 ## Current state
 
-- GKD 的定位是用户使用 Codex 修改项目的统一入口：先调查和问答对齐需求，生成实现就绪 PLAN；用户确认后调用执行角色，在 worktree 中施工，再衔接 CI 监控、验收和经授权的交付动作。需求问答、项目适配和 CI 优化是服务主流程的附属能力。
+- GKD 将需求澄清、方案确认、隔离执行、持续验证、独立验收和授权交付组织成完整项目开发工作流；需求问答、项目适配和 CI 优化是服务主流程的附属能力。
 - GKD 保留 Git、独立 worktree 与 `plan.md`、`progress.md`、`review.md` 交接；写入型执行 session 默认由用户手动启动，用户明确选择后 main 才可自动启动。
 - 项目 `.codex/agents/` 已定义 `gkd_execute`、`gkd_ci_monitor`、`gkd_accept` 三个角色；执行/验收固定为 `gpt-5.6-sol` / `xhigh`，CI 监控固定为 `gpt-5.6-terra` / `high`，并固定 sandbox、提示词和禁止嵌套边界。main 必须以命名 `agent_type` 调用它们，不能退回泛化默认子代理。
 - 所有写入型任务在启动执行前必须通过 `plan.md` 的 PLAN readiness gate：文件/符号级变更、接口、正常/失败路径伪代码、验证矩阵和停止条件均需明确；施工发现材料性偏差时先停工并更新计划。

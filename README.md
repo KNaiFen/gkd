@@ -1,6 +1,6 @@
 # GKD
 
-GKD 是用户使用 Codex 修改项目的统一入口：先和用户对齐需求并形成 PLAN，确认后调用配置好的角色在 Git worktree 中执行，再由 CI 监控和验收角色协作完成可审查交付。manual-first 是默认执行路线，不是 GKD 的全部职责。
+GKD 将需求澄清、方案确认、隔离执行、持续验证、独立验收和授权交付组织成一套完整的项目开发工作流。它先形成实现就绪的 PLAN，再调用配置好的角色在 Git worktree 中执行；manual-first 是默认执行路线。
 
 ## 默认：manual-first
 
