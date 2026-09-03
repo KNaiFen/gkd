@@ -181,6 +181,8 @@ watch(args):
 
 **文件范围**：新增 `.agents/skills/gkd-intake/SKILL.md` 和按需 reference；更新 `.agents/skills/gkd-main/SKILL.md` 的触发条件。
 
+**技术栈与实现思路**：使用 Markdown Skill 指令和 main 的自然语言上下文，不新增问答数据库或状态文件。Skill 先从用户请求和已有 `.gkd/plan.md` 中整理目标、范围、验收、约束、工作目录和授权六类信息，只对会改变实现选择的首个缺口提一个问题；用户回答后将事实写回计划草案，继续判断是否还有材料性缺口。完整请求直接返回“无需问答”，不制造确认轮次。
+
 **实现伪代码**：
 
 ```text
