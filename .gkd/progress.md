@@ -310,3 +310,43 @@ T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API �
 
 - 主代理已按用户明确授权选择 `delegated/automatic`，本 worktree 只承载 r10.6 文件范围。
 - 执行代理不得删除本轮 `.gkd` 活动记录；验收、审查、归档、合并及本地/远端任务分支清理由 main 按收尾顺序负责。
+
+## r10.7.1 返工要求
+
+- 记录本轮实际闸门证据：用户确认前没有创建 r10 worktree 或执行代理；用户明确选择自动执行后才创建并启动。
+- 用临时 fixture/手工检查记录 plan-only、材料性变更重新授权、delegated/direct-main 收尾和 review revision 的预期与实际结果；不把关键词扫描称为跨进程演练。
+- 记录 CI 角色显式 `--interval 30 --timeout 3600` 规范、cleanup commit 前置条件和未授权时保留现场规则。
+
+## r10.6 执行记录（2026-09-04）
+
+### 本轮变更
+
+- `.agents/skills/gkd-main/SKILL.md`：新增 `plan-only` 与“批准 PLAN 后执行”的授权分界、材料性变更重新确认、CI 监控角色入口、`gkd_accept` 之后的归档/清理顺序、详细报告要求和审查 revision 规则；标明临时 `gkd-legacy-cleanup` 仅按需使用。
+- 新增 `.agents/skills/gkd-ci-monitor/SKILL.md`：固定单一 PR/run/commit/release 目标、`scripts/gkd-github-watch` 唯一入口、默认 `--interval 30 --timeout 3600`、一次 `wait_agent`、只读边界和缺失/漂移/认证/终态停止规则。
+- `.codex/agents/gkd_ci_monitor.toml`：同步 CI Skill、默认参数、一次性等待和错误/终态停止提示。
+- 新增 `.agents/skills/gkd-legacy-cleanup/SKILL.md`：提供一次性老项目只读盘点、分类、逐项授权清理和验证流程，保留普通业务及历史归档，不设计兼容模式。
+- `docs/manual-workflow.md`、`README.md`、`AGENTS.md`：同步 plan-only 闸门、CI 专用角色和脚本、审查 revision、delegated 收尾及干净 `main` 恢复顺序，并补充详细收尾报告和临时清理边界。
+- `docs/templates/manual/plan.md`、`archive-summary.md`、新增 `closeout-report.md`：补充授权状态、CI 目标/等待、偏差、归档/清理和用户报告字段。
+- `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md`：记录本轮授权、CI、清理和收尾规则。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过。
+- Python `tomllib` 解析 `.codex/agents/*.toml`：3 个角色配置均通过。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+- 静态引用检查：排除历史 `.gkd/plan.md` 和本进度记录后，未发现直接 watch 子命令引用；CI Skill、角色 TOML、主流程、README、模板均引用同一脚本入口、单目标和默认等待规则。
+- Markdown 相对链接检查：通过，`gkd-main`、两个新增 Skill、手工流程和三个模板的本地链接均可解析。
+- 允许范围检查：通过，实际变更仅为交接列出的 13 个项目文件及按要求更新的 `.gkd/progress.md`。
+- 消融检查：未新增运行时组件、状态文件、兼容路径、watcher 或额外角色；CI 继续复用现有脚本，新增内容限于交接所需的规则、临时清理 Skill 与收尾模板。
+- 新增文件存在且 `git status` 仅包含交接允许的文件；未修改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 或 `.gkd/execution.md`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `gkd_ci_monitor`、GitHub API 或 `wait_agent` 长等待；真实凭据、目标漂移和外部终态仍需 main/用户环境验证。
+- 未对真实老项目执行删除；临时清理 Skill 仅完成设计，必须由 main 提供明确目标和逐项授权后运行。
+- 未执行真实 worktree/分支删除或恢复 `main` 演练；本轮只同步规则和模板。
+
+### 交接
+
+本轮 r10.6 施工完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。

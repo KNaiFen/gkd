@@ -1,12 +1,12 @@
-# r10.6 执行交接
+# r10.7.1 执行交接
 
 ## 任务身份
 
-- PLAN revision：r10.6
+- PLAN revision：r10.7.1
 - 路由：`delegated/automatic`
 - 当前 worktree：本文件所在 worktree
 - 执行角色：`gkd_execute`
-- 用户授权：按 r10 开始施工；施工完成且收尾条件满足后，主代理可清理本轮本地任务分支与远端任务分支。
+- 用户授权：按 r10 开始施工；施工完成且收尾条件满足后，主代理可清理本轮本地任务分支与远端任务分支。r10.7.1 是验收返工修订，不新增真实老项目删除或外部写操作授权。
 
 ## 目标
 
@@ -23,6 +23,7 @@
 - `docs/manual-workflow.md`
 - `README.md`
 - `AGENTS.md`
+- `docs/adr/002-manual-first-workflow.md`
 - `docs/templates/manual/plan.md`
 - `docs/templates/manual/archive-summary.md`
 - `docs/templates/manual/closeout-report.md`（新增）
@@ -40,6 +41,9 @@
 4. 新增临时 `gkd-legacy-cleanup` Skill：先只读盘点并分类，再按明确授权删除已确认的旧 GKD 可执行入口/Skill/脚本/状态和引用；保留普通业务及历史归档，不触碰生产用户目录和当前 GKD 活动记录，不设计兼容模式。
 5. 补齐详细 closeout report 模板和归档字段；写清 delegated 先 `gkd_accept`、再 main 审查、归档后清理活动记录、清理 worktree/本地与经授权的远端任务分支、恢复干净 main 的顺序。审查采用当前 revision 块和旧结论一行 superseded 标记。
 6. 同步项目说明、持久记录和 role TOML，避免与现有角色边界冲突。不要恢复旧自动路由、状态机、固定 head、watcher、bundle 或发布流程。
+7. 按 r10.7.1 修订：明确 CI 角色必须显式传入 `--interval 30 --timeout 3600`，且改变任一参数均须 PLAN 授权；将 `gkd_accept` 前置条件收紧为已批准 delegated 执行完成；同步 ADR、context、decisions、open-items 的命名角色和强制归档措辞。
+8. 在 progress.md 记录可审计演练：本轮用户确认前未创建 worktree/代理，确认后才创建；用临时 fixture 记录 plan-only、材料性变更重新授权、delegated/direct-main 收尾和 review revision 的预期/实际检查。不得把静态关键词检查冒充真实跨进程演练。
+9. 将清理 Skill 的活动引用定义为仍指向已确认旧机制的可解析引用，并保持历史事实/归档保留。真实老项目删除仍不执行。
 
 ## 验证
 
@@ -47,6 +51,7 @@
 - 对新增/修改文档做交叉引用和规则一致性检查，确认 CI 入口、plan-only 闸门、收尾顺序、审查 revision 用语一致。
 - 检查不存在直接 `gh pr checks --watch`、`gh run watch` 或临时轮询流程性引用；可运行现有静态/文档测试时运行并记录结果。
 - 验证新增文件存在，未超出允许修改范围。
+- 检查模板和文档中 cleanup commit 的前置条件、未授权时保留现场规则与 delegated 必须归档措辞一致。
 
 ## 停止条件
 
