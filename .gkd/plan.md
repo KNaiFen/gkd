@@ -281,3 +281,143 @@ optimize_ci(repo):
 - 2026-09-03：根据历史会话和当前需求建立初版计划与项目角色预设。
 - 2026-09-03：按用户修订 CI reviewer 为 `gpt-5.6-terra / high`；补充 PLAN 的实现思路要求、execution 交接、计划变更记录和项目级归档，并移除机器化门禁/状态机倾向。
 - 2026-09-03：T1-T6 完成施工、独立验收和主分支收口；首轮材料保留在 `.gkd/archive/t6-archive/2026-09-03-19e7514/`，最终归档快照写入 `.gkd/archive/t6-archive/2026-09-03-r9-final/`。
+
+## 后续修订草案 r10（2026-09-04）
+
+### 状态与本轮边界
+
+本节是针对 session `01a0689d-d152-7f60-a4a6-a23fddf1fbc0` 暴露问题的修订草案。状态为“待用户继续讨论和确认”，本节只授权规划和文档设计，不授权修改目标项目、不创建施工 worktree、不启动执行/CI/验收代理、不提交、不推送、不合并、不发版。
+
+本轮只处理以下四个流程问题：
+
+1. 为 CI、Actions 和发布等待建立单独的约束 Skill，明确监控脚本、只读 CI 子代理、单目标、等待时长、超时和失败处理。
+2. 把“只拟 PLAN”和“批准 PLAN 并开始执行”分成两个不可混淆的授权状态，限制主代理在前一状态下的行为。
+3. 增加一次性、面向老项目的旧版 GKD Skill 清理 Skill；它不进入默认主流程，完成清理后可按用户指示删除。
+4. 补齐任务收尾：主代理主动向用户输出详细报告，归档后清理 worktree/分支，并将可信主 checkout 恢复为干净的 `main`。
+
+### 现状证据
+
+- 当前主流程已经要求“展示 PLAN 并等待用户确认”，但 session 实际在用户授权技术方向后自行更新计划并开始施工，未形成独立确认节点；当前规则依据为 `README.md`、`VISION.md` 和 `.agents/skills/gkd-main/SKILL.md`。
+- 当前已有 `.codex/agents/gkd_ci_monitor.toml` 和 `scripts/gkd-github-watch`，但缺少一份专门 Skill 统一约束“必须由何种子代理调用、只能调用哪个脚本、脚本缺失时如何停止、主代理如何等待”。
+- 当前 `docs/templates/manual/archive-summary.md` 面向长期归档，不足以替代任务完成时给用户看的实现报告。
+- 目标项目实战中出现了项目内旧版 `.agents/skills/gkd-main` 与当前用户级 GKD 规则并存的情况；本轮不设计兼容模式，目标是提供一次性清理工具。
+- 当前已有归档、worktree 和角色边界说明，但没有把“归档后删除 worktree/分支、恢复干净 main、失败时保留现场”的收尾顺序写成强约束。
+
+### 目标与可观察成功标准
+
+#### A. CI 监控约束
+
+- 任何需要等待的 PR、workflow run、commit 或 release CI，在 PLAN 已授权 CI 跟踪且目标明确后，必须启动命名的 `gkd_ci_monitor` 只读子代理；主代理不得自行承担持续轮询。
+- 每次监控只接受一个明确目标（`--pr`、`--run`、`--commit` 或 `--release`），并固定仓库和目标标识；PR、主线候选和正式 release 是不同目标，必须分别记录和分别监控。
+- `gkd_ci_monitor` 只能调用目标项目提供的 `scripts/gkd-github-watch`，不得调用 `gh pr checks --watch`、`gh run watch` 或临时拼装轮询。脚本缺失、目标无法唯一解析或认证不可用时，立即报告阻塞，不得静默降级。
+- 标准脚本参数为 `--interval 30 --timeout 3600`；经 PLAN 明确批准可以改变 timeout，但主代理的等待时长必须与该目标一致，不得无限等待或短轮询。
+- 主代理等待监控代理时使用一次 `wait_agent(timeout_ms=3600000)`；等待期间不读取仓库/CI、不补充分析、不重复启动监控。代理返回成功、失败、超时、错误或目标漂移时立即停止并向用户报告。
+- 监控代理不得修改代码、重跑/取消 workflow、编辑 PR、合并、发布、验收或启动其他代理。CI 失败后的修复由 main 根据报告重新规划并重新取得必要授权。
+
+成功标准：静态检查能证明角色配置、CI Skill、手工流程和模板使用同一入口；手工演练能证明监控阶段实际由 `gkd_ci_monitor` 调用脚本并按固定等待/终态规则结束；没有直接 `gh ... --watch` 的流程性替代路径。
+
+#### B. PLAN 确认与执行闸门
+
+- “拟一个 PLAN”“先出方案”“按这个方向整理 PLAN”只进入 `plan-only` 状态，表示允许调查和写 PLAN，不表示允许施工。
+- `plan-only` 状态禁止：创建执行 worktree 或任务分支、写目标项目代码、启动 `gkd_execute`/CI/验收代理、提交、推送、合并、创建 release、发布或清理现场。
+- main 必须展示实现就绪 PLAN，明确目标、范围、非目标、技术方案、文件/符号、验证、角色边界、外部动作授权和风险，并等待用户明确批准“按此 PLAN 开始执行”。
+- 用户只批准总体方向时，仍不能视为批准后来新增的文件范围、数据库/接口变更、桌面展示、发布或其他材料性动作；这些变化必须追加 `plan-changes.md` 并重新取得确认。
+- 只有在确认后，main 才能按 `delegated/manual` 或用户明确选择的 `delegated/automatic` 创建 worktree 和生成 `execution.md`。确认不明确时继续停在 `plan-only`，不得按沉默或上下文推断批准。
+
+成功标准：增加一个“只拟 PLAN”演练和一个“批准 PLAN 后执行”演练；前者无 worktree/代理/代码写入，后者才进入既定 delegated 路径。
+
+#### C. 临时旧版 GKD Skill 清理
+
+- 新增临时 `.agents/skills/gkd-legacy-cleanup/SKILL.md`，仅当 main 明确指定一个老项目根目录和清理任务时使用；不加入默认路由，不替代 `gkd-main`，不触碰生产 `~/.codex` 或当前 GKD 仓库自身的活动记录。
+- Skill 第一阶段只读盘点目标项目内的旧 GKD 相关内容：项目 `.agents/skills`、`.codex/agents`、脚本、文档、模板、hooks、配置、CI 引用、任务状态/合同/队列/日志/receipt/offer/claim/activation/journal、旧 automatic route、fixed-head、watcher、bundle/manifest/lock 等标记，以及指向这些内容的 README/AGENTS/配置引用。
+- 盘点结果按“当前有效规则、明确遗留、普通业务内容、证据不足”分类，逐项给出路径和引用；不以关键词命中为由直接删除业务代码或历史事实记录。
+- 第二阶段只删除目标项目内已确认的旧 GKD 可执行入口、角色/Skill、状态文件、脚本和引用，并同步清理空目录与失效文档链接；不建立兼容模式、不迁移旧状态机、不恢复被删除入口。
+- `.gkd/archive/` 中的历史 Markdown 默认作为事实记录保留；若其中包含可执行入口或用户明确要求彻底删除，才纳入清理范围，并在报告中区分“已删除的活动机制”和“保留的历史记录”。
+- 清理完成后执行文件存在性检查、引用扫描、`git diff --check` 和必要的目标项目规则检查；仍有歧义的项目必须报告并停止，不静默扩大删除范围。
+- 该 Skill 标记为临时能力；本轮只设计和加入它，后续由用户单独授权删除 Skill 及其文档引用。
+
+成功标准：对老项目执行一次盘点后，所有活动旧 GKD Skill/入口/引用都有明确处理结果；目标项目不再有可执行的旧 GKD 路由或状态机制；清理报告列出保留的历史记录和未决证据缺口。
+
+#### D. 收尾、报告与环境恢复
+
+- main 在独立验收通过、计划中授权的交付动作完成后，必须主动向用户发送详细收尾报告，不能只说“完成”或只给提交号。
+- 报告至少包含：任务目标和成功标准、实际修改的文件/符号、实现行为和数据流、与 PLAN 的一致/偏差及偏差原因和授权、验证命令与结果、CI/PR/release 结果、未验证风险、提交/合并/发布标识、归档位置、worktree/分支清理结果和后续建议。
+- 同一份报告的脱敏摘要写入归档 `summary.md`；面向用户的报告保留足够细节，但不得包含完整对话、全量日志、令牌、账号、本机绝对路径或其他敏感值。
+- 收尾顺序固定为：main 独立验收并写 `review.md` -> 创建并检查脱敏归档 -> 确认执行代理已停止且 worktree 无未提交改动 -> 删除已合并的本地任务 worktree 和本地任务分支 -> 按授权处理远端任务分支 -> 将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰 -> 输出详细报告。
+- 如果任务被拒绝、阻塞、存在未提交改动或删除条件不满足，保留 worktree/分支和现场，报告“未完成/阻塞”，不得强行清理或宣称恢复成功。
+
+成功标准：完成演练后目标项目有可独立阅读的归档，用户收到详细报告，任务 worktree/本地分支不存在，可信主 checkout 为干净 `main`；异常路径能保留现场并明确说明原因。
+
+### 计划范围与文件级变更表
+
+| Action | File / symbol | Change | Reason |
+| --- | --- | --- | --- |
+| modify | `.agents/skills/gkd-main/SKILL.md` | 增加 `plan-only` 与“批准后执行”的明确分界、材料性 PLAN 变更重新确认、CI 监控角色调用和收尾顺序 | 防止主代理把拟 PLAN 误当施工授权 |
+| add | `.agents/skills/gkd-ci-monitor/SKILL.md` | 建立 CI 专用约束 Skill：单目标、脚本入口、子代理边界、默认 interval/timeout、主代理等待、终态和阻塞处理 | 让 CI 行为有唯一规范来源 |
+| modify | `.codex/agents/gkd_ci_monitor.toml` | 与 CI Skill 对齐提示词、脚本参数和失败/超时停止规则 | 确保命名角色实际执行约束 |
+| add | `.agents/skills/gkd-legacy-cleanup/SKILL.md` | 提供老项目旧版 GKD 机制的盘点、分类、清理和验证流程，标记为临时能力 | 清理历史项目残留，且不引入兼容模式 |
+| modify | `docs/manual-workflow.md` | 同步计划确认、CI 监控子代理、固定等待和收尾报告/清理顺序 | 让用户手动流程与 Skills 一致 |
+| modify | `README.md`、`AGENTS.md` | 明确 plan-only 不授权执行、CI 监控入口和完成后恢复干净 main | 对用户和目标项目提供可见边界 |
+| modify | `docs/templates/manual/plan.md`、`archive-summary.md` | 增加授权状态、CI 目标/等待、偏差和清理结果字段 | 让记录能支撑执行与复盘 |
+| add | `docs/templates/manual/closeout-report.md` | 提供面向用户的详细收尾报告模板 | 保证完成后主动交付可审查信息 |
+| modify | `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md` | 记录 CI 监控约束、PLAN 授权闸门、临时清理 Skill 和收尾恢复规则 | 本轮会改变 GKD 流程、授权和交接边界 |
+| modify | `.gkd/plan-changes.md`、`.gkd/review.md` | 记录本 revision 的来源、用户决定和后续验收结论 | 保留方案演进和审查事实 |
+
+### 角色与写入边界
+
+- `main`：调查、维护 PLAN/plan-changes/review、获取用户确认、创建/删除 worktree、启动命名角色、审查、归档、合并和最终报告；不得在 plan-only 状态执行施工或 CI 持续轮询。
+- `gkd_execute`：仅在确认后的声明 worktree 内读取 `execution.md`、修改计划范围并更新 `progress.md`；不验收、不交付、不发布、不清理。
+- `gkd_ci_monitor`：只读，只跟踪一个明确目标，只调用 `scripts/gkd-github-watch`，按批准的 interval/timeout 返回一次终态；不修改任何本地或 GitHub 内容。
+- `gkd_accept`：只读，独立检查 diff、PLAN、execution、progress 和验证证据；不改报告、不合并、不发布。
+- `gkd-legacy-cleanup`：只在明确目标项目和清理范围内工作；盘点结果先报告，删除动作须受本 PLAN/用户授权约束；不触碰生产用户级目录和无关业务文件。
+
+### 关键流程伪代码
+
+```text
+handle_request(request):
+  draft = investigate_and_write_plan(request)
+  present(draft)
+  if user_authorization is plan_only or unclear:
+      stop_without_worktree_agent_or_code_write()
+  if material_plan_changed_after_confirmation:
+      append_plan_changes()
+      return_to_user_for_confirmation()
+  route = delegated_manual unless user_explicitly_selected_automatic
+  create_worktree_and_execution(route)
+
+monitor_ci(target):
+  require_explicit_single_target(target)
+  spawn_one_gkd_ci_monitor(fork_turns=none)
+  wait_agent(timeout_ms=approved_timeout_ms)
+  trust_only_terminal_result()
+  stop_on_success_failure_timeout_error_or_drift()
+
+closeout(task):
+  main_accepts_and_writes_review()
+  create_and_redact_archive()
+  if clean_and_authorized:
+      remove_worktree_and_merged_local_branch()
+      switch_trusted_main_to_main_and_verify_clean()
+  else:
+      preserve_scene_and_report_blocked()
+  send_detailed_user_report()
+```
+
+### 验证矩阵
+
+| Check | Command / fixture | Expected result | Not run / reason |
+| --- | --- | --- | --- |
+| 规则一致性 | `rg` 检查 `gkd-main`、CI Skill、角色 TOML、README、manual workflow、模板 | plan-only、CI 子代理、脚本入口、等待和收尾规则无冲突 | 施工前不修改代码 |
+| CI 入口 | 现有 `scripts/tests/test_gkd_github_watch.py` 加静态角色/调用约束检查 | 只允许单目标和只读脚本；脚本缺失/目标漂移/超时均停止 | 真实 GitHub 监控仍需环境授权 |
+| PLAN 闸门 | 手工演练“只拟 PLAN”“批准 PLAN 后执行”“材料性变更后再确认” | 前者不创建 worktree/代理/写入，后两者按确认状态分流 | 不启动真实执行代理 |
+| 清理 Skill | 临时 fixture 包含旧 Skill、入口、引用、状态文件和普通业务文件 | 旧活动机制全部盘点并按授权清理，普通业务和历史记录不误删 | 不对真实老项目执行删除 |
+| 收尾 | 手工演练成功、阻塞、未提交改动三条路径 | 成功路径归档、报告、删除 worktree/分支并回到干净 main；异常路径保留现场 | 不删除当前项目现有 worktree |
+| 文档质量 | `git diff --check`、逐文件交叉引用核对 | 模板字段和角色边界完整，报告可由用户独立理解 | 最终验收待施工完成后进行 |
+
+### 风险、取舍与待讨论事项
+
+- CI “必须使用子代理”针对的是需要等待的持续监控；一次性读取单个状态是否也必须派生角色，待用户决定。当前草案默认：只要进入等待，就必须使用角色；一次性预检可由 main 只读执行。
+- 远端任务分支删除属于 GitHub 写操作；本草案默认只自动删除已合并的本地 worktree/分支，远端删除仍以 PLAN 中的明确授权或平台自动删除事实为准。
+- 临时清理 Skill 的删除时机和是否连同文档/测试一起删除，留待用户另行授权；本轮不预先删除。
+- 详细报告的具体篇幅和是否同时输出机器可读摘要，留待用户后续补充；本草案默认用户报告以 Markdown 自然语言为主，归档只保存脱敏摘要。
+- 未完成本 revision 的任何代码、Skill、文档或工作流修改；在用户继续追加问题并确认 PLAN 前，必须保持当前工作树不变。
