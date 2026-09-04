@@ -1,0 +1,429 @@
+# 进度报告
+
+## 当前状态
+
+已完成历史调查、计划落盘和三种项目级角色预设；T1-T6 已完成施工、独立验收和主分支收口，首轮材料与最终归档均已写入项目 `.gkd/archive/`。
+
+## 已完成
+
+- 对比当前工作树、旧发布版本、移除提交和真实历史 session，确认旧执行 session 的 worktree 交接模式可在当前 Markdown 架构中保留。
+- 确认旧自动路由依赖的状态机、合同与 watcher 不属于本次恢复范围。
+- 确认 Git 历史没有独立的需求问答或项目总体适配 Skill；旧 CI 优化能力仅为建议型分析。
+- 根据当前要求重写 `plan.md`：执行和验收固定为 `gpt-5.6-sol` / `xhigh`，CI 监控固定为 `gpt-5.6-terra` / `high`，并规划可复用的 GitHub 长流程监控脚本。
+- 新增 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`，将角色提示词、模型、推理强度和 sandbox 绑定到项目预设；三个角色均禁止再启动子代理。
+- 更新 `gkd-main`：自动执行只可用 `agent_type=gkd_execute` 启动，监控和验收只可调用各自命名预设；不再读取或退回到泛化默认子代理。
+- 更新 `gkd-main`、`docs/manual-workflow.md`：PLAN 需把技术栈、实现思路、文件/符号和验证写清；复杂分支才使用伪代码，交接不采用 readiness gate 或状态机。
+- 更新 `VISION.md`、`README.md` 和工作流说明：明确“需求对齐 → PLAN → 角色执行 → CI/验收 → 按授权交付”是主流程，辅助 Skills 只服务于该流程。
+- 新增 `execution.md`、`plan-changes.md` 和归档摘要模板：main 方案、worktree 执行交接、计划变更历史和项目长期记录分离。
+
+## 当前边界
+
+- 默认仍由用户手动启动写入型执行 session；main 自动启动执行角色必须由用户明确选择。
+- CI 监控和验收保持只读；提交、推送、合并、创建 release 和实际发布均不因路由自动发生。
+- 本轮已修改项目 Skill 和项目级 agent 配置；未修改脚本或用户级安装副本。
+
+## 验证证据
+
+- 已完整阅读 `VISION.md`，并以其 Git/Markdown/用户控制边界约束计划。
+- 计划中的历史结论来自 Git 历史、旧真实 session 和现有工作树，不依赖对已删除运行时的臆测。
+- `codex --strict-config --version` 已通过，确认当前 CLI 可读取项目配置而不报未知字段；实际 `agent_type` 启动和 worktree 隔离验证尚未执行。
+- 已静态核对三个角色配置：执行/验收为 Sol/xhigh，CI 监控为 Terra/high；尚未做实际 role spawn 验证。
+
+## 下一步
+
+T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API 和跨项目归档体验等环境级可选验证。
+
+## T1 主分支收尾（2026-09-03）
+
+- T1 的独立验收已通过，执行角色只依赖 worktree 内 `.gkd/execution.md`；main 方案、变更记录和审查记录保持独立。
+- T1 提交 `094724b` 已由 main 合入为 `a47627b`；本轮自动分阶段委派来自用户明确要求。
+
+## T2 主分支收尾（2026-09-03）
+
+- T2 独立验收已通过，提交 `0e37f89` 已由 main 合入为 `de88920`。
+- 监控脚本使用 Python 3 标准库和只读 `gh api`；11 项 fake git/gh 测试、帮助输出和 `git diff --check` 均通过。
+- 真实 GitHub 凭据/API 轮询未执行，保留为后续环境风险；未新增 GitHub 写操作。
+
+## 下一步（更新）
+
+开始 T3：在新 worktree 生成 `.gkd/execution.md`，自动启动需求问答 Skill 施工角色。
+
+## T3 主分支收尾（2026-09-03）
+
+- T3 独立验收通过，提交 `dd58611` 已由 main 合入为 `1953074`。
+- `gkd-intake` 只处理材料性缺口，完整请求零提问，拒答/矛盾交回 main；没有新增问答状态文件或运行时 API。
+
+## 下一步（更新）
+
+开始 T4：在新 worktree 生成 `.gkd/execution.md`，自动启动项目适配与 CI 优化 Skills 施工角色。
+
+## T4 主分支收尾（2026-09-03）
+
+- T4 独立验收通过，提交 `6a99220` 已由 main 合入为 `1f35553`。
+- `gkd-project-adapt` 和 `gkd-optimize-ci` 均只读调查并输出建议，不直接修改目标项目；资料不足时只询问影响方案的少量事实。
+
+## 下一步（更新）
+
+开始 T5：同步文档并进行路由、执行、监控、问答、适配和验收的端到端静态/手工演练。
+
+## T1 执行记录（2026-09-03）
+
+### 已完成
+
+- 收敛 `.agents/skills/gkd-main/SKILL.md`：明确 `direct-main`、`delegated/manual`、用户明确选择的 `delegated/automatic`、CI 监控和独立验收路径；明确用户指定子代理可覆盖简单任务判断，并将自动启动约束为命名 `agent_type=gkd_execute` 与 `fork_turns=none`。
+- 明确 main 维护目标项目 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`，执行 session 只读取 worktree `.gkd/execution.md` 并更新 `.gkd/progress.md`；验收返工由 main 先记录 review，再同步计划、变更记录和 execution revision。
+- 同步 `docs/manual-workflow.md` 及 manual 模板的 `.gkd/` 路径、执行交接和归档记录说明。
+- 在 `.agents/open-items.md` 记录当前路由和交接约定；同步 `.codex/agents/gkd_execute.toml`、`.codex/agents/gkd_accept.toml` 的角色提示词，CI 监控预设保持原配置。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `rg -n 'direct-main|delegated/manual|delegated/automatic|gkd_execute|gkd_ci_monitor|gkd_accept|execution\\.md|plan-changes|\\.gkd/archive' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md docs/templates/manual`：通过，关键路径和角色/记录引用均存在。
+- `rg -n 'readiness gate|JSON contract|CAS|fixed-head|状态机' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md .codex/agents/*.toml`：仅命中“不得恢复旧机制”的边界说明；未发现旧门禁、合同或状态机流程。
+- 静态核对 `.codex/agents/gkd_execute.toml`、`gkd_ci_monitor.toml`、`gkd_accept.toml`：模型/推理强度分别为 Sol/xhigh、Terra/high、Sol/xhigh，sandbox 分别为 workspace-write、read-only、read-only。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+
+### 未验证范围与风险
+
+- 尚未实际调用 `agent_type` 启动角色，也未执行 worktree 隔离演练；这些需要 main 在验收或端到端演练阶段完成。
+- 本轮只修改声明式 Markdown/Skill 文档，未新增运行时代码或测试夹具。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T1 执行记录（重做，2026-09-03）
+
+### 本轮变更
+
+- `.agents/skills/gkd-main/SKILL.md`：将计划变更、审查、execution 和 progress 的记录路径统一写成 `.gkd/` 前缀。
+- `docs/manual-workflow.md`：自动 delegated 路径明确读取 `.codex/agents/gkd_execute.toml`，以 `agent_type=gkd_execute` 启动，并同步自动启动提示。
+- `.codex/agents/gkd_accept.toml`：验收角色读取父代理 worktree 内适用的 `AGENTS.md` 与 `.gkd/` 记录，保持只读和按实际 diff 检查。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- 按 execution 要求执行路由/路径关键词 `rg`：通过，`direct-main`、`delegated/manual`、`delegated/automatic`、`gkd_execute`、`gkd_ci_monitor`、`gkd_accept`、`.gkd/execution.md`、`.gkd/plan-changes.md` 和 `.gkd/archive` 均有对应说明。
+- 按 execution 要求执行旧机制关键词 `rg`：未发现旧门禁或状态机文案；仅保留“不得恢复旧机制”的边界说明。
+- 额外检查 `.codex/agents/*.toml`：未发现裸 `plan.md`/`progress.md`/`review.md` 路径或 readiness gate、JSON contract、CAS、fixed-head、状态机要求。
+
+### 未验证范围与剩余风险
+
+- 未实际调用 `agent_type` 启动角色，也未执行 worktree 隔离演练；需由 main 在验收或端到端演练阶段完成。
+- 本轮仍只修改声明式 Markdown 与角色提示词，未新增运行时代码或测试夹具。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T1 main 方案修订（2026-09-03-r4）
+
+- 独立验收指出 T1 文件范围与实际 diff 不一致。main 已修改 `.gkd/plan.md`，并在 `.gkd/plan-changes.md` 追加 r4：execute/accept 角色预设、归档模板、open-items 和本进度记录属于 T1，CI 预设只核对。
+- `.gkd/execution.md` 已同步 r4；执行目标和允许修改内容不变。
+
+## T2 执行记录（2026-09-03）
+
+### 本轮变更
+
+- 新增 `scripts/gkd-github-watch`，使用 Python 3 标准库和 `gh api` 只读查询 PR、workflow run、commit status、release tag。
+- 支持 `--pr`、`--run`、`--commit`、`--release` 互斥目标，以及 `--repo`、`--interval`、`--timeout`；未显式提供仓库时解析 `git remote get-url origin`，并校验显式仓库一致性。
+- 统一输出目标、仓库、URL、状态、失败检查摘要和 UTC 查询时间；退出码 `0` 成功、`1` 失败/取消、`2` 超时、`3` 调用/认证/目标错误。
+- 新增标准库 fake `git`/`gh` 测试，验证只调用 `gh api`、四类目标 endpoint、SSH remote 规范化、运行中到成功、失败摘要、未知结构、认证/目标不存在、仓库不一致、超时和工作目录无新增文件。
+- 更新 `gkd_ci_monitor` 角色提示和 `docs/manual-workflow.md`，要求只调用该入口。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：通过（9 项）。
+- `python3 scripts/gkd-github-watch --help`：通过，显示四种互斥目标及轮询参数。
+- `git diff --check`：通过。
+
+### 未验证范围与剩余风险
+
+当前环境未使用真实 GitHub 凭据，未执行实际 API 轮询；fake `gh` 已证明脚本不调用重跑、取消或写 API。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T2 修正记录（2026-09-03）
+
+### 本轮变更
+
+- `scripts/gkd-github-watch`：显式 `--repo` 时允许当前 worktree 没有 `origin`；若 origin 可读则继续校验仓库一致性，未显式 repo 时仍要求解析 origin。
+- `scripts/gkd-github-watch`：`--interval` 和 `--timeout` 拒绝 NaN、Infinity 及负数；每次 `gh api` 的 subprocess timeout 取轮询上限与全局 deadline 剩余时间的较小值，达到该 deadline 时输出 timeout 报告。
+- `scripts/tests/test_gkd_github_watch.py`：fake `git` 覆盖无 origin，fake `gh` 支持延迟响应；新增显式仓库无 origin、全局 timeout 和非有限/负数参数测试。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：通过（11 项）。
+- `python3 scripts/gkd-github-watch --help`：通过。
+- `git diff --check`：通过。
+
+### 未验证范围与剩余风险
+
+当前环境未使用真实 GitHub 凭据，未执行实际 API 轮询；fake `gh` 仅验证 `api` 只读调用、deadline 超时和错误退出路径。
+
+## T3 执行记录（2026-09-03）
+
+### 本轮变更
+
+- 新增 `.agents/skills/gkd-intake/SKILL.md`：定义目标、范围、验收、行为约束、工作目录和授权六类材料性缺口，按顺序一次只问一个问题；答案整理回 `.gkd/plan.md` 草案并保留未决事项。
+- 明确完整请求直接返回“无需问答”，拒答或矛盾答案交回 `gkd-main`，不把默认值当作批准，不引入 JSON schema、问答状态文件或运行时 API。
+- 同步 `.agents/skills/gkd-main/SKILL.md` 的触发说明，仅保留与 `gkd-intake` 的关系。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- 静态 `rg`：确认 `gkd-intake`、六类材料性检查、“一个问题”“无需问答”“未决”和“授权”均在预期 Skill/主流程文件中；未发现旧合同、状态机或机器状态描述。
+- 手工核对示例：目标缺失时只问目标；目标完整但验收缺失时只问验收；目标、范围、验收、约束和授权均明确且工作目录已知时返回“无需问答”。
+
+### 未验证范围与剩余风险
+
+- 本轮只修改声明式 Markdown，未新增运行时代码或测试夹具；实际 session 路由和跨 worktree 行为仍由 main 在验收阶段核对。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T4 执行记录（2026-09-03）
+
+### 本轮变更
+
+- 新增 `.agents/skills/gkd-project-adapt/SKILL.md`：定义项目根目录、工作流约束和本机限制等输入；按技术栈、包管理器、测试/构建命令、CI、发布、runner 和资源清单调查；要求以 `path:line`、命令摘要或运行链接引用证据，并输出适配选项、推荐方案、实现就绪 PLAN 草案和停止条件。
+- 新增 `.agents/skills/gkd-optimize-ci/SKILL.md`：定义 workflow YAML、复用 workflow、运行事实、required checks、runner 和约束输入；分析 job DAG、矩阵与 fail-fast、缓存、重复构建、并发和排队/执行时间；按 P0/P1/P2 排序建议并报告未知结构和证据缺口。
+- 更新 `.agents/skills/gkd-main/SKILL.md`：增加两个 Skill 的触发关系和只读边界，明确建议必须回到 PLAN、用户确认与 main 审查，不复制附属 Skill 的完整指令。
+- 两个 Skill 均明确不直接修改目标项目、不执行 CI 写操作、不恢复旧 AIO、状态机、机器合同、固定 head 验收或常驻 watcher。
+
+### 静态示例核对
+
+- Rust 示例：假设 Cargo workspace 有 `Cargo.toml`、测试与 Actions workflow。适配 Skill 可从实际 `cargo test`/`cargo clippy`/构建命令和 runner 资源形成建议；CI Skill 可沿 `needs` 识别重复编译与缓存 key，并要求用运行样本确认时延，不把 Cargo 或 Actions 默认行为写死。
+- 非 Rust/Actions 示例：假设 Python 项目使用 `pyproject.toml` 与 GitLab CI。适配 Skill 仍能调查包管理器、测试和发布约束；CI Skill 在没有 `.github/workflows` 或 GitHub required-check 事实时只报告 CI 平台证据缺口并询问影响排序的问题，不猜测 DAG 或分支保护。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- 静态 `rg`：确认 `project-adapt`、`optimize-ci`、工作流/CI、job DAG、required checks、AIO、不直接修改和用户确认等关键词出现在预期 Skill、`gkd-main` 与本进度文件中。
+- 新增 Skill 逐文件尾随空白与固定路径扫描：通过；未发现 `/Users/`、`/home/`、`~/.codex`、`/tmp/` 或 AIO 固定路径引用。
+- 未修改任何目标项目代码、脚本、角色 TOML 或生产用户目录；未执行 CI 写操作、发布或外部 API 轮询。
+
+### 未验证范围与剩余风险
+
+- 本轮仅修改声明式 Markdown，未在真实 Rust、Python/GitLab 或其他项目上运行 Skill；实际项目资料、runner 设置和分支保护仍需由 main 或用户提供并核对。
+- 两个 Skill 的建议质量依赖可读取的 workflow 与运行事实；缺失时会停在证据缺口和用户确认前，不自动补全。
+
+### 交接
+
+本轮施工已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T4 修正记录（2026-09-03-r7）
+
+### 本轮修正
+
+- `.agents/skills/gkd-optimize-ci/SKILL.md`：明确资料不足时只询问会改变优化方向的少量事实，其余不确定性列为证据缺口；输出章节同步保留同一停止规则。
+
+### 静态验证
+
+- `git diff --check`：通过。
+- `rg -n '资料不足|改变优化方向|证据缺口|用户确认|不直接编辑目标项目' .agents/skills/gkd-optimize-ci/SKILL.md .gkd/progress.md`：通过，命中修正措辞及既有停止边界。
+
+### 未验证范围与剩余风险
+
+- 仅完成 Markdown 静态修正，未在真实项目 workflow 或运行事实环境中执行 Skill；建议排序仍依赖用户提供的 CI 证据。
+
+### 交接
+
+本轮修正已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T5 执行记录（2026-09-03）
+
+### T5 主分支收口
+
+- T5 独立验收已通过；README、手工工作流和 ADR 的活动记录路径已统一为目标项目 `.gkd/`，并保留 manual-first、明确选择后自动启动和只读监控边界。
+- T5 提交 `bd9bd93` 已由 main 合入为 `42b4e7d`；11 项监控测试、文档交叉引用和角色配置静态核对均通过。
+- T6 归档尚待施工；真实 role spawn、GitHub API 和跨项目归档仍是环境级未验证风险。
+
+### 本轮同步
+
+- README、手工工作流和 ADR-002 中面向用户的协作记录引用统一为 `.gkd/plan.md`、`.gkd/execution.md`、`.gkd/progress.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`，明确执行交接与进度报告均位于目标 worktree 的 `.gkd/`。
+- 保持 manual-first 默认、用户明确选择才可自动启动、CI 监控与验收只读、活动记录使用 Markdown、归档位于目标项目 `.gkd/archive/`；未新增状态机、门禁、机器合同或运行时状态。
+
+### 验证证据
+
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过，覆盖四类目标 endpoint、只读调用、运行中到成功、失败摘要、认证/目标错误、仓库不一致和超时。
+- `python3 scripts/gkd-github-watch --help`：通过，显示 `--pr`、`--run`、`--commit`、`--release` 互斥目标及轮询参数。
+- `git diff --check`：通过。
+- `rg -n '\.gkd/(plan|execution|progress|plan-changes|review)|\.gkd/archive|direct-main|delegated/manual|delegated/automatic|gkd-intake|gkd-project-adapt|gkd-optimize-ci|gkd_accept|gkd_ci_monitor' README.md AGENTS.md VISION.md docs .agents .codex`：关键路径、路由、附属 Skill 和角色引用均命中；旧门禁/状态机仅保留明确的“不恢复”边界说明。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。逐文件静态核对 `.codex/agents/*.toml`：`gkd_execute` 为 Sol/xhigh、workspace-write；`gkd_accept` 为 Sol/xhigh、read-only；`gkd_ci_monitor` 为 Terra/high、read-only。
+- `git worktree list --porcelain`：确认 `t5-final` worktree 与 `task/t5-final` 分支存在，未产生额外 worktree 或状态文件。
+
+### 手工流程演练
+
+- 简单、低风险且未指定子代理的请求走 `direct-main`，不创建执行 session；用户明确要求子代理时，按用户选择进入 delegated 路径。
+- 委派任务默认走 `delegated/manual`：main 在目标项目 `.gkd/` 写计划并在 worktree 生成 `.gkd/execution.md`，用户手动启动后由执行 session 更新 `.gkd/progress.md`。只有用户明确选择自动模式时，才读取 `gkd_execute` 预设并以命名 `agent_type` 启动；失败保留 worktree，不降级为其他角色或 `direct-main`。
+- 目标、范围、验收、行为约束、工作目录或授权缺失时，先由 `gkd-intake` 按顺序一次提一个问题；完整请求返回“无需问答”，拒答或矛盾答案交回 main，不开始施工。
+- `gkd-project-adapt` 与 `gkd-optimize-ci` 仅读取项目事实并输出带证据的适配/优化建议；资料不足时询问会改变方向的少量事实，其余列为证据缺口，用户确认前不编辑目标项目或 CI。
+- delegated 轮次经 main 审查后，可将五份记录和摘要保存到目标项目 `.gkd/archive/<task-id>/<date>-<revision>/`；本轮没有独立示例项目和归档授权，因此未创建归档目录。
+
+### 未验证范围与剩余风险
+
+- 未实际调用 `agent_type` 角色或验证跨进程 worktree 隔离；按执行角色边界仅完成配置与文档静态核对，实际 spawn 由 main 在验收/端到端环境决定。
+- 未使用真实 GitHub 凭据执行 API 轮询；监控脚本行为由 fake `gh` 单测覆盖。真实远程状态、分支保护和发布设置仍需有权限环境验证。
+- `.agents/` 持久记录中的部分文件名保留上下文内的相对简称；它们不在本轮 execution 允许修改范围内，且不改变 `.gkd/` 事实源语义。
+
+### 交接
+
+本轮文档同步、静态检查和文档级手工演练已完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## T6 执行记录（2026-09-03）
+
+### T6 主分支收口
+
+- T6 独立验收首轮发现归档快照早于 main 审查；main 已将该 finding 写入 `.gkd/review.md`，并按 `2026-09-03-r9` 修订归档时序。
+- T6 文档改动和归档材料提交 `3af7c12` 已由 main 合入为 `b67f2ab`；随后 main 在独立审查结论确定后刷新六份最终快照。
+- 首轮材料保留在 `.gkd/archive/t6-archive/2026-09-03-19e7514/`；最终归档目录为 `.gkd/archive/t6-archive/2026-09-03-r9-final/`，包含 `summary.md`、`plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`；`summary.md` 和 `review.md` 均记录 T6 通过，未引入自动提交或发布。
+
+### 本轮变更
+
+- `.agents/skills/gkd-main/SKILL.md`：补充归档时机、来源、目录结构、脱敏要求和 `direct-main` 的长期价值取舍；明确归档不反向修改活动记录，也不自动提交或发布。
+- `docs/manual-workflow.md`：写清 main 审查后从执行 worktree 与目标项目 `.gkd/` 汇总五份记录、填写摘要、脱敏检查和进度记录的顺序。
+- `README.md`：增加简洁的归档用途和授权边界说明。
+- `docs/templates/manual/archive-summary.md`：增加任务标识、来源 revision、用户可见结果和未验证风险字段，并提醒不记录本机路径、凭据或运行时状态。
+- 创建首轮 `.gkd/archive/t6-archive/2026-09-03-19e7514/` 和最终 `.gkd/archive/t6-archive/2026-09-03-r9-final/`，各包含六份 Markdown 快照；最终快照中的实际本机路径和凭据已脱敏。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `find .gkd/archive/t6-archive -mindepth 2 -maxdepth 2 -type f -print | sort`：通过，首轮和最终目录各有六份归档文件。
+- 归档敏感信息扫描：未发现实际本机路径、凭据或令牌；规则中的 `~/.codex`、`token`、`secret` 仅出现在不恢复/脱敏说明和扫描命令自描述中。
+- `rg -n '\.gkd/archive|execution\.md|progress\.md|summary\.md' .agents/skills/gkd-main/SKILL.md docs/manual-workflow.md README.md docs/templates/manual/archive-summary.md`：通过，规则、来源和模板字段相互引用。
+- 首轮材料与最终快照均已按本轮 PLAN 作为目标项目文档变更纳入主分支收口，未触发自动提交、推送、合并或发布动作。
+
+### 未验证范围与剩余风险
+
+- 未进行真实跨项目复制、角色启动、跨进程 worktree 隔离或 GitHub API 验证；这些不在本轮施工范围内。
+
+### 交接
+
+归档示例和规则文档已完成，验证结果已记录，通知 main 审查；不提交、不合并、不发布、不清理 worktree。
+
+## r10.6 执行交接（2026-09-04）
+
+- 主代理已按用户明确授权选择 `delegated/automatic`，本 worktree 只承载 r10.6 文件范围。
+- 执行代理不得删除本轮 `.gkd` 活动记录；验收、审查、归档、合并及本地/远端任务分支清理由 main 按收尾顺序负责。
+
+## r10.7.1 返工要求
+
+- 记录本轮实际闸门证据：用户确认前没有创建 r10 worktree 或执行代理；用户明确选择自动执行后才创建并启动。
+- 用临时 fixture/手工检查记录 plan-only、材料性变更重新授权、delegated/direct-main 收尾和 review revision 的预期与实际结果；不把关键词扫描称为跨进程演练。
+- 记录 CI 角色显式 `--interval 30 --timeout 3600` 规范、cleanup commit 前置条件和未授权时保留现场规则。
+
+## r10.7.2 返工要求
+
+- 同步活动 PLAN 当前指针、review 模板和 `gkd_accept` role 前置条件，确保旧草案只作为 superseded 历史背景。
+- 记录 fixture 的具体命令、临时路径、断言和实际结果；若仅做手工检查，写出检查对象和未验证的跨进程范围。
+- 修正所有旧参数、泛化角色、可选归档和远端分支删除措辞，保证主计划、手工流程、ADR、持久记录和模板一致。
+
+## r10.6 执行记录（2026-09-04）
+
+### 本轮变更
+
+- `.agents/skills/gkd-main/SKILL.md`：新增 `plan-only` 与“批准 PLAN 后执行”的授权分界、材料性变更重新确认、CI 监控角色入口、`gkd_accept` 之后的归档/清理顺序、详细报告要求和审查 revision 规则；标明临时 `gkd-legacy-cleanup` 仅按需使用。
+- 新增 `.agents/skills/gkd-ci-monitor/SKILL.md`：固定单一 PR/run/commit/release 目标、`scripts/gkd-github-watch` 唯一入口、默认 `--interval 30 --timeout 3600`、一次 `wait_agent`、只读边界和缺失/漂移/认证/终态停止规则。
+- `.codex/agents/gkd_ci_monitor.toml`：同步 CI Skill、默认参数、一次性等待和错误/终态停止提示。
+- 新增 `.agents/skills/gkd-legacy-cleanup/SKILL.md`：提供一次性老项目只读盘点、分类、逐项授权清理和验证流程，保留普通业务及历史归档，不设计兼容模式。
+- `docs/manual-workflow.md`、`README.md`、`AGENTS.md`：同步 plan-only 闸门、CI 专用角色和脚本、审查 revision、delegated 收尾及干净 `main` 恢复顺序，并补充详细收尾报告和临时清理边界。
+- `docs/templates/manual/plan.md`、`archive-summary.md`、新增 `closeout-report.md`：补充授权状态、CI 目标/等待、偏差、归档/清理和用户报告字段。
+- `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md`：记录本轮授权、CI、清理和收尾规则。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过。
+- Python `tomllib` 解析 `.codex/agents/*.toml`：3 个角色配置均通过。
+- `codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+- 静态引用检查：排除历史 `.gkd/plan.md` 和本进度记录后，未发现直接 watch 子命令引用；CI Skill、角色 TOML、主流程、README、模板均引用同一脚本入口、单目标和默认等待规则。
+- Markdown 相对链接检查：通过，`gkd-main`、两个新增 Skill、手工流程和三个模板的本地链接均可解析。
+- 允许范围检查：通过，实际变更仅为交接列出的 13 个项目文件及按要求更新的 `.gkd/progress.md`。
+- 消融检查：未新增运行时组件、状态文件、兼容路径、watcher 或额外角色；CI 继续复用现有脚本，新增内容限于交接所需的规则、临时清理 Skill 与收尾模板。
+- 新增文件存在且 `git status` 仅包含交接允许的文件；未修改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 或 `.gkd/execution.md`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `gkd_ci_monitor`、GitHub API 或 `wait_agent` 长等待；真实凭据、目标漂移和外部终态仍需 main/用户环境验证。
+- 未对真实老项目执行删除；临时清理 Skill 仅完成设计，必须由 main 提供明确目标和逐项授权后运行。
+- 未执行真实 worktree/分支删除或恢复 `main` 演练；本轮只同步规则和模板。
+
+### 交接
+
+本轮 r10.6 施工完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## r10.7.1 返工执行记录（2026-09-04）
+
+### 本轮变更
+
+- CI 约束改为每次由 `gkd_ci_monitor` 显式传入 `--interval 30 --timeout 3600`；改变 interval 或 timeout 任一参数都必须先获得 PLAN 授权，并同步父代理的一次性等待时长。
+- 所有用户/主流程自动执行文案统一指向命名 `agent_type=gkd_execute`；`gkd_accept` 仅在已批准 delegated 执行 session 完成后启动。
+- delegated 成功路径统一为：独立验收和 main review -> 脱敏归档 -> 已授权 cleanup commit（包含活动记录删除）-> main 审查/合并（按授权）-> 清理已确认合并的本轮 worktree/分支 -> 恢复干净 `main`；远端分支合并状态不明时保留现场。direct-main 仍跳过代理验收和 worktree 删除并按需归档。
+- README 明确 `scripts/gkd-github-watch` 是当前 CI 只读入口，与旧 automatic route/旧自动脚本无兼容关系；ADR、`AGENTS.md`、context、decisions、open-items 和模板同步同一规则。
+- `gkd-legacy-cleanup` 明确定义活动引用：活动文件中可解析且仍指向已确认旧机制的路径/命令/链接；对应失效链接可在逐项授权下同列清理，历史事实和 `.gkd/archive/` 保留。
+
+### 可审计临时 fixture / 手工演练
+
+- 使用临时 Git 仓库（不在当前 worktree 写入）演练 plan-only 闸门：基线只有一个 worktree，确认前 `agents=0`、`code_writes=0`；材料性变更仅产生 `plan-changes`，没有 `execution.md` 或代理启动标记。实际输出：`plan-only gate: worktrees=1 agents=0 code_writes=0`、`material change before reauthorization: execution=0 agent=0`。
+- 同一 fixture 在写入授权标记后进入 delegated 分支，复制五份活动记录到归档，创建包含记录删除的 `cleanup commit`，合并到 `main` 后删除已合并本地任务分支；实际输出：`delegated closeout: archive=1 cleanup_commit=1 merge=1 local_branch_deleted=1 activity_records_deleted=1`。
+- fixture 创建未合并任务分支模拟远端/合并状态不明，实际保留该分支；输出：`remote/merge status unknown policy: branch_retained=1`。direct-main 演练不创建执行 session/worktree，输出：`direct-main fixture: execution_session=0 worktree_created=0`。
+- 临时 review 文件包含一个当前审查块和一个历史块，历史块保留原文并增加 `状态：已被 r10 取代（superseded）`；实际输出：`review revision fixture: current_block=1 historical_superseded=1`。上述检查是同进程临时 fixture/手工演练，不冒充真实跨进程角色启动或真实远端操作。
+- r10.6 交接记录显示本轮是在用户批准后创建；本返工 session 未再创建 worktree 或启动代理。执行代理无法事后重放“批准前”的原始跨进程事件，故仅记录现有交接事实和上述 fixture 结果，不声称完成真实跨进程演练。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过。
+- 静态文档检查：CI 相关角色/Skill/手工流程显式出现 `--interval 30 --timeout 3600` 规范；`gkd_ci_monitor`、`scripts/gkd-github-watch`、`agent_type=gkd_execute`、`gkd_accept` 前置条件、cleanup commit/合并顺序、远端状态不明保留现场和 superseded 用语均有交叉引用。该检查不声称所有允许文件都含 CI 参数。
+- 禁止 watch 子命令检查（排除 `.gkd/plan.md` 的历史验收要求和本进度说明中的负面示例）：未发现流程性 `gh pr checks --watch`、`gh run watch` 或临时轮询引用。
+- 允许范围检查：`git status --short` 仅包含 execution 列出的 14 个项目文件及本 `.gkd/progress.md`；未修改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 或 `.gkd/execution.md`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `agent_type=gkd_execute`、`gkd_accept` 或 `gkd_ci_monitor`，未执行真实跨进程 worktree 隔离、真实 `wait_agent` 长等待或 GitHub API；这些仍需 main/用户环境验证。
+- 未对真实老项目执行删除；本轮只设计和静态验证临时清理 Skill。任何旧 GKD 入口、可解析活动引用或失效链接都必须由 main/用户逐项授权后处理。
+- 现有 `scripts/gkd-github-watch` 的直接调用默认值仍由脚本自身定义；本轮执行范围只允许修改角色和文档，角色规范已要求显式参数，未把脚本默认值变化冒充为已完成。
+- `.gkd/plan.md` 顶部状态及文末 r10 历史草案由 main 维护，执行代理按交接边界未修改；main 需确认旧“待确认”段落保持明确 `superseded` 标记且不与顶部 r10.7.2 状态冲突。
+
+### 交接
+
+本轮 r10.7.1 文档/角色返工、临时 fixture 演练和局部验证已完成，等待 main 审查；不提交、不合并、不发布、不清理 worktree。
+
+## r10.7.2 最后一轮返工执行记录（2026-09-04）
+
+### 本轮修正
+
+- `docs/templates/manual/review.md` 增加唯一 current review block 的 PLAN revision、execution revision、Git head 和 status 字段，并提供保留旧块时只添加一行 superseded 的模板。
+- `docs/manual-workflow.md` 删除“无需专用命令参数”的冲突表述，改为引用 CI 章节的显式参数规范；`.codex/agents/gkd_accept.toml` 明确只有已批准 `delegated`、PLAN 已批准开始执行且执行 session 已完成并停止时才可启动，`plan-only`、`direct-main`、执行中或未批准任务均阻塞。
+- `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md` 标明早期 r10 草案/旧审查只是 superseded 历史背景；当前规则以最新 PLAN、execution、progress 和 review 为准。现有文档中的 delegated 收尾保持同一顺序：必须归档 -> 按授权创建 cleanup commit -> main 审查/合并 -> 仅删除已确认合并的本轮本地/远端分支；远端或合并状态不明时保留现场。
+- `.gkd/plan.md` 仍由 main 独占维护，本轮未修改；main 更新当前 revision 时须把文末旧 r10 草案明确标作 superseded 历史背景，避免早期“待确认”文字被误读为当前授权。
+
+### 可审计 fixture 与命令结果
+
+- 使用一次性 shell 命令在临时 Git 仓库演练闸门与收尾，临时目录以逻辑标识 `<temp-fixture>` 记录：`fixture=$(mktemp -d)`、`git init -q -b main`、`git worktree list --porcelain | grep -c '^worktree '`、`test "$baseline_worktrees" -eq 1`、`test ! -e agent-started.marker`、`test ! -e code-write.marker`。命令结束时由 trap 删除；输出 `plan-only gate: fixture=<temp-fixture> worktrees=1 agents=0 code_writes=0`。
+- 同一 fixture 在 `task/demo` 分支复制五份活动记录和 `summary.md` 到逻辑归档目录，提交归档后 `git rm` 五份活动记录并创建 cleanup commit，再切回 `main` 执行 `git merge --no-edit --no-ff task/demo`，随后执行 `git branch -d task/demo` 并断言成功；输出 `delegated closeout: ... archive=1 cleanup_commit=af5ac76 merge=b6b584c activity_records_deleted=1 merged_local_branch_deleted=1`。另建未合并 `task/unknown` 分支，断言 `git branch --list task/unknown` 非空，输出 `unknown merge status policy: branch_retained=1`。
+- 临时 review fixture 写入 current 与 historical 块，使用 `grep -q '^## Current review'` 和 `grep -q '^Status: superseded by r10.7.2$'` 断言，输出 `review revision fixture: ... current_block=1 historical_superseded=1`；direct-main 断言输出 `direct-main fixture: execution_session=0 worktree_created=0`。这些是同进程临时夹具，不代表真实跨进程角色启动或远端操作。
+
+### 静态与范围验证
+
+- `git diff --check`：通过。
+- `python3 --version` 输出 `Python 3.9.6`，环境无 `tomllib`/`tomli`；改用 Python 文本断言检查 `.codex/agents/gkd_accept.toml` 的 `delegated`、PLAN 批准和执行完成前置，断言通过。`codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+- 禁止 watch 命令扫描：`rg -n --glob '!*.gkd/plan.md' --glob '!*.gkd/progress.md' 'gh (pr checks --watch|run watch)' .agents .codex docs README.md AGENTS.md` 无命中；显式 CI 参数交叉检查覆盖 `docs/manual-workflow.md`、README、AGENTS、ADR、CI Skill、CI role、context、open-items 和计划模板，断言通过。
+- delegated 收尾一致性检查：对 `gkd-main`、手工流程、README、AGENTS、ADR、context、decisions、open-items 及三个手册模板逐文件执行 `rg -q 'cleanup commit'`、`rg -q '已确认合并'`、`rg -q '状态不明'` 和 main 审查/合并断言，全部通过。
+- 未跟踪文件独立检查：`git status --porcelain=v1 --untracked-files=all | awk '$1 == "??" {print $2}'` 与允许集合逐项比较通过；仅有 `.agents/skills/gkd-ci-monitor/SKILL.md`、`.agents/skills/gkd-legacy-cleanup/SKILL.md`、`docs/templates/manual/closeout-report.md` 三个新增文件。当前 tracked 修改均在 execution 文件表内，另含本 `.gkd/progress.md` 和实施要求明确的 `docs/templates/manual/review.md`。
+- 最终合并检查再次执行 `git diff --check`、review/CI/角色/cleanup 断言、禁止 watch 扫描、Markdown 相对链接脚本和未跟踪集合比较，全部通过；输出 `markdown relative-link assertions: passed (14 files)`、`final checks: passed`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `agent_type=gkd_execute`、`gkd_accept` 或 `gkd_ci_monitor`，未执行真实跨进程 worktree 隔离、`wait_agent(timeout_ms=3600000)` 长等待或 GitHub API/远端分支状态检查；fixture 结果不替代这些验证。
+- 未对真实老项目执行删除；`gkd-legacy-cleanup` 仅完成规则设计和 fixture/静态检查，旧入口、可解析活动引用或失效链接仍需 main/用户逐项授权后处理。
+- 未修改脚本自身默认参数；本轮只确保角色和文档显式传入 `--interval 30 --timeout 3600`，真实脚本调用、远端 CI 终态和发布环境仍未验证。
+
+### 交接
+
+本轮 r10.7.2 文档、角色约束、模板同步和可审计 fixture 验证已完成，等待 main 审查；不提交、不合并、不发布、不清理 worktree。
