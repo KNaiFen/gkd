@@ -2,7 +2,7 @@
 
 ## 状态
 
-r10.6 独立验收返工中，按 r10.7 修订执行；上一轮 T1-T6 已完成。本轮施工范围仅为文末“后续修订草案 r10（含 r10.1-r10.7）”，前文 T1-T6 仅作历史基线，不属于本轮 execution。本文仍是由 main 维护和审查的总计划，位于项目 `.gkd/` 目录；每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
+r10.7.1 独立验收返工中，按 r10.7.2 修订执行；上一轮 T1-T6 已完成。本轮施工范围仅为文末“后续修订草案 r10（含 r10.1-r10.7.2）”，前文 T1-T6 仅作历史基线，不属于本轮 execution。本文仍是由 main 维护和审查的总计划，位于项目 `.gkd/` 目录；每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
 
 ## 目标与边界
 
@@ -343,7 +343,7 @@ optimize_ci(repo):
 - 对 `delegated` 任务，`gkd_accept` 必须先完成独立验收并返回结论，main 再根据其意见写入 `review.md`；对 `direct-main` 任务，不创建验收代理，由 main 完成同等范围的轻量审查。只有审查通过且计划中授权的交付动作完成后，main 才能主动向用户发送详细收尾报告，不能只说“完成”或只给提交号。
 - 报告至少包含：任务目标和成功标准、实际修改的文件/符号、实现行为和数据流、与 PLAN 的一致/偏差及偏差原因和授权、验证命令与结果、CI/PR/release 结果、未验证风险、提交/合并/发布标识、归档位置、worktree/分支清理结果和后续建议。
 - 同一份报告的脱敏摘要写入归档 `summary.md`；面向用户的报告保留足够细节，但不得包含完整对话、全量日志、令牌、账号、本机绝对路径或其他敏感值。
-- `delegated` 收尾顺序固定为：`gkd_accept` 独立验收 -> main 根据意见写 `review.md` -> 创建并检查脱敏归档 -> 确认归档完整且本轮活动记录只属于当前任务 -> 删除目标项目中本轮已归档的活动 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`（保留 `.gkd/archive/`）-> 确认执行代理已停止且 worktree 无未提交改动 -> 删除已合并的本地任务 worktree 和本地任务分支 -> 按授权处理远端任务分支 -> 将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰 -> 输出详细报告。`direct-main` 任务跳过代理验收和 worktree 清理，但仍需 main 审查、按需归档、恢复干净 `main` 并输出报告。
+- `delegated` 收尾顺序固定为：`gkd_accept` 独立验收 -> main 根据意见写 `review.md` -> 创建并检查脱敏归档 -> 确认归档完整且本轮活动记录只属于当前任务 -> 在已获提交授权的任务分支创建 cleanup commit（删除本轮已归档活动 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`，保留 `.gkd/archive/`）-> main 审查并合并 cleanup commit -> 确认执行代理已停止且 worktree 无未提交改动 -> 删除已合并的本地任务 worktree 和本地任务分支 -> 仅按授权删除本轮已合并的远端任务分支，状态不明或未合并则保留现场 -> 将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰 -> 输出详细报告。未获提交/合并授权或任一条件不满足时保留现场并报告阻塞。`direct-main` 任务跳过代理验收和 worktree 清理，但仍需 main 审查、按需归档、恢复干净 `main` 并输出报告。
 - 如果活动记录与其他仍进行中的任务共用文件，必须先拆分或报告，不能按本轮完成直接删除；不能把删除归档前的唯一事实源当作清理动作。
 - 如果任务被拒绝、阻塞、存在未提交改动或删除条件不满足，保留 worktree/分支和现场，报告“未完成/阻塞”，不得强行清理或宣称恢复成功。
 
@@ -379,8 +379,10 @@ optimize_ci(repo):
 | modify | `docs/manual-workflow.md` | 同步计划确认、CI 监控子代理、固定等待和收尾报告/清理顺序 | 让用户手动流程与 Skills 一致 |
 | modify | `README.md`、`AGENTS.md` | 明确 plan-only 不授权执行、CI 监控入口和完成后恢复干净 main | 对用户和目标项目提供可见边界 |
 | modify | `docs/templates/manual/plan.md`、`archive-summary.md` | 增加授权状态、CI 目标/等待、偏差和清理结果字段 | 让记录能支撑执行与复盘 |
+| modify | `docs/templates/manual/review.md` | 增加当前 revision/head/status 与 superseded 最小记录结构 | 保证 review 模板和活动规则一致 |
 | add | `docs/templates/manual/closeout-report.md` | 提供面向用户的详细收尾报告模板 | 保证完成后主动交付可审查信息 |
 | modify | `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md` | 记录 CI 监控约束、PLAN 授权闸门、临时清理 Skill 和收尾恢复规则 | 本轮会改变 GKD 流程、授权和交接边界 |
+| modify | `.codex/agents/gkd_accept.toml` | 明确仅在已批准 delegated 执行完成后启动验收 | 防止 plan-only 或未完成任务绕过验收前置条件 |
 | modify | `.gkd/plan-changes.md`、`.gkd/review.md` | 记录本 revision 的来源、用户决定和后续验收结论；审查文件采用当前 revision 块和旧结论 superseded 标记 | 保留方案演进，避免历史审查被误读为当前事实 |
 
 ### 角色与写入边界
@@ -449,7 +451,7 @@ closeout(task):
 - 临时清理 Skill 的删除时机和是否连同文档/测试一起删除，留待用户另行授权；本轮不预先删除。
 - 详细报告的具体篇幅和是否同时输出机器可读摘要，留待用户后续补充；本草案默认用户报告以 Markdown 自然语言为主，归档只保存脱敏摘要。
 - 审查记录采用“当前块 + 旧块一行 superseded 标记”的最小方案；不再把审查历史拆成额外文件。
-- 未完成本 revision 的任何代码、Skill、文档或工作流修改；在用户继续追加问题并确认 PLAN 前，必须保持当前工作树不变。
+- （历史 superseded）原草案在用户确认前不得施工；当前授权和施工状态以顶部状态区及最新 revision 为准。
 
 ### r10.7 验收修订（2026-09-04）
 

@@ -11,6 +11,9 @@
 - `.agents/context.md`、`.agents/decisions.md` 仍用“可归档”描述成功收尾，弱化了 delegated 成功路径的强制归档要求；`docs/adr/002-manual-first-workflow.md` 也有未纳入本轮文件表的泛化角色措辞，需要决定是否同步。
 - C 节成功标准写成对真实老项目执行清理，但本轮只加入临时 Skill，未获授权对真实老项目删除；当前标准与范围不一致。
 - 清理 Skill 需要明确删除已确认旧机制的活动引用，而不仅是已失效链接。
+- 返工后活动 PLAN 顶部仍指向 r10.6、活动 review 仍是 r10.6 返工块；review 模板未包含 current revision/superseded 结构，当前事实源不唯一。
+- 手工流程仍有“无需专用命令参数”旧表述；progress 的范围/模板证据表述也超过实际检查范围。
+- 活动 PLAN 的 D 节仍保留“删除记录后再检查 worktree”的旧顺序，未把 cleanup commit -> main 审查/合并写入主计划；`gkd_accept` role TOML 也需同步已批准 delegated 前置条件。
 
 ## 决定
 
