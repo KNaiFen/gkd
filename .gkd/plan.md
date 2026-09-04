@@ -2,7 +2,7 @@
 
 ## 状态
 
-已完成。本文件是本轮施工的总计划，由 main 维护和审查，位于项目 `.gkd/` 目录。每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
+r10 草案待用户确认；上一轮 T1-T6 已完成。本轮施工范围仅为文末“后续修订草案 r10（含 r10.1-r10.4）”，前文 T1-T6 仅作历史基线，不属于本轮 execution。本文仍是由 main 维护和审查的总计划，位于项目 `.gkd/` 目录；每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
 
 ## 目标与边界
 
@@ -340,14 +340,14 @@ optimize_ci(repo):
 
 #### D. 收尾、报告与环境恢复
 
-- main 在独立验收通过、计划中授权的交付动作完成后，必须主动向用户发送详细收尾报告，不能只说“完成”或只给提交号。
+- 对 `delegated` 任务，`gkd_accept` 必须先完成独立验收并返回结论，main 再根据其意见写入 `review.md`；对 `direct-main` 任务，不创建验收代理，由 main 完成同等范围的轻量审查。只有审查通过且计划中授权的交付动作完成后，main 才能主动向用户发送详细收尾报告，不能只说“完成”或只给提交号。
 - 报告至少包含：任务目标和成功标准、实际修改的文件/符号、实现行为和数据流、与 PLAN 的一致/偏差及偏差原因和授权、验证命令与结果、CI/PR/release 结果、未验证风险、提交/合并/发布标识、归档位置、worktree/分支清理结果和后续建议。
 - 同一份报告的脱敏摘要写入归档 `summary.md`；面向用户的报告保留足够细节，但不得包含完整对话、全量日志、令牌、账号、本机绝对路径或其他敏感值。
-- 收尾顺序固定为：main 独立验收并写 `review.md` -> 创建并检查脱敏归档 -> 确认归档完整且本轮活动记录只属于当前任务 -> 删除目标项目中本轮已归档的活动 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`（保留 `.gkd/archive/`）-> 确认执行代理已停止且 worktree 无未提交改动 -> 删除已合并的本地任务 worktree 和本地任务分支 -> 按授权处理远端任务分支 -> 将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰 -> 输出详细报告。
+- `delegated` 收尾顺序固定为：`gkd_accept` 独立验收 -> main 根据意见写 `review.md` -> 创建并检查脱敏归档 -> 确认归档完整且本轮活动记录只属于当前任务 -> 删除目标项目中本轮已归档的活动 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`（保留 `.gkd/archive/`）-> 确认执行代理已停止且 worktree 无未提交改动 -> 删除已合并的本地任务 worktree 和本地任务分支 -> 按授权处理远端任务分支 -> 将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰 -> 输出详细报告。`direct-main` 任务跳过代理验收和 worktree 清理，但仍需 main 审查、按需归档、恢复干净 `main` 并输出报告。
 - 如果活动记录与其他仍进行中的任务共用文件，必须先拆分或报告，不能按本轮完成直接删除；不能把删除归档前的唯一事实源当作清理动作。
 - 如果任务被拒绝、阻塞、存在未提交改动或删除条件不满足，保留 worktree/分支和现场，报告“未完成/阻塞”，不得强行清理或宣称恢复成功。
 
-成功标准：完成演练后目标项目只有可独立阅读的本轮归档而没有本轮活动 PLAN 文件残留，用户收到详细报告，任务 worktree/本地分支不存在，可信主 checkout 为干净 `main`；异常路径能保留现场并明确说明原因。
+成功标准：完成 delegated 演练后 `gkd_accept` 已给出独立验收结论；完成 direct-main 演练后 main 已完成同等范围审查；目标项目只有可独立阅读的本轮归档而没有本轮活动 PLAN 文件残留，用户收到详细报告，任务 worktree/本地分支不存在（direct-main 无任务 worktree），可信主 checkout 为干净 `main`；异常路径能保留现场并明确说明原因。
 
 #### E. 审查记录的最小版本标识
 
@@ -413,7 +413,14 @@ monitor_ci(target):
   stop_on_success_failure_timeout_error_or_drift()
 
 closeout(task):
-  main_accepts_and_writes_review()
+  if task.route == delegated:
+      acceptance = gkd_accept()
+      main_writes_review(acceptance)
+      if acceptance != passed:
+          preserve_scene_and_report_blocked()
+          return
+  else:
+      main_review()
   create_and_redact_archive()
   if clean_and_authorized:
       remove_worktree_and_merged_local_branch()
@@ -431,7 +438,7 @@ closeout(task):
 | CI 入口 | 现有 `scripts/tests/test_gkd_github_watch.py` 加静态角色/调用约束检查 | 只允许单目标和只读脚本；脚本缺失/目标漂移/超时均停止 | 真实 GitHub 监控仍需环境授权 |
 | PLAN 闸门 | 手工演练“只拟 PLAN”“批准 PLAN 后执行”“材料性变更后再确认” | 前者不创建 worktree/代理/写入，后两者按确认状态分流 | 不启动真实执行代理 |
 | 清理 Skill | 临时 fixture 包含旧 Skill、入口、引用、状态文件和普通业务文件 | 旧活动机制全部盘点并按授权清理，普通业务和历史记录不误删 | 不对真实老项目执行删除 |
-| 收尾 | 手工演练成功、阻塞、未提交改动三条路径 | 成功路径归档、报告、删除 worktree/分支并回到干净 main；异常路径保留现场 | 不删除当前项目现有 worktree |
+| 收尾 | delegated/direct-main 各自演练成功、阻塞、未提交改动三条路径 | delegated 由 `gkd_accept` 先给出独立结论，direct-main 由 main 审查；成功路径归档、报告、删除适用的 worktree/分支并回到干净 main；异常路径保留现场 | 不删除当前项目现有 worktree |
 | 审查版本 | 两轮 review fixture（rN -> rN+1） | 顶部当前审查块唯一指向当前结论，旧块只有一行 superseded 标记；普通修订不产生新 revision | 不引入机器状态或额外数据库 |
 | 文档质量 | `git diff --check`、逐文件交叉引用核对 | 模板字段和角色边界完整，报告可由用户独立理解 | 最终验收待施工完成后进行 |
 
