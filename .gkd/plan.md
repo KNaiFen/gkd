@@ -2,7 +2,7 @@
 
 ## 状态
 
-r10.7.1 独立验收返工中，按 r10.7.2 修订执行；上一轮 T1-T6 已完成。本轮施工范围仅为文末“后续修订草案 r10（含 r10.1-r10.7.2）”，前文 T1-T6 仅作历史基线，不属于本轮 execution。本文仍是由 main 维护和审查的总计划，位于项目 `.gkd/` 目录；每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
+r10.7.2 已完成施工，待 main 最终验收与收尾；上一轮 T1-T6 已完成。本轮施工范围仅为文末“后续修订草案 r10（含 r10.1-r10.7.2）”，前文 T1-T6 仅作历史基线，不属于本轮 execution。本文仍是由 main 维护和审查的总计划，位于项目 `.gkd/` 目录；每个 delegated 任务在目标 worktree 的 `.gkd/` 中维护 `execution.md` 和 `progress.md`，并用 `plan-changes.md`、`review.md` 记录方案演进与验收。
 
 ## 目标与边界
 
