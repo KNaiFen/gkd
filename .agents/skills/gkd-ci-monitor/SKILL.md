@@ -9,19 +9,19 @@ description: 只读等待一个明确的 GitHub CI、Actions 或发布目标，�
 
 ## 输入与唯一目标
 
-- 父代理必须提供一个目标项目 worktree、仓库（可由脚本从 `origin` 解析）和且仅一个目标：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`。
+- 父代理必须提供一个目标项目 worktree、仓库（可由脚本从该 worktree 的 `origin` 解析）和且仅一个目标：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`。
 - PR、主线提交、workflow run 和正式 release 是不同目标；每次调用只跟踪其中一个固定标识，不在等待中切换目标。
 - 每次调用都必须显式传入 `--interval 30 --timeout 3600`。改变 `interval` 或 `timeout` 任一参数都必须先得到 PLAN 明确授权，并让父代理的一次性等待时长与获准的 `timeout` 一致。
 
 ## 唯一入口与只读边界
 
-从目标项目根目录调用现有可执行入口 `scripts/gkd-github-watch`，例如：
+`gkd-github-watch` 属于本 Skill，不属于目标项目。仓库源文件在 `.agents/skills/gkd-ci-monitor/scripts/gkd-github-watch`，安装后由 Codex 从 `~/.codex/skills/gkd-ci-monitor/scripts/gkd-github-watch` 提供。角色按已安装 Skill 的目录解析脚本，并把目标项目 worktree 作为命令 cwd，例如：
 
 ```text
-scripts/gkd-github-watch --pr <number> --interval 30 --timeout 3600
+~/.codex/skills/gkd-ci-monitor/scripts/gkd-github-watch --pr <number> --interval 30 --timeout 3600
 ```
 
-按需传入 `--repo owner/name`；不要另行构造 API 请求或轮询脚本。禁止调用 GitHub CLI 的 watch 子命令，也禁止重跑、取消、编辑、派发或发布 GitHub 资源。不得修改本地文件、Git、目标项目代码或任何状态文件，不得启动其他代理，不得验收或合并。
+按需传入 `--repo owner/name`；目标项目只用于提供 worktree、origin 和查询上下文，不需要放置同名脚本。脚本缺失时报告 Skill 安装不完整，不要求目标项目恢复入口。不要另行构造 API 请求或轮询脚本。禁止调用 GitHub CLI 的 watch 子命令，也禁止重跑、取消、编辑、派发或发布 GitHub 资源。不得修改本地文件、Git、目标项目代码或任何状态文件，不得启动其他代理，不得验收或合并。
 
 ## 等待与停止
 

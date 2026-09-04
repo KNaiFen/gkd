@@ -46,7 +46,7 @@
 
 - [2026-09-04] CI 持续等待固定由专用只读角色承担。
   - Why: 避免 main 自行轮询和多个临时命令路径，保持单目标、可审查的终态。
-  - Impact: `gkd_ci_monitor` 只能调用 `scripts/gkd-github-watch` 并显式传入 `--interval 30 --timeout 3600`；改变任一参数须有 PLAN 授权，缺失、漂移、认证错误和超时均立即报告，不重试或写 GitHub。
+  - Impact: `gkd_ci_monitor` 只能调用已安装 `gkd-ci-monitor` Skill 目录中的 `scripts/gkd-github-watch` 并显式传入 `--interval 30 --timeout 3600`；目标项目不需要提供同名脚本，改变任一参数须有 PLAN 授权，入口缺失、漂移、认证错误和超时均立即报告，不重试或写 GitHub。
 
 - [2026-09-04] 收尾先验收和归档，再清理现场并恢复干净 main。
   - Why: 活动记录删除前必须保留可独立阅读的脱敏事实，失败路径必须可恢复。

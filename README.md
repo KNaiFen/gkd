@@ -4,7 +4,7 @@ GKD 将需求澄清、方案确认、隔离执行、持续验证、独立验收�
 
 ## 默认：manual-first
 
-GKD 先调查项目和需求；信息不足时通过问答补齐，信息充分后写出具体的 `.gkd/plan.md`，等待用户明确说“按此 PLAN 开始执行”。只拟 PLAN 时不创建 worktree/分支、不写代码、不启动代理、不提交或清理。批准后，简单低风险任务可由 main 直接完成；其余任务默认由用户手动启动执行 session，用户明确选择自动模式后，main 才以 `agent_type=gkd_execute` 启动执行 session。需要等待 PR、workflow run、commit 或 release CI 时，必须由命名的 `gkd_ci_monitor` 只读子代理调用目标项目的 `scripts/gkd-github-watch`，每次显式传入 `--interval 30 --timeout 3600`；改变任一参数须有 PLAN 授权，main 一次性等待终态。执行完成后，GKD 可按授权衔接验收以及提交、发版等交付动作。
+GKD 先调查项目和需求；信息不足时通过问答补齐，信息充分后写出具体的 `.gkd/plan.md`，等待用户明确说“按此 PLAN 开始执行”。只拟 PLAN 时不创建 worktree/分支、不写代码、不启动代理、不提交或清理。批准后，简单低风险任务可由 main 直接完成；其余任务默认由用户手动启动执行 session，用户明确选择自动模式后，main 才以 `agent_type=gkd_execute` 启动执行 session。需要等待 PR、workflow run、commit 或 release CI 时，必须由命名的 `gkd_ci_monitor` 只读子代理调用已安装 `gkd-ci-monitor` Skill 目录中的 `scripts/gkd-github-watch`（源文件在 `.agents/skills/gkd-ci-monitor/`，安装后通常在 `~/.codex/skills/gkd-ci-monitor/`），每次显式传入 `--interval 30 --timeout 3600`；改变任一参数须有 PLAN 授权，main 一次性等待终态。执行完成后，GKD 可按授权衔接验收以及提交、发版等交付动作。
 
 每个 delegated 任务在目标项目 `.gkd/` 中使用五份 Markdown 记录：
 
@@ -18,4 +18,4 @@ GKD 先调查项目和需求；信息不足时通过问答补齐，信息充分�
 
 ## 当前边界
 
-当前主入口 Skill 是 [gkd-main](.agents/skills/gkd-main/SKILL.md)。需求问答、项目适配和 CI 优化是围绕主流程按需调用的附属能力；它们不能绕过 PLAN、用户确认、worktree 执行和主代理审查。旧 automatic route、机器生命周期合同和旧自动脚本不在当前工作树中；当前 `scripts/gkd-github-watch` 是保留的 CI 只读入口，不是旧 watcher 或自动路由的兼容层，需要追溯旧机制时查看 Git 历史。既有 `v0.1.5`、生产 `~/.codex`、AIO、GitHub 设置、Secrets、付费 runner、tag 和 Release 均不属于本仓库的日常流程。
+当前主入口 Skill 是 [gkd-main](.agents/skills/gkd-main/SKILL.md)。需求问答、项目适配和 CI 优化是围绕主流程按需调用的附属能力；它们不能绕过 PLAN、用户确认、worktree 执行和主代理审查。旧 automatic route、机器生命周期合同和旧自动脚本不在当前工作树中；`gkd-github-watch` 是 `gkd-ci-monitor` Skill 的随包 CI 只读入口，不属于目标项目，也不是旧 watcher 或自动路由的兼容层，需要追溯旧机制时查看 Git 历史。既有 `v0.1.5`、生产 `~/.codex`、AIO、GitHub 设置、Secrets、付费 runner、tag 和 Release 均不属于本仓库的日常流程。

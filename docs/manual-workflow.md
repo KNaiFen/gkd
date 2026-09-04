@@ -13,7 +13,7 @@ GKD 将需求对齐、具体方案、隔离执行、CI 监控、独立验收和�
 
 ## CI 监控入口
 
-需要等待的 PR、workflow run、commit 或 release CI，在 PLAN 已授权且目标唯一明确后，必须启动命名的 `gkd_ci_monitor` 只读子代理；main 不自行持续轮询。该角色只调用目标项目的 `scripts/gkd-github-watch` 可执行入口，并传入一个目标参数：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`，且每次都显式传入 `--interval 30 --timeout 3600`。改变 interval 或 timeout 任一参数都必须先由 PLAN 明确授权，并同步父代理的一次性等待时长。可选 `--repo owner/name`；脚本只执行 `gh api` 只读查询，返回成功、失败、超时或调用错误退出码；角色应原样报告目标、URL、状态、失败检查摘要和后续建议，不得调用 GitHub CLI 的 watch 子命令，也不得临时拼接轮询、重跑或取消命令。脚本缺失、目标漂移、无法唯一解析或认证不可用时立即报告阻塞。
+需要等待的 PR、workflow run、commit 或 release CI，在 PLAN 已授权且目标唯一明确后，必须启动命名的 `gkd_ci_monitor` 只读子代理；main 不自行持续轮询。该角色只调用已安装 `gkd-ci-monitor` Skill 目录中的 `scripts/gkd-github-watch`（源文件在 `.agents/skills/gkd-ci-monitor/`，安装后通常在 `~/.codex/skills/gkd-ci-monitor/`），并传入一个目标参数：`--pr <number>`、`--run <id>`、`--commit <sha>` 或 `--release <tag>`，且每次都显式传入 `--interval 30 --timeout 3600`。目标项目 worktree 只作为命令 cwd，不需要放置同名脚本。改变 interval 或 timeout 任一参数都必须先由 PLAN 明确授权，并同步父代理的一次性等待时长。可选 `--repo owner/name`；脚本只执行 `gh api` 只读查询，返回成功、失败、超时或调用错误退出码；角色应原样报告目标、URL、状态、失败检查摘要和后续建议，不得调用 GitHub CLI 的 watch 子命令，也不得临时拼接轮询、重跑或取消命令。Skill 脚本缺失、目标漂移、无法唯一解析或认证不可用时立即报告阻塞。
 
 main 启动监控代理后只等待一次 `wait_agent(timeout_ms=3600000)`（或 PLAN 明确批准且与 timeout 一致的时长），等待期间不读取仓库/CI、不补充分析、不重复启动。代理返回成功、失败、取消、超时、调用错误或目标漂移后立即停止；失败后的修复重新规划并取得必要授权。
 
@@ -85,7 +85,7 @@ main 处于 plan-only：调查、问答、写 PLAN 并等待用户明确“按�
 批准后选择 direct-main，或创建 worktree 并生成 `.gkd/execution.md`
 delegated 路径：manual 交接给用户，automatic 在明确选择后启动 `agent_type=gkd_execute`
 执行 session 读取 `.gkd/execution.md`，持续更新 `.gkd/progress.md`，完成后通知 main
-需要等待 CI 时：启动一次 `gkd_ci_monitor`，只调用 `scripts/gkd-github-watch`，main 一次性等待并接收终态
+需要等待 CI 时：启动一次 `gkd_ci_monitor`，只调用已安装 Skill 目录中的 `scripts/gkd-github-watch`，main 一次性等待并接收终态
 delegated：已批准执行 session 完成后由 `gkd_accept` 独立验收，main 写 `.gkd/review.md`；direct-main：main 完成轻量审查
 delegated 通过后创建脱敏归档，再按授权创建包含活动记录删除的 cleanup commit、审查/合并并清理已合并分支，恢复干净 `main` 并输出详细报告
 不通过、阻塞、未提交改动或清理条件不满足时保留现场并报告未完成

@@ -25,7 +25,7 @@ GKD 的新默认形态改为 manual-first：
 - 返工通过主代理先记录 `.gkd/review.md`，再修改计划、追加 `.gkd/plan-changes.md` 并更新 `.gkd/execution.md` 交接后继续执行，不创建新的 offer/claim/activation 生命周期；旧 execution session 不受计划修改的隐式影响。
 - 需要执行 session 的委派任务默认由用户手动启动；用户明确选择自动模式时，main 只能以命名 `agent_type=gkd_execute` 通过原生 agents API 启动执行 session。两种入口都使用同一 worktree 的 `.gkd/execution.md` / `.gkd/progress.md` 交接；已批准 delegated 执行完成后才由 `gkd_accept` 独立验收，随后由 main 审查。
 - 只拟 PLAN 与批准 PLAN 后开始执行是独立授权状态：`plan-only` 不创建 worktree、代理、代码或 Git 交付动作；材料性变化须追加 `plan-changes.md` 并重新确认。
-- 需要等待 CI 时，命名 `gkd_ci_monitor` 只对单一目标调用 `scripts/gkd-github-watch --interval 30 --timeout 3600`；改变 interval 或 timeout 任一参数必须有 PLAN 授权，缺失、漂移、认证错误或超时即报告并停止。
+- 需要等待 CI 时，命名 `gkd_ci_monitor` 只对单一目标调用已安装 `gkd-ci-monitor` Skill 目录中的 `scripts/gkd-github-watch --interval 30 --timeout 3600`；改变 interval 或 timeout 任一参数必须有 PLAN 授权，目标项目不需要提供同名脚本，Skill 入口缺失、漂移、认证错误或超时即报告并停止。
 - delegated 成功必须归档；归档完整后才可按授权创建包含活动记录删除的 cleanup commit，main 审查/合并后才清理已确认合并的本轮本地与远端任务分支并恢复干净 `main`。提交/合并未获授权或远端状态不明时保留现场。
 - 旧 automatic route、fixed-head acceptance、机器事实 renderer、默认 CI monitor 和大规模合同验证不再位于当前工作树；需要追溯时使用 Git 历史。原生子代理启动不提供旧路由、状态机或验收兼容入口。
 

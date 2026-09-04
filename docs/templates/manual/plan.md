@@ -30,7 +30,7 @@
 
 ## 7. Interfaces and configuration
 
-<!-- 写明输入来源、输出格式、错误分类、配置键、兼容性和默认值。若需要等待 CI，写明唯一目标（--pr/--run/--commit/--release）、仓库，并要求 gkd_ci_monitor 每次显式传入 --interval 30 --timeout 3600；改变任一参数须有 PLAN 授权，且仅由该角色调用 scripts/gkd-github-watch。 -->
+<!-- 写明输入来源、输出格式、错误分类、配置键、兼容性和默认值。若需要等待 CI，写明唯一目标（--pr/--run/--commit/--release）、仓库，并要求 gkd_ci_monitor 每次显式传入 --interval 30 --timeout 3600；改变任一参数须有 PLAN 授权，且仅由该角色调用已安装 gkd-ci-monitor Skill 目录中的 scripts/gkd-github-watch。 -->
 
 ## 8. Key-path pseudocode (when needed)
 
