@@ -1,8 +1,24 @@
 # 主代理审查
 
+## 当前审查（PLAN r10.6 / execution r10.6 / head 7b176d6）
+
+状态：返工
+
+- 独立验收发现：PLAN 要求的 plan-only/批准执行、材料性变更重新授权、delegated/direct-main 收尾和 review revision 演练没有可审计记录；当前 progress 只有静态检查，不能据此宣称成功标准已验证。
+- CI Skill/role 要求调用方显式传 `--interval 30 --timeout 3600`，但脚本默认仍为 `10/300`；规范来源和 `interval` 的变更授权需要明确，避免直接调用产生不一致。
+- 收尾顺序先删除 tracked 活动记录，再检查 clean 状态，没有定义 cleanup commit/合并步骤，无法同时保留归档并恢复干净 main。
+- `AGENTS.md`、`README.md` 和手工流程仍有“当前 Codex 已配置角色/一个执行子代理”等泛化措辞，且 `gkd_accept` 可启动条件未重复已批准 delegated 前置条件，存在绕过命名角色和 plan-only 闸门的风险。
+- `.agents/context.md`、`.agents/decisions.md` 仍用“可归档”描述成功收尾，弱化了 delegated 成功路径的强制归档要求；`docs/adr/002-manual-first-workflow.md` 也有未纳入本轮文件表的泛化角色措辞，需要决定是否同步。
+- C 节成功标准写成对真实老项目执行清理，但本轮只加入临时 Skill，未获授权对真实老项目删除；当前标准与范围不一致。
+- 清理 Skill 需要明确删除已确认旧机制的活动引用，而不仅是已失效链接。
+
 ## 决定
 
 角色预设已完成静态审查；整体计划已按用户要求补充到可施工粒度，并已将 GKD 明确定位为完整的项目开发工作流。T1、T2、T3、T4、T5、T6 已通过独立验收并合入主分支，最终归档已完成。
+
+## 历史审查（T1-T6）
+
+状态：已被 r10.6 取代（superseded）
 
 ## 审查结论
 
