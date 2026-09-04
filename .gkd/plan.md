@@ -349,6 +349,25 @@ optimize_ci(repo):
 
 成功标准：完成演练后目标项目只有可独立阅读的本轮归档而没有本轮活动 PLAN 文件残留，用户收到详细报告，任务 worktree/本地分支不存在，可信主 checkout 为干净 `main`；异常路径能保留现场并明确说明原因。
 
+#### E. 审查记录的最小版本标识
+
+- `review.md` 顶部必须只有一个当前审查块，写明 `PLAN revision`、`execution revision`、被审查的 Git head 和当前状态（通过、返工或阻塞）。该块是活动文件的唯一当前结论。
+- 需要保留历史审查时，在旧审查块标题下只增加一行“状态：已被 rN 取代（superseded）”，不删除原文、不重新解释旧结论，也不为每条 finding 增加额外状态字段。
+- 新一轮审查只做两步：把上一轮活动结论标记为 superseded，再在文件顶部追加当前审查块。普通错别字或不改变结论的排版修正不创建新 revision。
+- 归档和 Git 历史负责保存完整旧版本；`review.md` 不引入 JSON、锁、状态机或额外历史数据库。若活动文件只保留当前审查，则不需要伪造 superseded 段落。
+
+示例：
+
+```markdown
+## 当前审查（PLAN r10 / execution r10 / head abc1234）
+状态：通过
+
+## 历史审查（PLAN r9 / execution r9 / head def5678）
+状态：已被 r10 取代（superseded）
+```
+
+成功标准：任何新 session 只看 `review.md` 顶部即可识别当前 revision 和结论；保留的旧结论均有明确 superseded 标记，且没有新增机器状态或重复文档操作。
+
 ### 计划范围与文件级变更表
 
 | Action | File / symbol | Change | Reason |
@@ -362,7 +381,7 @@ optimize_ci(repo):
 | modify | `docs/templates/manual/plan.md`、`archive-summary.md` | 增加授权状态、CI 目标/等待、偏差和清理结果字段 | 让记录能支撑执行与复盘 |
 | add | `docs/templates/manual/closeout-report.md` | 提供面向用户的详细收尾报告模板 | 保证完成后主动交付可审查信息 |
 | modify | `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md` | 记录 CI 监控约束、PLAN 授权闸门、临时清理 Skill 和收尾恢复规则 | 本轮会改变 GKD 流程、授权和交接边界 |
-| modify | `.gkd/plan-changes.md`、`.gkd/review.md` | 记录本 revision 的来源、用户决定和后续验收结论 | 保留方案演进和审查事实 |
+| modify | `.gkd/plan-changes.md`、`.gkd/review.md` | 记录本 revision 的来源、用户决定和后续验收结论；审查文件采用当前 revision 块和旧结论 superseded 标记 | 保留方案演进，避免历史审查被误读为当前事实 |
 
 ### 角色与写入边界
 
@@ -413,6 +432,7 @@ closeout(task):
 | PLAN 闸门 | 手工演练“只拟 PLAN”“批准 PLAN 后执行”“材料性变更后再确认” | 前者不创建 worktree/代理/写入，后两者按确认状态分流 | 不启动真实执行代理 |
 | 清理 Skill | 临时 fixture 包含旧 Skill、入口、引用、状态文件和普通业务文件 | 旧活动机制全部盘点并按授权清理，普通业务和历史记录不误删 | 不对真实老项目执行删除 |
 | 收尾 | 手工演练成功、阻塞、未提交改动三条路径 | 成功路径归档、报告、删除 worktree/分支并回到干净 main；异常路径保留现场 | 不删除当前项目现有 worktree |
+| 审查版本 | 两轮 review fixture（rN -> rN+1） | 顶部当前审查块唯一指向当前结论，旧块只有一行 superseded 标记；普通修订不产生新 revision | 不引入机器状态或额外数据库 |
 | 文档质量 | `git diff --check`、逐文件交叉引用核对 | 模板字段和角色边界完整，报告可由用户独立理解 | 最终验收待施工完成后进行 |
 
 ### 风险、取舍与待讨论事项
@@ -421,4 +441,5 @@ closeout(task):
 - 远端任务分支删除属于 GitHub 写操作；本草案默认只自动删除已合并的本地 worktree/分支，远端删除仍以 PLAN 中的明确授权或平台自动删除事实为准。项目活动 PLAN 文件的删除仅限已归档且确认只属于本轮的文件。
 - 临时清理 Skill 的删除时机和是否连同文档/测试一起删除，留待用户另行授权；本轮不预先删除。
 - 详细报告的具体篇幅和是否同时输出机器可读摘要，留待用户后续补充；本草案默认用户报告以 Markdown 自然语言为主，归档只保存脱敏摘要。
+- 审查记录采用“当前块 + 旧块一行 superseded 标记”的最小方案；不再把审查历史拆成额外文件。
 - 未完成本 revision 的任何代码、Skill、文档或工作流修改；在用户继续追加问题并确认 PLAN 前，必须保持当前工作树不变。
