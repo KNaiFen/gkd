@@ -317,6 +317,12 @@ T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API �
 - 用临时 fixture/手工检查记录 plan-only、材料性变更重新授权、delegated/direct-main 收尾和 review revision 的预期与实际结果；不把关键词扫描称为跨进程演练。
 - 记录 CI 角色显式 `--interval 30 --timeout 3600` 规范、cleanup commit 前置条件和未授权时保留现场规则。
 
+## r10.7.2 返工要求
+
+- 同步活动 PLAN 当前指针、review 模板和 `gkd_accept` role 前置条件，确保旧草案只作为 superseded 历史背景。
+- 记录 fixture 的具体命令、临时路径、断言和实际结果；若仅做手工检查，写出检查对象和未验证的跨进程范围。
+- 修正所有旧参数、泛化角色、可选归档和远端分支删除措辞，保证主计划、手工流程、ADR、持久记录和模板一致。
+
 ## r10.6 执行记录（2026-09-04）
 
 ### 本轮变更
@@ -350,3 +356,40 @@ T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API �
 ### 交接
 
 本轮 r10.6 施工完成，等待 main 审查 diff；不提交、不合并、不发布、不清理 worktree。
+
+## r10.7.1 返工执行记录（2026-09-04）
+
+### 本轮变更
+
+- CI 约束改为每次由 `gkd_ci_monitor` 显式传入 `--interval 30 --timeout 3600`；改变 interval 或 timeout 任一参数都必须先获得 PLAN 授权，并同步父代理的一次性等待时长。
+- 所有用户/主流程自动执行文案统一指向命名 `agent_type=gkd_execute`；`gkd_accept` 仅在已批准 delegated 执行 session 完成后启动。
+- delegated 成功路径统一为：独立验收和 main review -> 脱敏归档 -> 已授权 cleanup commit（包含活动记录删除）-> main 审查/合并（按授权）-> 清理已确认合并的本轮 worktree/分支 -> 恢复干净 `main`；远端分支合并状态不明时保留现场。direct-main 仍跳过代理验收和 worktree 删除并按需归档。
+- README 明确 `scripts/gkd-github-watch` 是当前 CI 只读入口，与旧 automatic route/旧自动脚本无兼容关系；ADR、`AGENTS.md`、context、decisions、open-items 和模板同步同一规则。
+- `gkd-legacy-cleanup` 明确定义活动引用：活动文件中可解析且仍指向已确认旧机制的路径/命令/链接；对应失效链接可在逐项授权下同列清理，历史事实和 `.gkd/archive/` 保留。
+
+### 可审计临时 fixture / 手工演练
+
+- 使用临时 Git 仓库（不在当前 worktree 写入）演练 plan-only 闸门：基线只有一个 worktree，确认前 `agents=0`、`code_writes=0`；材料性变更仅产生 `plan-changes`，没有 `execution.md` 或代理启动标记。实际输出：`plan-only gate: worktrees=1 agents=0 code_writes=0`、`material change before reauthorization: execution=0 agent=0`。
+- 同一 fixture 在写入授权标记后进入 delegated 分支，复制五份活动记录到归档，创建包含记录删除的 `cleanup commit`，合并到 `main` 后删除已合并本地任务分支；实际输出：`delegated closeout: archive=1 cleanup_commit=1 merge=1 local_branch_deleted=1 activity_records_deleted=1`。
+- fixture 创建未合并任务分支模拟远端/合并状态不明，实际保留该分支；输出：`remote/merge status unknown policy: branch_retained=1`。direct-main 演练不创建执行 session/worktree，输出：`direct-main fixture: execution_session=0 worktree_created=0`。
+- 临时 review 文件包含一个当前审查块和一个历史块，历史块保留原文并增加 `状态：已被 r10 取代（superseded）`；实际输出：`review revision fixture: current_block=1 historical_superseded=1`。上述检查是同进程临时 fixture/手工演练，不冒充真实跨进程角色启动或真实远端操作。
+- r10.6 交接记录显示本轮是在用户批准后创建；本返工 session 未再创建 worktree 或启动代理。执行代理无法事后重放“批准前”的原始跨进程事件，故仅记录现有交接事实和上述 fixture 结果，不声称完成真实跨进程演练。
+
+### 验证证据
+
+- `git diff --check`：通过。
+- `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过。
+- 静态文档检查：允许修改文件均显式出现 `--interval 30 --timeout 3600` 规范；`gkd_ci_monitor`、`scripts/gkd-github-watch`、`agent_type=gkd_execute`、`gkd_accept` 前置条件、cleanup commit/合并顺序、远端状态不明保留现场和 superseded 用语均有交叉引用。
+- 禁止 watch 子命令检查（排除 `.gkd/plan.md` 的历史验收要求和本进度说明中的负面示例）：未发现流程性 `gh pr checks --watch`、`gh run watch` 或临时轮询引用。
+- 允许范围检查：`git status --short` 仅包含 execution 列出的 14 个项目文件及本 `.gkd/progress.md`；未修改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 或 `.gkd/execution.md`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `agent_type=gkd_execute`、`gkd_accept` 或 `gkd_ci_monitor`，未执行真实跨进程 worktree 隔离、真实 `wait_agent` 长等待或 GitHub API；这些仍需 main/用户环境验证。
+- 未对真实老项目执行删除；本轮只设计和静态验证临时清理 Skill。任何旧 GKD 入口、可解析活动引用或失效链接都必须由 main/用户逐项授权后处理。
+- 现有 `scripts/gkd-github-watch` 的直接调用默认值仍由脚本自身定义；本轮执行范围只允许修改角色和文档，角色规范已要求显式参数，未把脚本默认值变化冒充为已完成。
+- `.gkd/plan.md` 顶部状态及文末 r10 历史草案由 main 维护，执行代理按交接边界未修改；main 需确认旧“待确认”段落保持明确 `superseded` 标记且不与顶部 r10.7.1 状态冲突。
+
+### 交接
+
+本轮 r10.7.1 文档/角色返工、临时 fixture 演练和局部验证已完成，等待 main 审查；不提交、不合并、不发布、不清理 worktree。

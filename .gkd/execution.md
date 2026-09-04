@@ -1,8 +1,8 @@
-# r10.7.1 执行交接
+# r10.7.2 执行交接
 
 ## 任务身份
 
-- PLAN revision：r10.7.1
+- PLAN revision：r10.7.2
 - 路由：`delegated/automatic`
 - 当前 worktree：本文件所在 worktree
 - 执行角色：`gkd_execute`
@@ -24,6 +24,7 @@
 - `README.md`
 - `AGENTS.md`
 - `docs/adr/002-manual-first-workflow.md`
+- `.codex/agents/gkd_accept.toml`
 - `docs/templates/manual/plan.md`
 - `docs/templates/manual/archive-summary.md`
 - `docs/templates/manual/closeout-report.md`（新增）
@@ -44,6 +45,7 @@
 7. 按 r10.7.1 修订：明确 CI 角色必须显式传入 `--interval 30 --timeout 3600`，且改变任一参数均须 PLAN 授权；将 `gkd_accept` 前置条件收紧为已批准 delegated 执行完成；同步 ADR、context、decisions、open-items 的命名角色和强制归档措辞。
 8. 在 progress.md 记录可审计演练：本轮用户确认前未创建 worktree/代理，确认后才创建；用临时 fixture 记录 plan-only、材料性变更重新授权、delegated/direct-main 收尾和 review revision 的预期/实际检查。不得把静态关键词检查冒充真实跨进程演练。
 9. 将清理 Skill 的活动引用定义为仍指向已确认旧机制的可解析引用，并保持历史事实/归档保留。真实老项目删除仍不执行。
+10. 同步 `docs/templates/manual/review.md` 的 current revision/head/status 与 superseded 最小模板；修正手工流程的旧参数措辞和 progress 中超出实际范围的证据声明。把活动 PLAN 旧草案段明确为历史 superseded。
 
 ## 验证
 
@@ -52,6 +54,7 @@
 - 检查不存在直接 `gh pr checks --watch`、`gh run watch` 或临时轮询流程性引用；可运行现有静态/文档测试时运行并记录结果。
 - 验证新增文件存在，未超出允许修改范围。
 - 检查模板和文档中 cleanup commit 的前置条件、未授权时保留现场规则与 delegated 必须归档措辞一致。
+- 对未跟踪新增文件执行独立空白/链接/禁用 watch 扫描，验证结果必须写明命令、fixture 路径或断言，不以字符串摘录替代证据。
 
 ## 停止条件
 
