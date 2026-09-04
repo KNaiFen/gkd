@@ -379,7 +379,7 @@ T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API �
 
 - `git diff --check`：通过。
 - `python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v`：11 项测试全部通过。
-- 静态文档检查：允许修改文件均显式出现 `--interval 30 --timeout 3600` 规范；`gkd_ci_monitor`、`scripts/gkd-github-watch`、`agent_type=gkd_execute`、`gkd_accept` 前置条件、cleanup commit/合并顺序、远端状态不明保留现场和 superseded 用语均有交叉引用。
+- 静态文档检查：CI 相关角色/Skill/手工流程显式出现 `--interval 30 --timeout 3600` 规范；`gkd_ci_monitor`、`scripts/gkd-github-watch`、`agent_type=gkd_execute`、`gkd_accept` 前置条件、cleanup commit/合并顺序、远端状态不明保留现场和 superseded 用语均有交叉引用。该检查不声称所有允许文件都含 CI 参数。
 - 禁止 watch 子命令检查（排除 `.gkd/plan.md` 的历史验收要求和本进度说明中的负面示例）：未发现流程性 `gh pr checks --watch`、`gh run watch` 或临时轮询引用。
 - 允许范围检查：`git status --short` 仅包含 execution 列出的 14 个项目文件及本 `.gkd/progress.md`；未修改 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md` 或 `.gkd/execution.md`。
 
@@ -388,8 +388,42 @@ T1-T6 已完成并合入主分支；后续只有真实 role spawn、GitHub API �
 - 未调用真实 `agent_type=gkd_execute`、`gkd_accept` 或 `gkd_ci_monitor`，未执行真实跨进程 worktree 隔离、真实 `wait_agent` 长等待或 GitHub API；这些仍需 main/用户环境验证。
 - 未对真实老项目执行删除；本轮只设计和静态验证临时清理 Skill。任何旧 GKD 入口、可解析活动引用或失效链接都必须由 main/用户逐项授权后处理。
 - 现有 `scripts/gkd-github-watch` 的直接调用默认值仍由脚本自身定义；本轮执行范围只允许修改角色和文档，角色规范已要求显式参数，未把脚本默认值变化冒充为已完成。
-- `.gkd/plan.md` 顶部状态及文末 r10 历史草案由 main 维护，执行代理按交接边界未修改；main 需确认旧“待确认”段落保持明确 `superseded` 标记且不与顶部 r10.7.1 状态冲突。
+- `.gkd/plan.md` 顶部状态及文末 r10 历史草案由 main 维护，执行代理按交接边界未修改；main 需确认旧“待确认”段落保持明确 `superseded` 标记且不与顶部 r10.7.2 状态冲突。
 
 ### 交接
 
 本轮 r10.7.1 文档/角色返工、临时 fixture 演练和局部验证已完成，等待 main 审查；不提交、不合并、不发布、不清理 worktree。
+
+## r10.7.2 最后一轮返工执行记录（2026-09-04）
+
+### 本轮修正
+
+- `docs/templates/manual/review.md` 增加唯一 current review block 的 PLAN revision、execution revision、Git head 和 status 字段，并提供保留旧块时只添加一行 superseded 的模板。
+- `docs/manual-workflow.md` 删除“无需专用命令参数”的冲突表述，改为引用 CI 章节的显式参数规范；`.codex/agents/gkd_accept.toml` 明确只有已批准 `delegated`、PLAN 已批准开始执行且执行 session 已完成并停止时才可启动，`plan-only`、`direct-main`、执行中或未批准任务均阻塞。
+- `.agents/context.md`、`.agents/decisions.md`、`.agents/open-items.md` 标明早期 r10 草案/旧审查只是 superseded 历史背景；当前规则以最新 PLAN、execution、progress 和 review 为准。现有文档中的 delegated 收尾保持同一顺序：必须归档 -> 按授权创建 cleanup commit -> main 审查/合并 -> 仅删除已确认合并的本轮本地/远端分支；远端或合并状态不明时保留现场。
+- `.gkd/plan.md` 仍由 main 独占维护，本轮未修改；main 更新当前 revision 时须把文末旧 r10 草案明确标作 superseded 历史背景，避免早期“待确认”文字被误读为当前授权。
+
+### 可审计 fixture 与命令结果
+
+- 使用一次性 shell 命令在临时 Git 仓库演练闸门与收尾，临时目录以逻辑标识 `<temp-fixture>` 记录：`fixture=$(mktemp -d)`、`git init -q -b main`、`git worktree list --porcelain | grep -c '^worktree '`、`test "$baseline_worktrees" -eq 1`、`test ! -e agent-started.marker`、`test ! -e code-write.marker`。命令结束时由 trap 删除；输出 `plan-only gate: fixture=<temp-fixture> worktrees=1 agents=0 code_writes=0`。
+- 同一 fixture 在 `task/demo` 分支复制五份活动记录和 `summary.md` 到逻辑归档目录，提交归档后 `git rm` 五份活动记录并创建 cleanup commit，再切回 `main` 执行 `git merge --no-edit --no-ff task/demo`，随后执行 `git branch -d task/demo` 并断言成功；输出 `delegated closeout: ... archive=1 cleanup_commit=af5ac76 merge=b6b584c activity_records_deleted=1 merged_local_branch_deleted=1`。另建未合并 `task/unknown` 分支，断言 `git branch --list task/unknown` 非空，输出 `unknown merge status policy: branch_retained=1`。
+- 临时 review fixture 写入 current 与 historical 块，使用 `grep -q '^## Current review'` 和 `grep -q '^Status: superseded by r10.7.2$'` 断言，输出 `review revision fixture: ... current_block=1 historical_superseded=1`；direct-main 断言输出 `direct-main fixture: execution_session=0 worktree_created=0`。这些是同进程临时夹具，不代表真实跨进程角色启动或远端操作。
+
+### 静态与范围验证
+
+- `git diff --check`：通过。
+- `python3 --version` 输出 `Python 3.9.6`，环境无 `tomllib`/`tomli`；改用 Python 文本断言检查 `.codex/agents/gkd_accept.toml` 的 `delegated`、PLAN 批准和执行完成前置，断言通过。`codex --strict-config --version`：通过，输出 `codex-cli 0.153.0`。
+- 禁止 watch 命令扫描：`rg -n --glob '!*.gkd/plan.md' --glob '!*.gkd/progress.md' 'gh (pr checks --watch|run watch)' .agents .codex docs README.md AGENTS.md` 无命中；显式 CI 参数交叉检查覆盖 `docs/manual-workflow.md`、README、AGENTS、ADR、CI Skill、CI role、context、open-items 和计划模板，断言通过。
+- delegated 收尾一致性检查：对 `gkd-main`、手工流程、README、AGENTS、ADR、context、decisions、open-items 及三个手册模板逐文件执行 `rg -q 'cleanup commit'`、`rg -q '已确认合并'`、`rg -q '状态不明'` 和 main 审查/合并断言，全部通过。
+- 未跟踪文件独立检查：`git status --porcelain=v1 --untracked-files=all | awk '$1 == "??" {print $2}'` 与允许集合逐项比较通过；仅有 `.agents/skills/gkd-ci-monitor/SKILL.md`、`.agents/skills/gkd-legacy-cleanup/SKILL.md`、`docs/templates/manual/closeout-report.md` 三个新增文件。当前 tracked 修改均在 execution 文件表内，另含本 `.gkd/progress.md` 和实施要求明确的 `docs/templates/manual/review.md`。
+- 最终合并检查再次执行 `git diff --check`、review/CI/角色/cleanup 断言、禁止 watch 扫描、Markdown 相对链接脚本和未跟踪集合比较，全部通过；输出 `markdown relative-link assertions: passed (14 files)`、`final checks: passed`。
+
+### 未验证范围与剩余风险
+
+- 未调用真实 `agent_type=gkd_execute`、`gkd_accept` 或 `gkd_ci_monitor`，未执行真实跨进程 worktree 隔离、`wait_agent(timeout_ms=3600000)` 长等待或 GitHub API/远端分支状态检查；fixture 结果不替代这些验证。
+- 未对真实老项目执行删除；`gkd-legacy-cleanup` 仅完成规则设计和 fixture/静态检查，旧入口、可解析活动引用或失效链接仍需 main/用户逐项授权后处理。
+- 未修改脚本自身默认参数；本轮只确保角色和文档显式传入 `--interval 30 --timeout 3600`，真实脚本调用、远端 CI 终态和发布环境仍未验证。
+
+### 交接
+
+本轮 r10.7.2 文档、角色约束、模板同步和可审计 fixture 验证已完成，等待 main 审查；不提交、不合并、不发布、不清理 worktree。

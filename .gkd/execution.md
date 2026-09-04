@@ -28,6 +28,7 @@
 - `docs/templates/manual/plan.md`
 - `docs/templates/manual/archive-summary.md`
 - `docs/templates/manual/closeout-report.md`（新增）
+- `docs/templates/manual/review.md`
 - `.agents/context.md`
 - `.agents/decisions.md`
 - `.agents/open-items.md`
