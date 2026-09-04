@@ -1,8 +1,15 @@
 # 主代理审查
 
-## 当前审查（PLAN r10.6 / execution r10.6 / head 7b176d6）
+## 当前审查（PLAN r10.7.2 / execution r10.7.2 / head 7783ecd）
 
-状态：返工
+状态：通过
+
+- `gkd_accept` 独立验收确认 r10.7.2 的实现范围、CI/plan-only/cleanup 规则、review 模板和角色边界已同步；验证包含 11 项监控测试、文档/链接/禁用 watch 扫描和临时 fixture 断言。
+- 真实跨进程 role spawn、真实 GitHub CI/远端分支、真实老项目删除未执行，作为明确的未验证风险保留。
+
+## 历史审查（PLAN r10.6 / execution r10.6 / head 7b176d6）
+
+状态：已被 r10.7.2 取代（superseded）
 
 - 独立验收发现：PLAN 要求的 plan-only/批准执行、材料性变更重新授权、delegated/direct-main 收尾和 review revision 演练没有可审计记录；当前 progress 只有静态检查，不能据此宣称成功标准已验证。
 - CI Skill/role 要求调用方显式传 `--interval 30 --timeout 3600`，但脚本默认仍为 `10/300`；规范来源和 `interval` 的变更授权需要明确，避免直接调用产生不一致。
