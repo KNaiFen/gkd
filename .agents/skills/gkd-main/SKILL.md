@@ -20,7 +20,7 @@ main 必须展示实现就绪 PLAN，写清目标、成功标准、范围/非目
 3. 项目工作流不合适、过慢或受本机限制时，先调用 `gkd-project-adapt` 调查技术栈、测试、CI、发布和资源约束；CI 瓶颈明确时可调用 `gkd-optimize-ci` 分析 workflow、job DAG、required checks、缓存和重复构建。两者只读并返回建议或实现就绪 PLAN，不能绕过用户确认和 main 审查。
 4. 只有用户明确批准按 PLAN 开始执行后，才进入 delegated 路径。默认使用 `delegated/manual`：main 创建 sibling worktree，在目标项目 `.gkd/` 维护方案并生成 worktree 内的 `.gkd/execution.md`，然后交给用户手动启动。
 5. 只有用户明确选择自动执行时才使用 `delegated/automatic`：main 读取 `.codex/agents/gkd_execute.toml`，通过原生 `spawn_agent` 以 `agent_type=gkd_execute` 和 `fork_turns=none` 启动一个执行 session。角色不可用或配置不符时报告阻塞并保留 worktree，不切换到其他角色或 `direct-main`。
-6. 需要等待明确的 PR、workflow run、提交或 release CI 时，必须启动命名的 `gkd_ci_monitor` 只读子代理，并遵守 [CI 监控 Skill](../gkd-ci-monitor/SKILL.md) 的单目标、脚本入口和等待规则；main 不自行持续轮询。只有已批准的 delegated 执行 session 完成后，main 才可启动 `gkd_accept` 做独立验收；这些角色只读，提交、推送、合并和发版仍须按计划和用户授权执行。
+6. 需要等待明确的 PR、workflow run、提交或 release CI 时，必须启动命名的 `gkd_ci_monitor` 只读子代理，并遵守 [CI 监控 Skill](../gkd-ci-monitor/SKILL.md) 的单目标、脚本入口和等待规则；main 不自行持续轮询。只有已批准的 delegated 执行 session 完成后，main 才可启动 `gkd_accept` 做独立验收；验收和 main 审查通过后，路由到 [收尾 Skill](../gkd-closeout/SKILL.md)；这些角色只读，提交、推送、合并和发版仍须按计划和用户授权执行。
 
 ## 计划和交接
 
@@ -32,20 +32,20 @@ main 从已批准的方案生成 worktree 内 `.gkd/execution.md`。执行 sessi
 
 ## 归档与长期记录
 
-一轮 delegated 施工只有在已批准的执行 session 完成、`gkd_accept` 独立验收通过且 main 审查通过后，才可宣称成功；成功路径必须在目标项目主工作树创建并检查最终 `.gkd/archive/<task-id>/<date>-<revision>/`。若用户决定停止、保留当前成果或明确阻塞，也可以在 main 写下当前审查结论后归档，但 `summary.md` 必须明确标为未验收或阻塞中的临时记录，不能宣称任务已完成。归档来源是该轮目标 worktree 的 `.gkd/execution.md`、`.gkd/progress.md`，以及 main 在目标项目 `.gkd/` 维护的 `.gkd/plan.md`、`.gkd/plan-changes.md` 和 `.gkd/review.md`；main 用普通文件复制或整理加入 `summary.md`，不让执行 session 反向修改活动记录。
+一轮 delegated 施工只有在已批准的执行 session 完成、`gkd_accept` 独立验收通过且 main 审查通过后，才可进入 [收尾 Skill](../gkd-closeout/SKILL.md)；成功路径必须创建并检查最终 `.gkd/archive/<task-id>/<date>-<revision>/`。若用户决定停止、保留当前成果或明确阻塞，也可以创建临时归档，但 `summary.md` 必须明确标为未验收或阻塞中的临时记录，不能宣称任务已完成。归档来源和脱敏规则由收尾 Skill 维护。
 
 归档只保存脱敏后的 Markdown 事实：保留逻辑 worktree、分支和变更标识，移除本机绝对路径、令牌、账号、机密值和运行时状态。归档目录是长期可读记录，不是活动事实源、索引服务或状态机制，也不会因为归档自动提交、推送、合并或发布。简单 `direct-main` 任务只有在确实产生值得后续复用的项目知识时才归档；是否随目标项目提交仍由 PLAN 和用户授权决定。
 
 ## 角色边界
 
-- `agent_type=gkd_execute`（Sol/xhigh，workspace-write）：只在声明 worktree 内按 `.gkd/execution.md` 实现、验证并更新 `.gkd/progress.md`；不验收、不交付、不启动其他代理。
-- `gkd_ci_monitor`（Terra/high，read-only）：只调用复用的监控工具跟踪一个明确目标并报告，不修改代码或 GitHub。
-- `gkd_accept`（Sol/xhigh，read-only）：仅在已批准的 delegated 执行 session 完成后，独立检查计划、execution、diff、progress 和验证证据，向 main 提出通过或返工意见。
+- `agent_type=gkd_execute`（`gpt-6-astra`/xhigh，workspace-write）：只在声明 worktree 内按 `.gkd/execution.md` 实现、验证并更新 `.gkd/progress.md`；不验收、不交付、不启动其他代理。
+- `gkd_ci_monitor`（`gpt-5.6-terra`/medium，read-only）：只调用复用的监控工具跟踪一个明确目标并报告，不修改代码或 GitHub。
+- `gkd_accept`（`gpt-6-astra`/xhigh，read-only）：仅在已批准的 delegated 执行 session 完成后，独立检查计划、execution、diff、progress 和验证证据，向 main 提出通过或返工意见。
 - `gkd-legacy-cleanup`：临时、按需能力；只在 main 明确指定老项目和逐项授权后盘点/清理旧 GKD 活动机制，不进入默认路由，不触碰普通业务、历史归档或生产用户目录。
 
-## 收尾顺序
+## 收尾路由
 
-delegated 任务必须按以下顺序收尾：已批准的执行 session 完成后由 `gkd_accept` 独立验收；main 根据意见写 `.gkd/review.md`；创建并检查脱敏归档（delegated 成功必须有归档）；确认归档完整且活动记录只属于当前任务；在计划已授权时创建包含活动记录删除的 cleanup commit；main 审查该 commit，并仅在已有授权时提交/合并；确认已合并且 worktree 无未提交改动后，删除本地任务 worktree 和本地任务分支；远端只删除已确认合并本轮任务的分支，状态不明则保留现场；将可信主 checkout 切回 `main` 并确认 `git status --short` 为空且跟踪关系清晰；最后主动向用户输出 [详细收尾报告](../../../docs/templates/manual/closeout-report.md)。任何验收失败、未提交改动、共享活动记录、cleanup commit/合并未获授权或删除条件不满足，都保留现场并报告未完成/阻塞。`direct-main` 跳过代理验收和 worktree 删除，但仍需 main 审查、按需归档、恢复干净 `main` 并输出报告。
+delegated 任务在 `gkd_accept` 通过且 main 写下通过审查后，加载 [收尾 Skill](../gkd-closeout/SKILL.md) 执行归档、授权清理和详细报告；direct-main 在 main 审查后按同一 Skill 的 direct-main 模式执行。main 保留最终通过、阻塞和是否宣称成功的决定权。
 
 CI 监控代理返回成功、失败、超时、调用错误或目标漂移后立即停止，并把终态交给 main；失败后的修复须重新规划并取得必要授权。
 

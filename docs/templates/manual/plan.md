@@ -58,7 +58,7 @@ else:
 
 ## 11. Handoff and progress updates
 
-<!-- 说明 main 如何从本计划生成 worktree 内 `.gkd/execution.md`，执行 session 何时更新 `.gkd/progress.md`，以及如何在验收返工时追加 `.gkd/plan-changes.md`、更新 execution 并通知下一轮 session。写明已批准 delegated 执行完成后才由 gkd_accept 验收，再 review、归档、按授权 cleanup commit、审查/合并、活动记录和已确认合并分支清理、恢复干净 main 的顺序。 -->
+<!-- 说明 main 如何从本计划生成 worktree 内 `.gkd/execution.md`，执行 session 何时更新 `.gkd/progress.md`，以及如何在验收返工时追加 `.gkd/plan-changes.md`、更新 execution 并通知下一轮 session。写明已批准 delegated 执行完成后才由 gkd_accept 验收，再由 main review 并路由到 gkd-closeout；收尾 Skill 按授权完成归档、cleanup commit、审查/合并、活动记录和已确认合并分支清理、恢复干净 main。 -->
 
 ### Deviation and closeout
 

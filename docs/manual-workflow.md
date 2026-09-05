@@ -65,18 +65,9 @@ main 启动监控代理后只等待一次 `wait_agent(timeout_ms=3600000)`（或
 
 ## 项目归档
 
-一轮已批准的 delegated 执行 session 完成后，main 必须先由 `gkd_accept` 独立验收，再写下 `.gkd/review.md`；只有审查通过并完成计划授权的交付动作，才能宣称成功，且成功路径必须创建最终归档。用户决定停止、明确保留当前成果或确认阻塞时，也可先写下当前审查结论并创建临时归档，但 `summary.md` 必须标注“未验收”或“阻塞中”，不能把临时材料当成最终完成记录：
+一轮已批准的 delegated 执行 session 完成后，main 必须先由 `gkd_accept` 独立验收，再写下 `.gkd/review.md`；审查通过后加载 [gkd-closeout](../.agents/skills/gkd-closeout/SKILL.md)，由它按授权完成归档、cleanup commit、合并后的现场清理、干净 `main` 检查和详细报告。用户决定停止、明确保留当前成果或确认阻塞时，也可创建临时归档，但 `summary.md` 必须标注“未验收”或“阻塞中”，不能把临时材料当成最终完成记录。
 
-1. 确认目标项目主工作树、任务逻辑 ID、日期和来源 revision；不把本机绝对路径当作归档标识。
-2. 从该轮执行 worktree 读取 `.gkd/execution.md`、`.gkd/progress.md`，从目标项目 `.gkd/` 读取 `.gkd/plan.md`、`.gkd/plan-changes.md`、`.gkd/review.md`。
-3. 创建 `.gkd/archive/<task-id>/<date>-<revision>/`，用普通文件复制或整理保存上述五份快照和按 `docs/templates/manual/archive-summary.md` 填写的 `summary.md`。
-4. 删除或改写快照中的本机绝对路径、令牌、账号、机密值和运行时状态；只保留逻辑 worktree、分支和变更标识，并检查归档内容可独立读懂目标、取舍、结果和风险。
-5. 在 `.gkd/progress.md` 记录归档目录、文件清单和实际验证；确认归档完整且活动记录只属于当前任务后，准备删除本轮已归档的活动 `plan.md`、`plan-changes.md`、`execution.md`、`progress.md`、`review.md`。
-6. 仅在 PLAN 已授权时创建包含上述活动记录删除的 cleanup commit；main 审查该 commit，并仅在已有提交/合并授权时提交或合并。
-7. 确认 cleanup commit 已合并、执行 session 已停止且 worktree 无未提交改动后，删除本地任务 worktree 和本地任务分支；远端只删除已确认合并本轮任务的分支，状态不明则保留现场。
-8. 将可信主 checkout 切回 `main`，确认 `git status --short` 为空且跟踪关系清晰，再向用户发送详细收尾报告。任何审查失败、未提交改动、共享活动记录、cleanup commit/合并未获授权或删除条件不满足，都保留现场并报告未完成/阻塞。
-
-归档是目标项目自己的普通 Markdown 长期记录，不是运行时事实源、索引服务或状态机制。delegated 成功必须归档；简单 `direct-main` 任务跳过代理验收和 worktree 删除，归档按需进行，但仍需 main 审查、恢复干净 `main` 并输出详细报告；是否把归档随目标项目提交，仍由该任务的 PLAN 和用户授权决定。
+归档是目标项目自己的普通 Markdown 长期记录，不是运行时事实源、索引服务或状态机制。delegated 成功必须归档；简单 `direct-main` 任务跳过代理验收和 worktree 删除，按同一 Skill 的 direct-main 模式执行，归档按需进行，但仍需 main 审查、恢复干净 `main` 并输出详细报告。
 
 ## 标准顺序
 
@@ -87,7 +78,7 @@ delegated 路径：manual 交接给用户，automatic 在明确选择后启动 `
 执行 session 读取 `.gkd/execution.md`，持续更新 `.gkd/progress.md`，完成后通知 main
 需要等待 CI 时：启动一次 `gkd_ci_monitor`，只调用已安装 Skill 目录中的 `scripts/gkd-github-watch`，main 一次性等待并接收终态
 delegated：已批准执行 session 完成后由 `gkd_accept` 独立验收，main 写 `.gkd/review.md`；direct-main：main 完成轻量审查
-delegated 通过后创建脱敏归档，再按授权创建包含活动记录删除的 cleanup commit、审查/合并并清理已合并分支，恢复干净 `main` 并输出详细报告
+delegated 通过后由 `gkd-closeout` 创建脱敏归档，再按授权创建 cleanup commit、审查/合并并清理已合并分支，恢复干净 `main` 并输出详细报告
 不通过、阻塞、未提交改动或清理条件不满足时保留现场并报告未完成
 ```
 
@@ -107,7 +98,7 @@ main 将以上提示与声明的 worktree 交给用户；未获用户明确选�
 
 ## 详细收尾报告
 
-审查通过且计划中授权的交付动作完成后，main 主动向用户输出详细报告，不能只说“完成”或只给提交号。报告至少包含：任务目标和成功标准、实际修改的文件/符号、实现行为和数据流、与 PLAN 的一致性或偏差及原因/授权、验证命令与结果、CI/PR/release 结果、未验证风险、提交/合并/发布标识、归档位置、worktree/分支清理结果和后续建议。报告不得包含完整对话、全量日志、令牌、账号或本机绝对路径；同一报告的脱敏摘要写入归档 `summary.md`。
+审查通过且计划中授权的交付动作完成后，由 `gkd-closeout` 协助 main 输出详细报告，不能只说“完成”或只给提交号。报告至少包含：任务目标和成功标准、实际修改的文件/符号、实现行为和数据流、与 PLAN 的一致性或偏差及原因/授权、验证命令与结果、CI/PR/release 结果、未验证风险、提交/合并/发布标识、归档位置、worktree/分支清理结果和后续建议。报告不得包含完整对话、全量日志、令牌、账号或本机绝对路径；同一报告的脱敏摘要写入归档 `summary.md`。
 
 ## 临时旧版清理
 
@@ -136,7 +127,7 @@ main 将以上提示与声明的 worktree 交给用户；未获用户明确选�
 - `.gkd/progress.md` 是否说明了实际完成情况和剩余风险；
 - 必要的局部测试或手工验证是否足够。
 
-通过后按 PLAN 中已经获授权的普通 Git 流程提交、推送、合并或发版；未授权的动作停在交付前，不临时追加确认来替代计划。不通过时先记录 `.gkd/review.md`，再修改 main 的 `.gkd/plan.md`，追加 `.gkd/plan-changes.md`，更新 worktree `.gkd/execution.md` 并明确通知下一轮 session；旧 execution session 不受 PLAN 修改的隐式影响。后一轮可以是用户手动启动或用户再次明确选择的自动启动，但不得与前一轮并行写入。delegated 审查通过后仍须按“归档 -> cleanup commit -> main 审查/合并（按授权） -> 活动记录和已合并分支清理 -> 恢复干净 main -> 详细报告”顺序收尾；远端分支状态不明时保留现场，条件不满足时不得宣称完成。
+通过后按 PLAN 中已经获授权的普通 Git 流程交给 `gkd-closeout` 收尾；未授权的动作停在交付前，不临时追加确认来替代计划。不通过时先记录 `.gkd/review.md`，再修改 main 的 `.gkd/plan.md`，追加 `.gkd/plan-changes.md`，更新 worktree `.gkd/execution.md` 并明确通知下一轮 session；旧 execution session 不受 PLAN 修改的隐式影响。后一轮可以是用户手动启动或用户再次明确选择的自动启动，但不得与前一轮并行写入。远端分支状态不明时保留现场，条件不满足时不得宣称完成。
 
 ## 中断与恢复
 

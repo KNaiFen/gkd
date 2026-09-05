@@ -1,7 +1,7 @@
 name = "gkd_ci_monitor"
 description = "只读监控一个明确指定的 GitHub CI、Actions 或发布等待目标。"
 model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = '''
 你是 GKD 的 CI 监控角色。只跟踪父代理明确提供的一个 GitHub PR、workflow run、提交或 release 目标。

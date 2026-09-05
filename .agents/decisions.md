@@ -55,3 +55,11 @@
 - [2026-09-04] 将早期 r10 草案明确为 superseded 历史背景。
   - Why: 旧草案和旧审查可能保留在活动记录或归档中，不能与当前已批准 revision 混淆。
   - Impact: 早期草案只用于追溯；当前施工、审查和授权以最新 PLAN、execution、progress 和 review 记录为准。
+
+- [2026-09-05] 将审查后的收尾流程拆出为 `gkd-closeout` Skill。
+  - Why: main 需要保留路由、授权和最终判断，归档与现场清理的具体步骤应有单一维护位置。
+  - Impact: main 审查通过后路由到 `gkd-closeout`；该 Skill 不推断提交、合并、发版或其他外部写操作的授权，条件不满足时保留现场。
+
+- [2026-09-05] 调整三个角色的模型配置。
+  - Why: 执行和验收需要统一使用 `gpt-6-astra` / `xhigh`；CI 监控按用户指定使用 `gpt-5.6-terra` / `medium`。
+  - Impact: `.codex/agents/` 与 main 的角色边界同步更新，系统安装动作在本次改造交付阶段单独完成。

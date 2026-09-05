@@ -1,6 +1,6 @@
 name = "gkd_execute"
 description = "在 main 声明的 Git worktree 中执行一项已批准的 GKD 任务。"
-model = "gpt-5.6-sol"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
